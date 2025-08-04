@@ -675,7 +675,7 @@ What we can see from the relation of the quartiles and the minimum-maximum value
 So, we have outliers in both variables, but since the **outliers happen in both directions, simply getting a mean-median difference does not necessarily show that a unique value in the variable can differ greatly from the mean**. The best example for this is the *BondFund*, where the mean is essentially the same the median, but we can see that the range of the "typical $50\%$" is far away from both the minimum and maximum values.<br>
 That is why, we need a **measure that can show us what is the expected difference between one observation of a variable and the mean of the variable**. This measure is the **standard deviation**.
 
-Based on the verbal description of this measure given just above, it would logical to calculate this measure in the following way. We take a look at the difference of each $y_i$ observation from the $\bar{Y}$ mean and the take the mean of these new $y_i-\bar{y}$ differences.
+Based on the verbal description of this measure given just above, it would logical to calculate this measure in the following way. We take a look at the difference of each $y_i$ observation from the $\bar{y}$ mean and the take the mean of these new $y_i-\bar{y}$ differences.
 
 So, the formula for the standard deviation would be $$\frac{\sum_{i=1}^n{y_i-\bar{y}}}{n}$$
 
@@ -691,7 +691,7 @@ sum(Invest$StockFund - mean_stocks) / n
 
 Well, that's awkward...our standard deviation is pragmatically $0$. Well quite specifically it's $-4.3 \times 10^{-17}$, but that's essentially $0$. Strange, right? :)
 
-Well, the explanation is that a specific $Y_i$ observation can differ from the mean *to the upside and to the downside as well*! The **differences with different signs can cancel out each other**, making the sum in the numerator $0$.
+Well, the explanation is that a specific $y_i$ observation can differ from the mean *to the upside and to the downside as well*! The **differences with different signs can cancel out each other**, making the sum in the numerator $0$.
 
 This can be corrected two ways:
 
@@ -725,7 +725,7 @@ Based on these results, we can say that in case of the *StockFund*, daily price 
 
 Unfortunately, the **built-in R function for standard deviation does not operate with this formula given above**. The `sd` function in R calculates standard deviation the following way: $$\sigma=\sqrt{\sigma^2}=\sqrt{\frac{\sum_{i=1}^n{(y_i-\bar{y})^2}}{n-1}}$$
 
-So, it has $N-1$ in the denominator. Reasons for this will be discussed in detail in <a href="Chapter04.html" target="_blank">Chapter 4</a>. But **for a high $N$,** like in our case we have $N=1229$, **this difference does not really matter in the end result**.<br>
+So, it has $n-1$ in the denominator. Reasons for this will be discussed in detail in <a href="Chapter04.html" target="_blank">Chapter 4</a>. But **for a high $n$,** like in our case we have $n=1229$, **this difference does not really matter in the end result**.<br>
 We can check this calculation in R:
 
 ```{r}

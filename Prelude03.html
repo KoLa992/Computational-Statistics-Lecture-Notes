@@ -3918,7 +3918,7 @@ variable and the mean of the variable</strong>. This measure is the
 <p>Based on the verbal description of this measure given just above, it
 would logical to calculate this measure in the following way. We take a
 look at the difference of each <span class="math inline">\(y_i\)</span>
-observation from the <span class="math inline">\(\bar{Y}\)</span> mean
+observation from the <span class="math inline">\(\bar{y}\)</span> mean
 and the take the mean of these new <span class="math inline">\(y_i-\bar{y}\)</span> differences.</p>
 <p>So, the formula for the standard deviation would be <span class="math display">\[\frac{\sum_{i=1}^n{y_i-\bar{y}}}{n}\]</span></p>
 <p>Where we continue to denote the number of observations by <span class="math inline">\(n\)</span>.</p>
@@ -3931,7 +3931,7 @@ sum(Invest$StockFund - mean_stocks) / n</code></pre>
 <p>Well, that’s awkward…our standard deviation is pragmatically <span class="math inline">\(0\)</span>. Well quite specifically it’s <span class="math inline">\(-4.3 \times 10^{-17}\)</span>, but that’s
 essentially <span class="math inline">\(0\)</span>. Strange, right?
 :)</p>
-<p>Well, the explanation is that a specific <span class="math inline">\(Y_i\)</span> observation can differ from the mean
+<p>Well, the explanation is that a specific <span class="math inline">\(y_i\)</span> observation can differ from the mean
 <em>to the upside and to the downside as well</em>! The
 <strong>differences with different signs can cancel out each
 other</strong>, making the sum in the numerator <span class="math inline">\(0\)</span>.</p>
@@ -3976,11 +3976,11 @@ So, the <strong>StockFund has greater volatility</strong>.</p>
 does not operate with this formula given above</strong>. The
 <code>sd</code> function in R calculates standard deviation the
 following way: <span class="math display">\[\sigma=\sqrt{\sigma^2}=\sqrt{\frac{\sum_{i=1}^n{(y_i-\bar{y})^2}}{n-1}}\]</span></p>
-<p>So, it has <span class="math inline">\(N-1\)</span> in the
+<p>So, it has <span class="math inline">\(n-1\)</span> in the
 denominator. Reasons for this will be discussed in detail in
 <a href="Chapter04.html" target="_blank">Chapter 4</a>. But <strong>for
-a high <span class="math inline">\(N\)</span>,</strong> like in our case
-we have <span class="math inline">\(N=1229\)</span>, <strong>this
+a high <span class="math inline">\(n\)</span>,</strong> like in our case
+we have <span class="math inline">\(n=1229\)</span>, <strong>this
 difference does not really matter in the end result</strong>.<br> We can
 check this calculation in R:</p>
 <pre class="r"><code># Stocks: R version for standard deviation manually
