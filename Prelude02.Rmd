@@ -1,0 +1,526 @@
+---
+title: "Descriptive Statistics and Data Visualization in R"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Reading a data frame from an Excel file
+
+The <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/BP_Flats.xlsx\" target="_blank">BP_Flats.xlsx</a> file is a data table that stores data for 10 variables (columns) for 1406 apartments in Budapest:
+
+- Price_MillionHUF: price of the flat in million HUF
+- Area_m2: area of the flat in square meters
+- Terrace: number of terraces in the flat
+- Rooms: number of rooms in the flat
+- HalfRooms: number of half-rooms in the flat
+- Bathrooms: number of bathrooms in the flat
+- Floor: the number of floor the flat is on
+- IsSouth: is the flat looking at the South? (1 = yes; 0 = mo)
+- IsBuda: is the flat in Buda? (1 = yes; 0 = no)
+- District: district of Budapest the flat is in (1 - 22)
+
+Read the data table into an R `data frame`!
+
+We can see that this is not a *csv* but rather an Excel file, that is, an *xlsx* file. Reading such files into an R `data frame` can be done using the `readxl` package:
+
+First, load the package (we already installed it in <a href="Prelude01.html" target="_blank">Section 7 of Prelude 1</a>).
+
+```{r}
+library(readxl)
+```
+
+Then use the package's `read_excel` function. If there is only 1 worksheet and the data table to be read starts in the *A1* cell, the function reads the data into an R `data frame` without any extra parameters and without issues.<br>
+Don't forget to set the *Working Directory* to the appropriate location!
+
+```{r eval=FALSE}
+setwd("~/Github Repok/Computational-Statistics-Lecture-Notes")
+BP_Flats <- read_excel("BP_Flats.xlsx")
+```
+```{r echo=FALSE}
+BP_Flats <- read_excel("BP_Flats.xlsx")
+```
+
+After this, let's check if everything is in order using the `str` function.
+
+```{r}
+str(BP_Flats)
+```
+
+At first glance, everything looks good: we have 10 columns = variables with appropriate column names, and everywhere there are 1406 observations.
+
+HOWEVER, we also see that the created `BP_Flats` object is not a `data frame` but some mysterious `tibble` type. We aren't really interested in what the heck this `tibble` type is; instead, let's convert it into a `data frame`, and check the structure again.
+
+```{r}
+BP_Flats <- as.data.frame(BP_Flats)
+
+str(BP_Flats)
+```
+
+Now everything is okay: the `BP_Flats` object is a `data frame`. Based on the `str` result, we see that all our variables in the table are `num`, that is, `double` data type. This could be refined, especially in the case of binary, 1 or 0-type variables (IsSouth, IsBuda), but for now, let's not do that yet.
+
+## 2. Univariate Descriptive Statistics in R
+
+A `data frame` columns' univariate descriptive statistics in R can be easily obtained using the `summary` function.
+
+```{r}
+summary(BP_Flats)
+```
+
+From the result, we can see that we get all sorts of useful information for all 10 variables: minimum, maximum, quartiles, and mean.
+
+Let’s interpret the results for a few variables!
+
+- **Price**
+  * The cheapest apartment costs 5 MFt, while the most expensive costs 198 MFt.
+  * Half of the apartments cost less than 21 MFt. The price of the cheapest 25% of apartments is below 13.9 million HUF, while the most expensive quarter of apartments costs at least 31.43 million HUF.
+  * The above results could also be phrased as: the middle (typical) 50% of apartment prices fall between 13.9 and 31.43 million HUF.
+  * The average price of apartments is 26.5 million HUF. From the fact that the mean is greater than the median, we can already suspect that the price distribution is skewed to the right!
+- **IsBuda**: Note that this is actually a binary (yes/no) type variable! Therefore, the mean is what is really useful here!
+  * Based on the mean, we can read the proportion of values equal to 1, that is, apartments on the Buda side, which is 45.66% (0.4566). If we average the values of a variable with 1s and 0s, the sum of the elements will be the number of 1s, which we divide by the total number of elements. So essentially, we get the proportion of 1s.
+  * The fact that less than half of the apartments are on the Buda side is also evident from the fact that the median is 0. The fact that at least a quarter of the apartments are on the Buda side is shown by the third quartile value being equal to 1.
+- **District**: This district number is tricky because, technically, it’s a numerical value, but from a statistical perspective, it’s just a **nominal** recoding of text data!!
+  * Since this is a nominal variable, the fact that the "average district" is 8.647 is **completely meaningless**.
+  * Similarly, it’s not a meaningful piece of information, for example, that the district of a quarter of the apartments is 13 or higher.
+
+Looking further into the descriptive statistics, it may be noticeable that the minimum value of the **Floor** variable is -1. At first, this seems strange, but if we think about it, there could be apartments that are "basement apartments."<br>
+However, it wouldn't hurt to check what possible values the **Floor** variable can take and **how frequently** they occur in the data table!<br>
+The `table` function of R is perfectly suitable for this task.
+
+```{r}
+table(BP_Flats$Floor) # apply the function only to the Floor variable!
+```
+
+It’s visible that there aren’t many "basement apartments" with -1 floors — there’s only 1. Now, that’s strange! If there’s only one such value out of 1406, it’s likely not a deliberate marking for "basement apartments" but rather a data error!
+
+Let’s get rid of this data error!
+
+```{r}
+BP_Flats <- BP_Flats[BP_Flats$Floor >= 0,]
+```
+
+By combining the `prop.table` function with the simple `table` function, we can also query the **relative frequencies** of the **Floor** variable.
+
+```{r}
+prop.table(table(BP_Flats$Floor))
+```
+
+From the result, it’s apparent that about 19.6% of the examined apartments are on the 2nd floor.
+
+With a bit of multiplication and rounding (using the `round` function), we can display really nice percentage data.
+
+```{r}
+round(prop.table(table(BP_Flats$Floor))*100,1)
+```
+
+### 2.1. Reactions of the `summary` function to fixing the data types
+
+We saw during the interpretation of the results of the `summary` function that since the **IsSouth**, **IsBuda**, and **Floor** variables are not numbers in a statistical sense, the `summary` function computes many things for them that are meaningless. Additionally, for the **IsSouth** and **IsBuda** variables, it is a huge waste of RAM to store them as `double` type!
+
+Let's fix the data types now! Convert the **IsSouth** and **IsBuda** variables to `logical` type, while converting the **District** variable to `character` type, as the district number logically represents only a textual form of geographical designations.
+
+```{r}
+BP_Flats$IsSouth <- as.logical(BP_Flats$IsSouth)
+BP_Flats$IsBuda <- as.logical(BP_Flats$IsBuda)
+
+BP_Flats$District <- as.character(BP_Flats$District)
+
+summary(BP_Flats)
+```
+
+For the converted variables, we see that the `summary` function very nicely provides the distribution of `TRUE` and `FALSE` values in the data set for the `logical` type. A bit of math is needed, but it turns out that the percentage of apartments in Buda is $\frac{642}{642+763}=0.457=45.7%$.
+
+However, we get **no descriptive statistics for the `character` type** at all. :( This happens because the `summary` function thinks that the `character` type is free-text data (e.g., people's names), and not a predefined, small set of textual categories. However, the district of the apartment is logically such a data type: the 22 districts are fixed in advance, and each apartment is assigned to one of the 22 districts!<br>
+In order to get R to treat districts this way, we need to convert them to the `factor` type.
+
+The `factor` type works in R `data frames` by assigning an integer to each textual category, and then associating these numbers with the observations. A separate *dictionary* is stored to map which number corresponds to which textual category. In the background, it always matches the numeric code to the textual category.<br>
+This is also useful because an `integer` type encoding number can be stored more efficiently in RAM than a `character` type! Thus, large data storage uses the "cheaper" `integer` type, and the more expensive `character` type only appears in the *dictionary*.
+
+Let's see what happens to the `summary` function's output when we convert the **District** variable to `factor`.
+
+```{r}
+BP_Flats$District <- as.factor(BP_Flats$District)
+summary(BP_Flats)
+```
+
+Great! We got the distribution of apartments across districts in descending frequency order! So, the most apartments are located in the 13th district (exactly 197), and the second most apartments are in the 2nd district, and so on!
+
+**IMPORTANT** things to know about `factors`:
+
+They can only contain a limited number of textual categories! The categories, i.e., the possible values of a `factor` type variable, are called its "levels," and they can be queried using the `levels` function.
+
+```{r}
+levels(BP_Flats$District)
+# Note that the numbers in the output are in brackets!
+# So, in the background, R interprets these numbers as characters, very correctly!
+```
+
+As mentioned when introducing the `factor` type, these levels are fixed in advance and **cannot be changed**! If, for some reason, we need to modify them (e.g., if a district is removed or a new one is created), we must first convert the `factor` type variable back to `character`, make the necessary changes to the data, and then convert the variable back to `factor`.
+
+We can also use the `by` function to apply the `summary` function separately based on the values of a `logical` or `factor` type variable. Let's check out the basic descriptive statistics for apartment prices, for example, separately for Buda and Pest.
+
+```{r}
+by(BP_Flats$Price_MillionHUF, BP_Flats$IsBuda, summary)
+```
+
+We can see that in Buda, the top 25% of the most expensive apartments cost at least 42 million HUF, while in Pest, the minimum price of the top quarter of apartments is only 24.5 million HUF. In Buda, the difference between the mean and median is also greater, indicating that the price distribution is more skewed to the right.
+
+The entire Buda vs Pest breakdown can naturally be applied to several columns at once in the `summary` function.
+
+```{r}
+by(BP_Flats[,c("Price_MillionHUF", "Area_m2", "IsSouth")], BP_Flats$IsBuda, summary)
+```
+
+The results show that the median area is also larger in Buda, for example.
+
+### 2.2. An alternative for the `summary` function: `describe`
+
+A `describe` function is part of the `psych` package, so the first step is to install it and call it using the `library` function.
+
+```{r eval=FALSE}
+install.packages("psych")
+library(psych) # Don't bother with the possible Warnings as usual! :)
+```
+```{r echo=FALSE}
+library(psych)
+```
+
+The function itself works similarly to the `summary`, but it provides a wider range of descriptive statistics for those interested in the subject.
+
+```{r}
+describe(BP_Flats)
+```
+
+If we had been missing standard deviation, skewness, and kurtosis until now, we’ve found everything! :)
+
+The downside of the function is that it does not provide any meaningful information about the distributions for variables that are not of `double` type (two `logical` and one `factor`). This is why we got a red-letter *Warning* after running the function!<br>
+In this respect, the `summary` function is a smarter tool. The `describe` function is fundamentally designed for a more thorough descriptive statistical analysis of numeric variables.
+
+Let’s take a look at the **Price_MillionHUF** values!
+
+- The average apartment price is 26.51 million HUF, with a standard deviation of +- 19.64 million HUF. The average price without outliers (according to the function’s definition: the upper and lower 10%) is 22.97 million HUF. This value is called the **trimmed average**.
+- The **mad** is the median of absolute deviations from the median,: $Me({\mid Y_i-Me \mid})$
+- Unsurprisingly, the **range** is the total spread of the data: $Y_{max}-Y_{min}$
+- What is really interesting for us are the **skew** and **kurtosis**. The **skew** is the statistical skewness indicator: $\alpha_3$, and the **kurtosis** is the peakedness indicated by $\alpha_4$. The fact that both values are positive means that the distribution of apartment prices is more pointy and more right-skewed compared to a symmetrical normal distribution.
+
+As you know, both the $\alpha_3$ and $\alpha_4$ indicators can have any value between $\pm \infty$. Therefore, they are useful only for determining the direction of skewness and kurtosis based on their signs. Additionally, based on the value, we can determine which of the two variables is more pointy or skewed in one direction. <br>
+For example, the distribution of apartment areas is more pointy and has a longer right tail compared to apartment prices because the **skew** and **kurtosis** indicators are larger.
+
+Here’s a summary table for interpreting the signs of **skew** and **kurtosis**.
+
+```{r, echo=FALSE}
+
+x <- data.frame("Range" = c("positive", "approx. 0 [0 until the 1st digit]", "negative"),
+                "skew" = c("long right tail", "symmetric", "long left tail"),
+                "kurtosis" = c("pointy", "kurtosis of standard normal distribution", "flat"))
+
+knitr::kable(
+  x, align = "cc"
+)
+```
+
+In case, if You a prefer visual summary instead of tables, I’ll insert a summary plot on the skewness measure here :)
+
+<center>
+![](ferde.jpg){width=60%}
+</center>
+
+## 3. Simple plots for visualizing distributions in base R
+
+In Section 2, when examining descriptive statistical indicators, we essentially circled around the question of what the distribution of our numeric variable looks like from different perspectives. This can fundamentally be examined with two graphical tools:
+
+- with a histogram,
+- with a box plot.
+
+Both can be easily requested in R for a column of type `double` or `integer` in our `data frame` object. Let’s take a look at them for the listing prices of apartments.
+
+```{r}
+hist(BP_Flats$Price_MillionHUF) # histogram
+boxplot(BP_Flats$Price_MillionHUF) # box plot
+```
+
+The histogram clearly shows the long right tail of the distribution, which we could also observe from the average-median relationship and the visibly positive value of the $\alpha_3$ indicator.
+
+From the box plot, we can also read one of the important results of the `summary` function: the middle 50% of apartment prices fluctuate between approximately 14 and 32 million HUF.
+
+Given the long right tail, it’s not surprising that the box plot shows some outlier values for the price data. These are displayed as points. Specifically, any price above approximately 60 million HUF is considered an outlier according to the plot. This threshold is precisely obtained using the formula $Q_3 + 1.5 \times (Q_3 - Q_1)$: $31.5 + 1.5 \times (31.5 - 13.9) = 57.9$. Similarly, we can determine the threshold for values that would be considered outliers on the lower end: $Q_1 - 1.5 \times (Q_3 - Q_1) = 13.9 - 1.5 \times (31.5 - 13.9) = -12.5$. But since the minimum price is 5 million HUF (as seen in the `summary` function result), the box plot does not show such values.
+
+By the way, this outlier detection procedure is quite aggressive. If we look closely at the box plot, we should probably only consider the 3 prices around 150 million HUF or higher as significantly high outliers, but they are not that far removed from the "core," i.e., the middle 50%.
+
+We can also request the box plot to be split by a `factor` type variable. For example, we can examine the distribution of apartment prices by district.
+
+```{r}
+boxplot(BP_Flats$Price_MillionHUF ~ BP_Flats$District) # after the tilde symbol, we provide the factor by which we want the plot to be split
+```
+
+From the box plot, we can see that the middle 50% level is the highest in the 2nd district. The most upward-outlier apartment prices are found in the 12th district.
+
+## 4. Plots with the `ggplot2` package
+
+To create truly beautiful and general R plots, nowadays the functions from the `ggplot2` package are the standard tools.
+
+Let’s install and load the functions of the package.
+
+```{r eval=FALSE}
+install.packages("ggplot2")
+library(ggplot2) # Don't bother with the possible Warnings as usual! :)
+```
+```{r echo=FALSE}
+library(ggplot2)
+```
+
+In the `ggplot2` package, the basic principle of plotting is that we should build our graphs in a sort of "*onion structure*": first, we write the core of the plot, and then we add layers of "decorations" one by one. The final result will be an onion consisting of many layers. :)
+
+### 4.1. Histogram
+
+Let’s first make a simple histogram. According to the `ggplot2` logic, we must first specify which `data frame` we want to use as the source for the plot. Then, we need to specify which variables (columns) from the `data frame` should be displayed on the plot’s *x* or *y* axis. **This is always the first layer of the plot: what to put on the axes**!<br> In the second layer of the plot, we need to specify the type of plot we want to create using the axes specified in the first layer. In our case, it will be a histogram. It’s **important that we always separate the layers with a `+` sign**!<br> This will look like the following R code. Note in the code that the variables we place on the axes are specified with a separate `aes` function inside the basic `ggplot` function! Since the *y* axis contains only frequencies, NOT another variable from the `data frame`, we can leave the `y` parameter of the `aes` function empty.
+
+```{r}
+ggplot(data = BP_Flats, aes(x = Price_MillionHUF)) +
+  geom_histogram()
+```
+
+A beautiful histogram. More beautiful than the one created with the `hist` function, right? :)
+
+As the R output informs us, the histogram has created 30 bins from the prices. If we want to change the number of bins (e.g., reduce it to 20), we can adjust that using the `bins` parameter of the `geom_histogram` function.
+
+```{r}
+ggplot(data = BP_Flats, aes(x = Price_MillionHUF)) +
+  geom_histogram(bins = 20)
+```
+
+If we want, we can also change the bin width using the `binwidth` parameter of the `geom_histogram` function.
+
+### 4.2. Box Plot
+
+We can also create a box plot with `ggplot` for the apartment prices. The only modification needed is to place the examined column on the *y* axis instead of the *x* axis, because on the box plot, the axis where the variable values are is, of course, the *y* axis, not the *x* axis. Plus, the plot type needs to be changed from a histogram to a box plot in the second layer.
+
+```{r}
+ggplot(data = BP_Flats, aes(y = Price_MillionHUF)) +
+  geom_boxplot()
+```
+
+It looks wonderful too!
+
+Let’s see how we can group the data by a `factor` type variable here. A bit sneakily, because we need to indicate our grouping intention through the fill color parameter (`fill`) within the `aes` function of the first layer, based on one of the variables. In return, the machine spirit will color the box plots for each district with different colors.
+
+```{r}
+ggplot(data = BP_Flats, aes(y = Price_MillionHUF, fill = District)) +
+  geom_boxplot()
+```
+
+If we want to add the District number on the *x* axis, we just need to set the `x` parameter of the `aes` function in the 1st layer to the **District** variable in the data frame.
+
+```{r}
+ggplot(data = BP_Flats, aes(y = Price_MillionHUF, x = District, fill = District)) +
+  geom_boxplot()
+```
+
+### 4.3. Box Plot with Optical Tuning
+
+Start with the 2nd plot of Section 4.2. This has two minor flaws. One is that the axis labels are not very descriptive. The other is that the numbers on the *x* axis don’t show anything meaningful, as there is no useful data on the *x* axis. So, we can also remove these number labels from the *x* axis instead of setting them to the District ID numbers.
+
+We can add these extras as extra layers to the plot using the `+` sign.
+
+```{r}
+ggplot(data = BP_Flats, aes(y = Price_MillionHUF, fill = District)) +
+  geom_boxplot() +
+  labs(y = "Price in Million HUF", fill = "District") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+
+The 3rd layer (`labs` function) adds the label for the *y* axis and the legend title. Of course, we can also adjust the *x* axis label here, as an additional parameter inside the function's parentheses.
+
+Note that in the 4th layer, the `theme` function serves a similar purpose to the `aes` function in the first layer: we can adjust several parameters of the plot in this function. In the `aes` function, we set basic things like which variables go on the axes and which variable should be used for coloring. In the `theme` function, we can tweak more "fine-grained" things: axis formatting, numbers to display, font size, etc.<br> The `axis.text.x = element_blank()` command removes the labels on the *x* axis (makes them blank). Of course, there is also a version ending in `.y` for the *y* axis.<br> The `axis.ticks.x = element_blank()` command removes the little black ticks from the *x* axis (makes them blank). Again, there is a version ending in `.y`.
+
+Let’s add a cute title to the plot and set different font sizes for the title and the axis labels.
+
+```{r}
+ggplot(data = BP_Flats, aes(y = Price_MillionHUF, fill = District)) +
+  geom_boxplot() +
+  labs(y = "Price in Million HUF", fill = "District", title = "Distribution of Apartment Prices by Districts") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.y = element_text(size = 16), # font size of the 'y' axis
+        plot.title = element_text(size = 20, face = "bold", color = "darkgreen")) # font size, font style (bold) and font color for the text in the plot title
+```
+
+As we can see, it’s also possible to assign custom colors to different plot elements. You can find a good summary of available colors in `ggplot2` <a href="https://www.r-graph-gallery.com/ggplot2-color.html" target="_blank">here</a>.
+
+In the parameters of the `theme` function, we can specify how we want every component of the plot to look. For an overview of the options, you can find a good reference <a href="https://ggplot2.tidyverse.org/reference/theme.html" target="_blank">on this link</a>.
+
+### 4.4. Stacked Column Plot
+
+Let’s see how we can illustrate the relationship between two fundamentally nominal measurement scale variables (`logical` or `factor` data types) with a stacked bar chart in `ggplot2`.
+
+Let’s examine how the distribution of south-facing properties varies between the Buda and Pest apartments.
+
+```{r}
+ggplot(data = BP_Flats, aes(x = IsBuda, fill = IsSouth)) + # 'y' axis is empty by default as the frequencies are plotted here
+  geom_bar() # this is a general bar chart: note that this is a different chart type compared to the histogram!!
+```
+
+From the chart, we can see that there are slightly more Pest properties than Buda properties (we can remember this from the descriptive statistics, the proportion of Buda apartments was around 45%). For both Buda and Pest properties, there are roughly the same **number** of south-facing properties. This means that the **proportion** of south-facing properties in Buda is slightly higher than in Pest, because Buda reaches roughly the same number of south-facing properties as Pest, but from a lower frequency.
+
+We can verify this if we convert the plot into a 100% stacked bar plot! This can be achieved by setting the `position` parameter of the `geom_bar` function to `"fill"`.
+
+```{r}
+ggplot(data = BP_Flats, aes(x = IsBuda, fill = IsSouth)) +
+  geom_bar(position = "fill")
+```
+
+Now we can see that the proportion of south-facing properties in Buda is somewhat higher than in Pest.
+
+Let’s see how we can change the color palette by using another palette! We can adjust the `fill` color palette specified in the `aes` function by adding a new layer.
+
+```{r}
+ggplot(data = BP_Flats, aes(x = IsBuda, fill = IsSouth)) +
+  geom_bar(position = "fill") +
+  scale_fill_brewer(palette="Dark2") # the new layer, setting the fill color palette
+```
+
+Our stacked bar chart now has beautiful dark-toned colors! :) You can read more about color palettes and the deeper mysteries of color modification in `ggplot2` on <a href="http://www.sthda.com/english/wiki/ggplot2-colors-how-to-change-colors-automatically-and-manually" target="_blank">this</a> link.
+
+We can also check the cross-tabulation (also known as the contingency table) data behind the chart. To do this, we apply a familiar function, `table` on the two nominal variables being examined.
+
+```{r}
+table(BP_Flats$IsBuda, BP_Flats$IsSouth)
+```
+
+The table shows that there are $367$ Buda and south-facing apartments in the table.
+
+By using `prop.table`, we can query the proportions as well.
+
+```{r}
+round(prop.table(table(BP_Flats$IsBuda, BP_Flats$IsSouth))*100, 1)
+```
+
+The proportion of south-facing Buda apartments in the table is 26.1%.
+
+But here we can also query the **marginal distributions**! For example, if we want to separately look at the proportion of south-facing apartments **within** the Buda and Pest apartments.
+
+```{r}
+round(prop.table(table(BP_Flats$IsBuda, BP_Flats$IsSouth), 1)*100, 1)
+```
+
+The proportion of south-facing apartments in Buda is 57.2%, while in Pest it’s 48.2%. I know this because the **IsBuda** variable was used for the distribution, as I wrote **1** in the second parameter of the `prop.table` function, and the **IsBuda** variable was the **1st** parameter in the basic `table` function.
+
+But we can also verify this:
+
+- $51.8+48.2=100$ and $42.8+57.2=100$
+- $51.8+42.8\neq100$ and $48.2+57.2\neq100$.
+
+If someone wants to display a cross-tabulation with R where the marginal frequencies are visible, they need to force this by wrapping the result of the `table` function inside an `addmargins` function.
+
+```{r}
+addmargins(table(BP_Flats$IsBuda, BP_Flats$IsSouth))
+```
+
+### 4.5. Scatter Plot
+
+Let’s take a look at the most important diagram type in the context of our course, the **scatter plot** in `ggplot2`! The essence of the scatter plot is to illustrate the relationship between two numeric (`double` or `integer`) variables in a `data frame`.
+
+Let’s examine the relationship between the listing price and the area of the apartments! Since we logically think that the area will determine the price trends, and not the other way around, the area will be our explanatory variable (*x* axis), and the price will be our target variable (*y* axis).
+
+```{r}
+ggplot(data = BP_Flats, aes(x = Area_m2, y = Price_MillionHUF)) +
+  geom_point() # plot type of the scatter plot
+```
+
+We can see that as the area increases, the prices also increase, and the relationship might be quite tight because we can mentally fit a line with a positive slope quite accurately to the points.<br>
+But let’s actually do that! Let’s draw the best-fitting line to the points in the scatter plot above (also known as the *regression* line).
+
+```{r}
+ggplot(data = BP_Flats, aes(x = Area_m2, y = Price_MillionHUF)) +
+  geom_point() +
+  stat_smooth(method=lm) # layer fitting a trend line
+```
+
+It’s clear that the line has a positive slope (the relationship is one-directional), and the points are located close to it (the relationship is tight). The blurred band behind the line is the 95% confidence interval of the line. So, the line can be located within these bounds in the population (in other words, in the world outside of the 1405 observed apartments). We’ll deal with calculating such confidence intervals in the first part of our course. :)
+
+We can also check this with a quick calculation of the correlation coefficient.
+
+```{r}
+cor(BP_Flats$Price_MillionHUF, BP_Flats$Area_m2)
+```
+
+The correlation is positive, and its absolute value is over 0.7: the relationship between the area and the price is one-directional and strong.
+
+One small thing that might bother us is that there aren’t many apartments over 300 m², so the trend line is less reliable in that interval (the band representing the confidence interval is wider).
+
+We can do something in `ggplot2` on a scatter plot as well, where we color the objects (in this case, the points) based on a nominal measurement scale variable using the `aes` function’s `color` parameter. Here, unusually, we **don’t** use the `fill` parameter because a point only has a color in R’s mind, **not** a fill color!<br>
+Now, let’s look at how the relationship between the area and the price varies separately in Buda and Pest.
+
+```{r}
+ggplot(data = BP_Flats, aes(x = Area_m2, y = Price_MillionHUF, color = IsBuda)) +
+  geom_point() +
+  stat_smooth(method=lm)
+```
+
+We can see that in Buda, the price increases more steeply as the area of the apartment grows: that is, +1 m² is more expensive in Buda than in Pest. This is partly because almost all apartments over 300 m² are located in Buda.
+
+## 5. Correlation Matrix in R
+
+The concept of correlation associated with the scatter plot will be quite important for us during the semester, so let’s look at how to calculate a correlation matrix between multiple **quantitative variables** in R.<br>
+Let’s remember that the first 7 columns of our table, `BP_Flats`, contain quantitative variables in a statistical sense, so it only makes sense to look at the correlation matrix for these.
+
+```{r}
+cor(BP_Flats[,1:7])
+```
+
+This isn’t the most aesthetically pleasing display format, but it’s true that if we want to work with the correlation matrix further, this format will be useful to us.
+
+Here’s a reminder of how to interpret correlations: we always interpret them in two steps. First, we look at the sign, then at the absolute value. Two specific examples:
+
+- **Area** and **Rooms** correlation = 0.799 --> **Sign**: The number of rooms and the area have a one-directional relationship: the more rooms there are, the larger the area. **Absolute value**: The observed relationship is strong.
+- **Area** and **Floor** correlation = -0.088 --> **Sign**: The number of floors and the area have an opposite-direction relationship: the higher the floor the apartment is on, the smaller its area. **Absolute value**: The observed relationship is weak.
+
+Interpretation guide for the *absolute value* of the correlation ($r$):
+
+```{r, echo=FALSE}
+
+x <- data.frame("Correlation Abs Value" = c("|r|<0.3", "0.3<=|r|<=0.7", "|r|>0.7"),
+                "Strenght of Relationship" = c("weak", "moderate", "strong"))
+
+knitr::kable(
+  x, align = "cc"
+)
+```
+
+It would be nice if we could display the simple correlations in a more attractive form than these "soulless, black numbers"! Fortunately, the `psych` package has a nice function for this, the `pairs.panels` function. Let’s apply it to the first 7 columns of the `BP_Flats` table.
+
+```{r}
+pairs.panels(BP_Flats[,1:7])
+```
+
+Way nicer, isn’t it? :) Moreover, in addition to the correlation, we also get scatter plots between the variables involved in the analysis and histograms showing the distribution of the variables, with some smoothing lines thrown in.
+
+But the beauty of R is that there are <a href="http://www.sthda.com/english/wiki/visualize-correlation-matrix-using-correlogram" target="_blank">many packages available</a> for visualizing the correlation matrix! So, the possibilities are endless! :) For example, we could also look at the capabilities of the `corrplot` package.
+
+```{r eval=FALSE}
+install.packages("corrplot")
+library(corrplot) # Don't bother with the possible Warnings as usual! :)
+```
+```{r echo=FALSE}
+library(corrplot)
+```
+```{r}
+KorrelMatrix <- cor(BP_Flats[,1:7])
+corrplot(KorrelMatrix, method="color")
+corrplot(KorrelMatrix, method="number")
+```

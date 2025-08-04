@@ -1,0 +1,42 @@
+---
+title: |
+  <center>
+  ![](cover.jpg){width=35%}<br> 
+  <br>Computational Statistics Lecture Notes<br>
+  Corvinus University of Budapest<br>
+  Social Data Science MSc<br><br>
+  </center> 
+author: "László Kovács"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prelude 1 - <a href="Prelude01.html" target="_blank">Introduction to R</a>
+
+## Prelude 2 - <a href="Prelude02.html" target="_blank">Descriptive Statistics and Data Visualization in R</a>
+
+## Prelude 3 - <a href="Prelude03.html" target="_blank">The `tidyverse` in R and Further Descriptive Statistics</a>
+
+## Chapter 1 - <a href="Chapter01.html" target="_blank">Probability Distributions and Method of Moments</a>
+
+## Chapter 2 - Simulations and Sampling
+
+## Chapter 3 - Maximum Likelihood Estimators
+
+## Chapter 4 - Properties of Estimators and Confidence Intervals
+
+## Chapter 5 - Basic Concepts of Hypothesis Testing
+
+## Chapter 6 - Designing Experiments and Correction For Multiple Comparisons
+
+## Chapter 7 - Multiple Linear Regression and Confounding
+
+## Chapter 8 - Generalized Linear Models
+
+## Chapter 9 - Confidence Intervals with Jackknife and Bootstrap
+
+## Chapter 10 - Bayesian Inference
