@@ -106,7 +106,7 @@ library(ggplot2)
 ggplot(ess_small, aes(x=BMI)) + geom_histogram()
 ```
 
-We can nicely observe that most people (roughly 200) in this survey have a BMI around 27, which is in the overweight category according to WHO, and around this mode of 27, we have smaller and larger BMIs with proportionally decreasing frequencies. Extremely small and large values have only a few observations. This is an almost perfectly symmetrical/normal distribution: most observations are concentrated in the middle of the value set and there are fewer and fewer observations in bot edges or tails of the value set.
+We can nicely observe that most people (roughly 200) in this survey have a BMI around 27, which is in the overweight category according to WHO, and around this mode of 27, we have smaller and larger BMIs with proportionally decreasing frequencies. Extremely small and large values have only a few observations. This is an almost perfectly symmetrical/normal distribution: most observations are concentrated in the middle of the value set and there are fewer and fewer observations in both edges or *tails* of the value set.
 
 For our purposes, it'll be beneficial to see our histograms with relative frequencies on the `y` axis. We can create a histogram like this with `ggplot` via the `aes(y = after_stat(density))` setting in the `geom_histogram` function.
 
@@ -115,7 +115,7 @@ ggplot(ess_small, aes(x=BMI)) +
   geom_histogram(aes(y = after_stat(density)))
 ```
 
-Now, what we have received is exactly the same histogram as before, just the `y` axis is in the range of $(0,1)$. Actually what we see in the vertical axis is not precisely the relative frequency of the bins in the `x` axis but a value very close to it. We'll see the differences in just a bit. But for illustrative purposes, we can treat these values like relative frequencies: e.g. most people (about $12\%$) in the sample have a BMI value of roughly 27.
+Now, what we have received is exactly the same histogram as before, just the `y` axis is in the range of $(0,1)$. Actually what we see in the vertical axis is not precisely the relative frequency of the bins in the `x` axis but a value very close to it. We'll see the differences in just a bit. But **for illustrative purposes, we can treat these `y` values like relative frequencies**: e.g. most people (about $12\%$) in the sample have a BMI value of roughly 27.
 
 Now, looking at this histogram and seeing it's nice, bell-shaped form, we don't need much fantasy to see that connecting the columns of the histogram with a continuous line **results in a function similar to the one just below**:
 
@@ -266,17 +266,25 @@ As we can see, we have received somewhat similar empirical probabilities we did 
 
 All right, now we can use the normal distribution to obtain probabilities of some events occurring in the BMI variable. But **what's the point?** I mean, we could just see that we can **obtain these probability calculated from the normal distribution using the observed data alone** (empirically), just using the elementary school formula of number of favorable observations divided with number of total observations. So, truly, **what is the benefit of using a normal distribution that fits our BMI data instead of just using the BMI data alone??**
 
-Oh, well this relative frequency is just $2.0\%$. But the normal distribution suggests that the probability of these losses is $3.5\%$. Now, who is in the right? What's the difference?
+Let's examine a specific probability. Based on the relative frequencies (so just on our observed Hungarian people) we would say that the probability of encountering an obese Hungarian (BMI > 30) is $16.7\%$.
 
-Now, the difference comes from the fact that **with the relative frequency of $2.0\%$ we only consider the observed data only, so the result only comes from the observed statistical SAMPLE!!** The $2.0\%$ only means that **only 2% of our observed trading days had losses between 47-82 dollars!!**
+```{r}
+1 - mean(ess_small$BMI < 30)
+```
 
-On the other hand, the $3.5\%$ is the *theoretical probability* calculated from the density function of the normal distribution, with mean and standard deviation fitted on the data. This a theoretical probability since **the $f(x)$ density function** (being a continuous function) **assigns positive occurrence probabilities to $x$ values that are not yet included in the observed sample!!** This means, that **when calculating probabilities the density function considers values that are OUTSIDE of the sample! In other words, it can "see" values that haven't occurred yet!** That is why we call the density function's $f(x)$ values *PROBABILITIES* and the proportions are just called relative frequencies.
+On the other hand, the normal distribution suggests that the probability of these high BMI values is 1 %.point higher,  $17.7\%$. Now, who is in the right? What's the difference?
 
-*Nota bene*: To rightfully call the density function's $f(x)$ values probabilities, it is required that the density function more or less fits to the observed histogram. As I've suggested at the start of this section, our Tesla stock price changes have a too pointy frequency distribution for the normal density function to fit completely.
+```{r}
+1 - pnorm(30, mean = mu, sd = sigma)
+```
 
-We can create a plot to see how well the theoretical normal distribution with the given $\mu$ mean and $\sigma$ standard deviation fits to the observed histogram.
+Now, the difference comes from the fact that **with the relative frequency of $16.7\%$ we only consider the observed data only, so the result only comes from the observed statistical SAMPLE!!** The $16.7\%$ only means that **only 16.7% of our observed Hungarians have a BMI higher than 30!!**
 
-Then, we can just add another layer on the plot with the `stat_function` function, where we specify in the parameter settings that we want to add a normal density function (`fun = dnorm`) with $\mu=1.8\$$ and $\sigma=27.19\$$ (`args = list(mean = 80, sd = 20)`). Plus we can also set the color of the function as red for example (`col = 'red'`):
+On the other hand, the $17.7\%$ is the *theoretical probability* calculated from the density function of the normal distribution, with mean and standard deviation fitted on the data. This a theoretical probability since **the $f(x)$ density function** (being a continuous function) **assigns positive occurrence probabilities to $x$ values that are not yet included in the observed sample!!** This means, that **when calculating probabilities the density function considers values that are OUTSIDE of the sample! In other words, it can "see" values that haven't occurred yet!** That is why we call the density function's $f(x)$ values *PROBABILITIES* and the proportions, or *empirical* probabilities are usually just called relative frequencies.
+
+*Nota bene*: To rightfully call the density function's $f(x)$ values probabilities, it is required that the density function more or less fits to the observed histogram. We can check this quite easy visually. We can create a plot to see how well the theoretical normal distribution with the given $\mu$ mean and $\sigma$ standard deviation fits to the observed histogram.
+
+We can just add another layer on the histogram plot with the `stat_function` function, where we specify in the parameter settings that we want to add a normal density function (`fun = dnorm`) with $\mu=26.27$ and $\sigma=4.03$ (`args = list(mean = 26.27, sd = 4.03)`). Plus we can also set the color of the density function as red for example (`col = 'red'`), and make the line of the density function a bit more thick (`linewidth = 1`).
 
 ```{r warning=FALSE}
 mu = mean(ess_small$BMI)
@@ -287,34 +295,223 @@ ggplot(ess_small, aes(x=BMI)) +
   stat_function(
                 fun = dnorm, 
                 args = list(mean = mu, sd = sigma),
-                col = 'red')
+                col = 'red',
+                linewidth = 1)
 ```
 
-All right, we can see that the observed histogram is a bit too pointy (has positive kurtosis) compared to the density function of the classic normal distribution.
+All right, we can see that the observed histogram is a bit too pointy (has positive kurtosis) compared to the density function of the classic normal distribution. So, we have more people in around the most frequent values of 26-27 (which is also where the mean is due to the symmetry of the distribution) than we would expect based on the fitted normal distribution. But otherwise, the density function fits on the observed histogram quite nicely.
 
-In the following chapters, we'll see a more exact method than staring at graphs or measures of shape to test whether a theoretical distribution fits to an observed histogram. :)
+During the course, we'll see a more exact method than staring at graphs to test whether a theoretical distribution fits to an observed histogram. :)
+
+*Nota bene*: I've mentioned in the beginning of this Section 2 that the `aes(y = after_stat(density))` setting in the `geom_histogram` function does not put the relative frequencies exactly on the `y` axis. It **rescales them such that the area under the rectangles of the histogram would sum up to $1$**. It does this because the are under a probability density function (like the normal distribution's bell curve) also sums up to $1$. So, this way we can better observe whether a theoretical distribution's density function fits on the observed histogram. That's why this setting is called `after_stat(density)` in `ggplot`.
+
+Okay, now that we've established that visually it seems that the **normal distribution is a rather good fit for the observed BMI data, let's see the practical benefits of knowing this information**.<br>
+Let's say You work at the public health insurer of Hungary and You need to calculate the reserves of the public health insurance policies of Hungarian citizens. According to <a href="https://iris.who.int/bitstream/handle/10665/43190/9241593024_eng.pdf" target="_blank">WHO</a>, **Class III Obesity (BMI > 40) is a predictor of many health risks** (strokes, diabetes, several cancers and so on). So, for accurately assessing the expected risk of selling health insurances in Hungary, it would be good to know **the probability of insuring someone with a BMI greater than 40**. Furthermore, it is also an important information for developing **public health strategies** to see **how common Class III obesity is** in the Hungarian population. So, let's see the empirical and theoretical approaches for calculating this $P(y_i>40)$ probability.
+
+```{r}
+mean(ess_small$BMI > 40)
+1 - pnorm(40, mean = mu, sd = sigma)
+```
+
+Oh wow, according to the **empirical approach** we have **no one with BMI > 40 in Hungary**, while the **theoretical normal distribution** suggests a **$0.03\%$ probability for finding people with Class III Obesity** in Hungary.<br>
+So, even according to the normal distribution, this risk is low thankfully, but NOT 0 as the empirical way suggests!! This is because, as we have discussed, the **empirical calculation of probability can only consider events that we have observed, while the theoretical distribution can also see events that we have not observed**. So, **the point of using theoretical distributions to model our data is to calculate or consider probabilities for events that are NOT observed in our dataset**. So probability distributions are always about **describing the unobserved population** next to the observed sample.<br>
+We can see that without using the normal distribution we would seriously underestimate the risk of Type III Obesity in the Hungarian population. We wouldn't have even calculated with it occurring!
+
+The thing works in the other direction as well. Like, severe thinness (a BMI < 16) is also a high health risk as it means serious malnutrition. However, we have no one in our observed ESS sample with this condition, but based on the normal distribution we can see that they can appear in the whole Hungarian population a probability of $0.5\%$.
+
+```{r}
+mean(ess_small$BMI < 16)
+pnorm(16, mean = mu, sd = sigma)
+```
+
+These differences seem small, but yearly medical costs for someone with Class III Obesity were 8354 USD in 2017 (according to <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10394178/" target="_blank">a 2021 study in the Journal of Managed Care & Specialty Pharmacy</a>). So **taking the probability of Class III Obesity as 0 instead of 0.03% means** that in Hungary with a population of roughly $N=9.5$ million people, **we have ignored a yearly medical expenditure of 26.3 million USD**!$$8354 \times 0.0003280034 \times 9600000 = 26305348$$
+
+And this average cost of 8354 USD has probably increased since 2017...
 
 ### 2.4. Empirical vs Theoretical Quantiles
 
-TODO
+We've already seen in <a href="Prelude03.html" target="_blank">Section 6 of Prelude 3</a> that a value that divides a statistical variable (like BMI) into equal-sized portions is called a **quantile**. In Section 6 of Prelude 3 we've seen how to calculate any quantile empirically (based on the observed data alone). So, let's calculate the quartiles of the observed BMI data.
+
+```{r}
+quantile(ess_small$BMI, probs = c(0.25, 0.5, 0.75))
+```
+
+So, we can say that 25% our observed Hungarians have a BMI lower than 23.4 and the "fattest" quarter has a BMI higher than 28.7 (it's quite close to the range of obesity: 30). The median suggests that half of the people in the sample have a BMI lower than 26.1, while the other half has a higher BMI. Note that this is quite close to the mean of 26.27, due to the fact that our observed histogram is more or less symmetric.
+
+However, **quantiles can be obtained based on the theoretical distribution as well**. In this context the quantile tells us what is the value $x$ such that the probability of randomly drawing a number smaller than $x$ from our distribution is exactly $p$. In a more formal way, we need to find $x$ such that $P(y_i<x)=p$ and this $x$ is called the **p-th quantile of the distribution**, which can be calculated as the **inverse value of the cumulative distribution function**: $F^{-1}(x)$.
+
+Of course, we have a built-in function in R for this purpose, called `qnorm` that can determine $x$ for us, if we give a $p=P(y_i<x)$ probability to it in its $1$st parameter. The other two parameters are just the mean and standard deviation of the normal distribution, defining the exact shape of the density function just like before. Let's calculate the 5th quantile of our normal distribution. That is, what is the BMI value below which we have only a 5% probability of finding Hungarian guy.
+
+```{r}
+qnorm(0.05, mean = mu, sd = sigma)
+```
+
+Now, that is $19.6$. So, we have only a 5% probability of finding a Hungarian with lower BMI than $19.6$.
+
+Let's check the same value as the 5th percentile of our observed data.
+
+```{r}
+quantile(ess_small$BMI, 0.05)
+```
+
+Oh my good God in Heaven! That's just $20.2$! So only $5\%$ of our observed people had a smaller BMI than $20.2$! This is a **noticeably higher BMI level compared to the $19.6$ from the density function!** And the **value from the density function** is more proper to use here since it **considered BMI values** with some positive probabilities **that the observed dataset haven't seen occurring**, since they are smaller than the minimum of the observed data for example.<br>
+Again, **if we look for the given percentile from a distribution, then I can consider data points outside of our observations!** So, we can **generalize to our whole population**.
+
+Again, if we consider the case of the public health insurance fund, it would be a useful information for them to **find a reasonable maximum amount for the BMI in the Hungarian population**. E.g. the **BMI value above which we have only a very small chance of finding Hungarian people**, like $0.5\%$. Mathematically speaking, we need to find $x$ such that $P(y_i>x)=0.005$. However, **the `qnorm` function can only handle $P(y_i<x)$ probabilities**, so we need to rephrase the question as **let's find $x$ such that $P(y_i<x)=(1-0.005)=0.995$!** And now, the machine spirit will answer our prayers!
+
+```{r}
+quantile(ess_small$BMI, (1-0.005))
+qnorm((1-0.005), mean = mu, sd = sigma)
+```
+
+We can see that if we only work empirically, the BMI limit $36.6$, while the theoretical distribution suggests a threshold of $38.3$. So, again the theoretical distribution proposes a higher quantile value by $+1.7$ compared to the empirical solution. Again, this comes down to the fact that the theoretical distribution can consider BMI values that are larger than the observed maximum in the sample.<br>
+According to the <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10394178/" target="_blank">study referred earlier</a>), each additional BMI value increases yearly medical costs per people by roughly 150 USD. So again, there is a not negligible cost of $1.7 \times 150 = 255$ USD/person/year of using the empirical quantiles instead of utilizing the best fitting theoretical distribution of the data.
+
+**Theoretical quantiles** have an important role to play **in financial risk management** as well, specifically **in Value at Risk calculations**. Value at Risk (VaR) of an investment portfolio at level $p$ means that there is only a $p$ probability for a loss greater than this VaR value on a random trading day with the given investment portfolio. We can see that this VaR value is actually the p-th quantile of the loss history of that investment. However, the loss history is always just a sample (e.g. a loss history between 2020-2024), so it would be important to consider losses that are greater than observed in the historical data when calculating this VaR as a quantile. The best fitting theoretical distribution can help You in that here as well.<br>
+Of course, the normal distribution is not necessarily the best fit for financial loss data, but we can find loads of exotic probability distributions on the menu, so we can choose! :)<br>
+Naturally, choosing the best fitting distribution is intensive work, so there is a great temptation to just calculate VaR as a quantile from observed past loss data...some of the greatest investment banks before 2008 gave in to this temptation because the regulators allowed them to do so. The result is the **financial crisis of 2008**. This is partly the topic of the book titled <a href="https://en.wikipedia.org/wiki/The_Black_Swan:_The_Impact_of_the_Highly_Improbable" target="_blank">The Black Swan: The Impact of the Highly Improbable</a>. I recommend it to everyone interested in the topic, it's quite easy to understand reading. :)<br>
+Since 2008, regulations (Basel III in Europe, Basel IV from 2023) compels banks to calculate *VaR* based on the best fitting probability distribution on their data.
+
+#### Q-Q Plots
+
+The ***relationship between empirical and theoretical quantiles can also be used to determine the goodness of fit for our theoretical distribution**. The idea is that **if our theoretical distribution fits our observed data well**, then the **empirical and theoretical quantiles** should be close to each other.<br>
+We can check this nicely on a scatter plot. Let's calculate a lot of quantiles in both ways (e.g. every quantile from 0.005, 0.010, 0.015 until 0.995). Then, create a **scatter plot where theoretical quantiles are on the `x` axis and empirical quantiles are on the `y` axis**. If the two kinds of quantiles are roughly close, then the points defined by these $(x,y)$ coordinates should form a straight line of 45 degrees. This is the principle of the **Quantile on Quantile Plots, or just Q-Q Plots** for short!
+
+We can easily create these Q-Q Plots and their corresponding 45-degree lines in `ggplot` with the `stat_qq` and `stat_qq_line` layers. It's important that inside the first layer's `aes` function, the examined variable should be put in a parameter named `sample` for these kinds of plots. In both the `stat_qq` and `stat_qq_line` layers, we need to give
+
+1. the appropriate theoretical quantile function in the `distribution` parameter (this is the `qnorm` for our case)
+2. the parameters that define the exact shape of our theoretical density function (these are $\mu, \sigma$ for our normal bell curve)
+
+And voilá, our QQ Plot is ready fuw to the goodwill of the machine spirit! :)
+
+```{r}
+ggplot(ess_small, aes(sample = BMI)) +
+  stat_qq(distribution = qnorm, dparams = c(mu, sigma)) +
+  stat_qq_line(distribution = qnorm, dparams = c(mu, sigma)) +
+  labs(x="Theoretical Quantiles", y="Empirical Quantiles")
+```
+
+We can observe that **theoretical and empirical quantiles match rather nicely in the middle** of the distribution, between BMI values of 20-30, but **on the tails** (tails = extremely low and high BMI values) **they are starting to differ**. This comes as **no surprise** as **on the tails**, we have **fewer and fewer empirical observations**, so the **empirical quantiles are not so reliable** as they are **calculated from a small number of observations here**. That is exactly why, we would want to use our theoretical normal distribution in these tail ranges! The point is that the **normal distribution is a good fit in the typical, middle values of our BMI data**.
 
 ### 2.5. Empirical vs Theoretical Moments
 
+Another set of statistical measures that can describe a statistical variable next to quantiles are the moments. Usually we are familiar the **first non-centered and the second centered moments** ($M_1,M_2$), as they are the **mean and standard deviation** respectively. However, the **third and fourth moments** should be familiar from the formula for the $\alpha_3$ measure of **skewness** ($M_3$) and $\alpha_4$ measure of **kurtosis** ($M_4$).<br>
+So, overall these following moments are worth our attentions usually.
+
+- First non-centered moment: $M_1=\bar{y}=\frac{\sum_{i=1}^n{y_i}}{n}$
+- Second centered moment: $M_2=s^2=\frac{\sum_{i=1}^n{(y_i-\bar{y})^2}}{n-1}$
+- Third centered moment: $M_3=\frac{\sum_{i=1}^n{(y_i-\bar{y})^3}}{n-1}$
+- Fourth centered moment: $M_4=\frac{\sum_{i=1}^n{(y_i-\bar{y})^4}}{n-1}$
+
+Notice, that the term "centered" only means whether the mean ($\bar{y}$) is subtracted in the sum from the $y_i$ observations. So, we can easily see that the **first centered moment** doesn't make much sense as it **is automatically $0$** since $(\sum_{i=1}^n{y_i-\bar{y}})/n=0$.<br>
+Also notice that for the 2nd, 3rd and 4th moments, we are taking number of observations minus 1 ($n-1$) in the denominator. This is because R calculates them this way instead of dividing with simply $n$. Just like in the case of the `sd` fucntion as seen in <a href="Prelude03.html" target="_blank">Section 7 of Prelude 3</a>. Reasons for this will be discussed in detail in <a href="Chapter04.html" target="_blank">Chapter 4</a>. But **for a high $n$,** like in our case we have $n=2009$, **this difference does not really matter in the end result**.
+
+As I referred to it earlier, the natural habitat of $M_3$ and $M_4$ are the $\alpha_3$ measure of **skewness** ($M_3$) and $\alpha_4$ measure of **kurtosis** ($M_4$). These measures of shape are defined as follows with  the help of these two moments.
+
+- $\alpha_3=\frac{M_3}{\sigma^3}$
+- $\alpha_4=\frac{M_4}{\sigma^4}-3$
+
+$\alpha_3$ **measures how well a histogram follows the symmetric normal distribution by its sign** according to the categories as seen in <a href="Prelude03.html" target="_blank">Section 5.3. of Prelude 3</a>.
+
+- If $\alpha_3= \approx0 \rightarrow$ the distribution is **symmetric**
+- If $\alpha_3=>0\rightarrow$ the distribution has a **long right tail**, or positive skew
+- If $\alpha_3=<0\rightarrow$ the distribution has a **long left tail**, or negative skew
+
+On the other hand, a **histogram can also differ in "peakedness" or in other words kurtosis to the classic normal distribution** it can be **"too pointy"**, which is called **positive kurtosis (leptokurtosis)** or it can be **"too flat"**, which is called **negative kurtosis (platykurtosis)** as seen in the figure below.
+
+<center>
+![](csucsos.PNG){width=40%}
+</center>
+
+We can see from the histograms for the **BMI data that it probably has a mild case of leptokurtosis**. This means in practice that the **unique values of the variable BMI do not really differ from the maximum of the frequency curve**, which is the **mode**. But to exactly measure this, we have the $\alpha_4$ indicator. The $-3$ in its formula is coming from the fact that for normal distribution $M_4/\sigma^4=3$, so we need to subtract $3$ to have an interpretation for $\alpha_4$ like we have for $\alpha_3$.
+
+So, due to the $-3$ in its formula, we can **interpret the Kurtosis ($\alpha_4$) measure again by looking at its sign**:
+
+- If $\alpha_4= \approx0 \rightarrow$ the distribution is **normal**
+- If $\alpha_4=>0\rightarrow$ the distribution has **leptokurtosis**, or positive kurtosis
+- If $\alpha_4=<0\rightarrow$ the distribution has **platykurtosis**, or negative kurtosis
+
+We can see that **in both cases the sign of the measure** (both $\alpha_3$ and $\alpha_4$) **is determined by the moment in the numerator**. As $\sigma>0$, we are always having a positive number in denominator.
+
+We can most easily calculate the $\alpha_3$ and $\alpha_4$ measures by the `describe` function from the `psych` package. Remember, we installed this package in <a href="Prelude01.html" target="_blank">Section 7 of Prelude 1</a>.
+
+```{r paged.print=FALSE}
+library(psych)
+describe(ess_small$BMI)
+```
+
+As we can see, this `describe` function calculates **loads of descriptive statistical measures that we already know**, but it **also** shows us **some new ones**:
+
+- **n**: Number of observations for the variable. It does not count the possible `NA`s.
+- **mean**: The mean of course :)
+- **sd**: The standard deviation (also calculates the version with $n-1$ in the denominator)
+- **median**: The median, what a surprise :)
+- **trimmed**: Trimmed mean. A mean where we do not consider the top/bottom $10\%$ of the variable for the calculation. This is a method to handle the mean's sensitivity to outliers.
+- **mad**: Median Absolute Deviation $\rightarrow$ a kind of standard deviation *around the median* with absolute values instead of the squares.
+- **min**, **max** and **range**: Minimum and maximum values for the variable and their differences as the full range of the variable: *range = max - min*
+- **skew**: This is the $\alpha_3$ measure
+- **kurtosis**: Az $\alpha_4$ measure
+- **se**: Standard error of the mean $\rightarrow$ unimportant for know. We'll cover this measure in the lecture notes for Class 4.
+
+Right know, **skew** and **kurtosis** values are what's interesting. Based on the $\alpha_3=0.41$ value, there is a mild right tail for the BMI histogram. The $\alpha_4=0.17$ result tells us that that the observed histogram is a bit more pointy compared to the normal distribution (leptokurtosis: remember the jump around the mode of the BMI values: 26-27). However both values are relatively close to $0$ as well, so these tendencies are not very strong. A normal distribution ($0$ skewness and kurtosis) is an acceptable approximation of the observed histogram.
+
+These findigs can be confirmed by looking at the empirical histogram again. We discussed the leptokurtosis You to the jump around the BMI values of 26-27. But if we look at it more closely, we can also see that there are a bit more observations below the mode of the histogram than above it, creating a very mild right tail for the distribution.. But again, this tendency is not strong at all, so the symmetry of the histogram is acceptable.
+
+```{r}
+ggplot(ess_small, aes(x=BMI)) +
+  geom_histogram(aes(y = after_stat(density)))
+```
+
+Then of course, we **calculate the theoretical value of these moments based on the theoretical probability distribution** we want to fit on the observed data. In probability theory we simply substitute the mean calculation part of the empirical moment formulas with taking expected values. The expected value for a continuous random variable $Y$ is as follows where $f(x)$ is the density function determining the probability of each $x$ value occurring in our theoretical distribution: $$E(Y)=\int_{-\infty}^{+\infty}{f(x)x dx}$$
+
+With this definition the **formula for the theoretical moments** are:
+
+- Theoretical first non-centered moment: $M_1=E(Y)$
+- Theoretical second centered moment: $M_2=\sigma^2=E((Y-E(Y))^2)$
+- Theoretical third centered moment: $M_3=E((Y-E(Y))^3)$
+- Theoretical fourth centered moment: $M_4=E((Y-E(Y))^4)$
+
+For **every theoretical distribution, the value of these 4 moments can be expressed as a function of the parameters that define the exact shape of its density function**. For a $N(\mu, \sigma)$ normal distribution these are 4 moments always take the following values:
+
+- $M_1=\mu$
+- $M_2=\sigma^2$
+- $M_3=0$
+- $M_4=3\sigma^4$
+
+We can see that the values for the first two moments are <a href="https://www.reddit.com/media?url=https%3A%2F%2Fi.redd.it%2Fgd2ntlt6mu131.jpg" target="_blank">trivial</a>, since in the beginning of this Section 2, we could see that we have defined the exact shape of our normal bell curve by the distribution's expected value = mean ($\mu$) and standard deviation ($\sigma$), so basically by its first two moments.
+
+Since the normal distribution's bell curve is symmetric, its $\alpha_3$ measure of skewness must be $0$. It follows from the $\alpha_3=M_3/\sigma^3$ formula that $M_3$ must be $0$ as well.
+
+As the normal distribution's $\alpha_4$ kurtosis is set as $0$, from the $\alpha_4=M_4/\sigma^4-3$ formula, it follows that $M_4=3\sigma^4$.
+
+We'll see how these 4 moments are defined with the distribution parameters in case of other theroetical distributions too in the following sections.
+
+### 2.6. The Central Limit Theorem (CLT)
+
 TODO
 
-### 2.6. The Standard Normal Distribution
+### 2.7. The Standard Normal Distribution
 
 TODO
 
-## 3. Other Continuous Theoretical Distributions
+## 3. Method of Moments (MM)
+
+These **theoretical moments given above can be expressed with the parameters of the distribution** we want to fit on the observed sample. So, if the assume that these theoretical values are equal with their $\hat{M_i}$ values calculated from the sample, then we can **solve the system of equations $M_i = \hat{M_i}$ for the distribution parameters**. If **we have $p$ parameters to determine, we use the first $i=1,2,...,p$ moments** for the $M_i = \hat{M_i}$ equations.<br>
+Usually we examine probability distributions with a maximum of only two parameters, so usually only the mean and variance are used. But if we fit a distribution with $p=3$ parameters, then we can also utilize the third centered moment (skewness times $\sigma^3$) as well.
+
+Therefore, in the case of the $N(\mu, \sigma)$ distribution, we have that $E(Y)=\mu$ and $Var(Y)=\sigma^2$, so we can just say that $\hat{\mu}=\bar{y}$ and $\hat{\sigma}=s$. Because this is the solution of the $M_i = \hat{M_i}$ equations for $i=1,2$. And **this is what we did when we fitted the normal distribution on the BMI data in Section 2**.
+
+Now, let's see the method of moments in action for other probability distributions!
+
+## 4. Other Continuous Theoretical Distributions
 
 TODO
 
-## 4. Discrete Theoretical Distributions
+## 5. Discrete Theoretical Distributions
 
 TODO
 
-## 5. Method of Moments
+## 7. The Glivenko–Cantelli Theorem
 
 TODO
 
