@@ -191,7 +191,7 @@ ggplot(ess_small, aes(x=BMI)) +
 Since we can see that the relative frequency of the histogram bin that includes $20.6$ is just around roughly $0.04=4\%$, just like the result of the $f(20.6)$ density function value. We can get the exact value by using the `binnedCounts` function from the `RcmdrMisc` package seen in <a href="Prelude03.html" target="_blank">Prelude 3</a>
 
 ```{r}
-binnedCounts(ess_small$BMI, breaks = 30)
+RcmdrMisc::binnedCounts(ess_small$BMI, breaks = 30)
 ```
 The exact empirical probability is $83/2009=0.0413=4.13\%$.
 
@@ -262,7 +262,7 @@ mean(ess_small$BMI < 24.9) - mean(ess_small$BMI < 18.5)
 
 As we can see, we have received somewhat similar empirical probabilities we did with the theoretical normal distribution.
 
-### 2.3. Benefits of the Theoretical Distribution (TODO)
+### 2.3. Benefits of the Theoretical Distribution
 
 All right, now we can use the normal distribution to obtain probabilities of some events occurring in the BMI variable. But **what's the point?** I mean, we could just see that we can **obtain these probability calculated from the normal distribution using the observed data alone** (empirically), just using the elementary school formula of number of favorable observations divided with number of total observations. So, truly, **what is the benefit of using a normal distribution that fits our BMI data instead of just using the BMI data alone??**
 
@@ -600,7 +600,7 @@ ess_small <- ess[!is.na(ess$AlcoholWeekend),c("idno", "AlcoholWeekend")]
 hist(ess_small$AlcoholWeekend)
 ```
 
-Well, here we can see that the distribution has a long right tail: the majority of alcohol consumption (roughly 600 out of about 2000) are within 50 grams, but the remaining roughly 1400 exceed this, and there are some extreme alcoholics with weekend consumption above 200 grams, even 1 or 2 in the 600-700 grams range.
+Well, here we can see that the distribution has a long right tail: the majority of alcohol consumption (roughly 600) are within 50 grams, but the remaining observations all exceed this value, and there are even some extreme alcoholics with weekend consumption above 200 grams, even 1 or 2 in the 600-700 grams range.
 
 Due to this long right tail, if we connect the bars of the histogram with a continuous line, we would get a graph similar to the one below.
 
@@ -661,7 +661,7 @@ dexp(98, rate = lambda)
 
 This is a fairly low probability, about $0.26\%$. We’re not surprised, because the likelihood of exactly one point occurring is low, given that the alcohol consumption is a continuous variable with a large range of values to take.
 
-Using `dexp`, we can visually check how the exponential density function fits the survival time histogram, just as we did for the normal distribution with a histogram-fitted `ggplot` line plot.
+Using `dexp`, we can visually check how the exponential density function fits the weekend alcohol consumption histogram, just as we did for the normal distribution with a histogram-fitted `ggplot` line plot.
 
 ```{r warning=FALSE}
 ggplot(ess_small, aes(x=AlcoholWeekend)) +
@@ -674,7 +674,7 @@ ggplot(ess_small, aes(x=AlcoholWeekend)) +
 
 It looks quite nice here, with only one odd point: the first bin of 0-20 grams. Way less people fall into this bin than would be expected based on the $Exp(0.021)$ distribution. But this could easily be due to the large number of bins (we see that `ggplot` used 30 by default which is way more than the default of the `hist` function applied in the beginning). Based on what we learned in <a href="Prelude02.html" target="_blank">Prelude 2</a>, we could fix this if needed. :)
 
-Another way to check the fit of the exponential distribution is using the **Q-Q Plot** the same way as in Section 2.4. We only need to switch `dexp` to `dexp` and in the `dparams` only $\lambda$ needs to be provided instead of $\mu,\sigma$ like for the normal distribution.
+Another way to check the fit of the exponential distribution is using the **Q-Q Plot** the same way as in Section 2.4. We only need to switch `qnorm` to `qexp` and in the `dparams` only $\lambda$ needs to be provided instead of $\mu,\sigma$ for the normal distribution.
 
 ```{r}
 ggplot(ess_small, aes(sample = AlcoholWeekend)) +
@@ -689,7 +689,7 @@ We can see that the fit of the $Exp(0.021)$ distribution is quite ok even in the
 
 Let’s now calculate a few probabilities related to the weekend alcohol consumption of the entire Hungarian population! Since we're **fitting this theoretical** exponential **distribution to account for the alcohol consumption habits of the unobserved Hungarians as well**.
 
-1. What is the probability that a Hungarian drinks more than a bottle of wine (98 grams) over a weekend?
+What is the probability that a Hungarian drinks more than a bottle of wine (98 grams) over a weekend?
 
 ```{r}
 1 - pexp(98, rate = lambda)
@@ -724,7 +724,7 @@ Consuming this much alcohol could result in symptoms such as slurred speech, uns
 
 ### 4.2. Lognormal Distribution - Daily Net Usage Time
 
-Ok, now let's analyze how many minutes do Hungarians spend on the internet on a typical day! Before checking the empirical distribution on a histogram, let's remove any missing values from this variable just like we did with BMI at the start of Section 2. We now have a larger share of non-respondents (namely 31.8%), who probably did not dare to say in the survey how alcoholic they are, but now we are not trying to impute their data, just focusing on the distribution of those who admitted what they drink on a typical weekend.
+Ok, now let's analyze how many minutes do Hungarians spend on the internet on a typical day! Before checking the empirical distribution on a histogram, let's remove any missing values from this variable just like we did with BMI at the start of Section 2. We now have a larger share of non-respondents (namely 31.8%), who probably did not dare to say in the survey how long a time they spend on the internet on a typical day, but now we are not trying to impute their data -the share of non-respondents is noticeably lower here than in the case of alcohol consumption- just focusing on the distribution of those who admitted how long they surf the net.
 
 ```{r}
 mean(is.na(ess$DailyNetUse))
@@ -732,15 +732,247 @@ ess_small <- ess[!is.na(ess$DailyNetUse),c("idno", "DailyNetUse")]
 hist(ess_small$DailyNetUse)
 ``` 
 
-TODO
+The distribution has a long right tail here as well just like in the case of alcohol consumption, but the most frequent bin is not the first one (like it was on the same histogram for alcohol consumption), but the second one: the 100-200 minutes a day bin. That means that most people in the survey (roughly 550) have a relatively low range of net usage time, but there is a substantial minority on the second place with roughly 400 people having even lower daily net usage time in the first bin of 0-100 minutes. The remaining people in the survey are giving long right tail, surfing the net more than 200 minutes a day with 1-2 extremes of daily net usage times of 1100-1200 minutes (that is 18-20 hours).
 
-### 4.3. Student's t distribution - Symmetric but Flat
+This distribution shape cannot be modeled with an exponential distribution as it cannot account for the frequencies to go down in the first bin. In an exponential distribution, the first bin must be the most frequent one, and this is clearly not the case for the empirical distribution of daily net usage time! A viable alternative is the **lognormal distribution** that can account for this lower frequency in the first bin and still preserve the long right tail of the observed distribution. The **exact shape of the lognormal distribution function is determined by two parameters: $\mu,\sigma$. Quite similarly to the classic normal distribution, but NOT exactly**. We'll see the relationship between the normal and lognormal distributions in just a bit, but first let's take a look at the density function of the lognormal density function for several $\mu,\sigma$ parameters to see the exact behavior of it.
 
-TODO
+```{r echo=FALSE}
+x <- seq(0, 3, 0.001)
+y_1 <- dlnorm(x, mean = 0, sd = 0.25)
+y_2 <- dlnorm(x, mean = 0, sd = 1)
+y_3 <- dlnorm(x, mean = 0, sd = 0.5)
+y_4 <- dlnorm(x, mean = 1, sd = 0.25)
+y_5 <- dlnorm(x, mean = 1, sd = 1)
+y_6 <- dlnorm(x, mean = 1, sd = 0.5)
+
+DFRajz <- data.frame(x=x,
+                     y=y_1,
+                     y2=y_2,
+                     y3=y_3,
+                     y4=y_4,
+                     y5=y_5,
+                     y6=y_6)
+
+ggplot(DFRajz, aes(x=x)) +
+  geom_line(aes(y=y, color="mu=0, sigma=0.25"), linewidth=1) +
+  geom_line(aes(y=y2, color="mu=0, sigma=1"), linewidth=1) +
+  geom_line(aes(y=y3, color="mu=0, sigma=0.5"), linewidth=1) +
+  geom_line(aes(y=y4, color="mu=1, sigma=0.25"), linewidth=1) +
+  geom_line(aes(y=y5, color="mu=1, sigma=1"), linewidth=1) +
+  geom_line(aes(y=y6, color="mu=1, sigma=0.5"), linewidth=1)
+```
+
+Praise the machine spirit! This distribution can truly reflect what we are seeing in the observed histogram: long right tail, but the most frequent range in the `x` axis is not the first one, there can be a decrease in frequency decrease before the most frequent part as well while still preserving the long right tail behavior too!<br>
+On the other hand we can see the effect of the $\mu,\sigma$ parameters have on the density shape: **greater $\sigma$ means longer right tail and lower kurtosis**, while **greater $\mu$ means that the maximum of the density curve (the mode) is more shifted towards the right tail** of the distribution.
+
+So, the $\mu,\sigma$ parameters influence density similarly to how the classic normal distribution's $\mu,\sigma$ influences the exact bell-shape there, but not exactly. So, let's see the relationship between these two distributions! It's no surprise based on the name lognormal distribution, that **a variable with lognormal distribution is such that its logarithm has a classic normal distribution and the $\mu,\sigma$ parameters of the lognormal distribution are the $\mu,\sigma$ parameters of the classic normal distribution found on the log-variable**. More formally, it means that if $$Y \sim LN(\mu,\sigma)$$
+
+Then, it is also true that $$X=\ln(Y) \sim N(\mu, \sigma)$$
+
+So, **the $\mu,\sigma$ parameters of a lognormal variable are always on the log-scale** and NOT on the original scale of the $Y$ variable examined! This causes some hiccups with the Method of Moments that We'll experience in the following.
+
+#### Application of Method of Moments (MM)
+
+So, for applying MM for the lognormal distribution, we need to examine the first two theoretical moments as the lognormal distribution has 2 parameters, $\mu,\sigma$. However, things become tricky here as these two parameters are on the log scale! So what we can say is that if we have $Y \sim LN(\mu,\sigma)$ and $X=\ln(Y) \sim N(\mu, \sigma)$, then  $\mu,\sigma$ are equal to the expected value (mean) and standard deviation of $X$ and NOT $Y$!
+
+- $E(X) = \mu$
+- $D(X) = \sigma$
+
+If we transform $X$ back to the original scale by taking an exponential as $Y = \exp(X)$, then we can only express $E(Y)$ and $D(Y)$ as a more complex function of $\mu,\sigma$ than a simple identity function! Namely, the expected value and standard deviation of a lognormal distribution can be determined from the two parameters the following way.
+
+- $E(Y) = \exp\left(\mu + \frac{\sigma^2}{2}\right)$
+- $D(Y) = \sqrt{[\exp(\sigma^2)-1]\exp(2\mu+\sigma^2)}$
+
+This makes the first two theoretical moments of the lognormal distribution as:
+
+- $M_1=E(Y) = \exp\left(\mu + \frac{\sigma^2}{2}\right)$
+- $M_2=D^2(Y) = [\exp(\sigma^2)-1]\exp(2\mu+\sigma^2)$
+
+According to the MM principle, these must match the empirical sample moments $\hat{M_1}=\bar{y}, \hat{M_2}=s^2$. Which creates the following system of equation to solve for $\mu,\sigma$:
+
+- $\bar{y} = \exp\left(\mu + \frac{\sigma^2}{2}\right)$
+- $s^2 = [\exp(\sigma^2)-1]\exp(2\mu+\sigma^2)$
+
+This is quite the high school math exam task, but it has a closed form solution thankfully, so we can get the $\mu,\sigma$ parameters of the lognormal distribution from the observed sample's mean ($\bar{y}$) and variance ($s^2$) in the following way:
+
+- $\mu = \ln\left(  \frac{\bar{y}}{\sqrt{1+s^2/\bar{y}}} \right)$
+- $\sigma = \sqrt{\ln(1+s^2/\bar{y})}$
+
+All right, these are not so hard formulas to substitute in, especially in R, so let's do this!
+
+```{r}
+sample_mean <- mean(ess_small$DailyNetUse)
+sample_sd <- sd(ess_small$DailyNetUse)
+
+mu <- log(sample_mean/(sqrt(1+sample_sd^2/sample_mean)))
+sigma <- sqrt(log(1+sample_sd^2/sample_mean))
+
+c(mu,sigma)
+```
+
+Great, looks like our daily net usage time variable follows a $LN(2.9,2.14)$ distribution. That is $Y \sim LN(2.9,2.14)$.
+
+So, let's see if our fitted distribution describes the observed data adequately.
+
+#### Checking the Goodness of Fit
+
+The lognormal distribution has the same kinds of built-in functions in R that the normal or exponential has. That means we have `dlnorm`, `plnorm`, and `qlnorm`. The distribution parameters ($\mu,\sigma$) are passed through the `meanlog` and `sdlog` parameters indicating that they are on the log-scale.
+
+For example, we can calculate the probability of a random Hungarian spending 5 hours (300 minutes) a day on the internet.
+
+```{r}
+dlnorm(300, meanlog = mu, sdlog = sigma)
+```
+
+A very nice $0.027\%$. It is very small as 300 is on the very right tail of the distribution if we think back on the histogram of net usage times. We’re also not surprised, because the likelihood of exactly one point occurring is low, given that the net usage time is a continuous variable with a large range of values to take.
+
+The point of `dlnorm` is that we can visually check how the lognormal density function fits the net usage time histogram, just as we did for the normal and exponential distributions with a histogram-fitted `ggplot` line plot.
+
+```{r warning=FALSE}
+ggplot(ess_small, aes(x=DailyNetUse)) +
+  geom_histogram(aes(y = after_stat(density))) +
+  stat_function(fun = dlnorm, 
+                args = list(meanlog = mu, sdlog = sigma),
+                col = 'red',
+                linewidth = 1)
+```
+
+Well, looks like the fit is not so great as it overshoots the mode: it places the most frequent part of the density function way lower than what's observed in the empirical histogram and creates higher kurtosis (higher density curve maximum than the histogram maximum). But might it be only because the `ggplot` works with a higher number of bins in histograms than the `hist` in base R? We can check this through the **Q-Q Plot**!
+
+In the Q-Q Plot, we only need to switch `distribution` to `qlnorm` and in the `dparams` $\mu,\sigma$ need to be provided as vector, just like for the classic normal distribution.
+
+```{r}
+ggplot(ess_small, aes(sample = DailyNetUse)) +
+  stat_qq(distribution = qlnorm, dparams = c(mu, sigma)) +
+  stat_qq_line(distribution = qlnorm, dparams = c(mu, sigma)) +
+  labs(x="Theoretical Quantiles", y="Empirical Quantiles")
+```
+
+Hmm, <a href="https://www.youtube.com/watch?v=NYvwLLxKqhM" target="_blank">f\*\*\*k</a>. The theoretical quantiles of the lognormal distribution are way larger than what's observed in the ESS sample in most the variable's range. And these overshoots are too large to ignore. So, we need to conclude that **the $LN(2.9,2.14)$ distribution is a bad fit for the net usage time data**.<br>
+But why is that? Is the lognormal distribution a bad idea to model net usage times? Or it's just that the $\mu,\sigma$ parameters estimated with MM are not appropriate? Let's be optimistic and go with the latter idea! :)
+
+So, the idea is that based on the histogram **the lognormal distribution is a good fit for the data, it's the $\mu,\sigma$ values derived from MM principle are wrong**! Lucky for us, the lognormal distribution can be fitted on the data using the mean and median and not only using the first two moments! The enormous luck is that the **lognormal distribution's theoretical median can be expressed as simply as $Me = \exp(\mu)$**. So, similarly to the MM principle, we can say that **empirical and theoretical medians must match**: $\hat{Me}=Me$. And we can **use this as the second equation in the MM system of equations instead if the $\hat{M_2}=M_2$!!** With leaving the $\hat{M_1}=M_1$ equation from MM in place, we have the following -more simple- system of equation to solve for $\mu,\sigma$ now:
+
+- $\bar{y} = \exp\left(\mu + \frac{\sigma^2}{2}\right)$
+- $\hat{Me} = \exp(\mu)$
+
+This is way more easy to solve than the original MM system, and get the $\mu,\sigma$ parameters of the lognormal distribution from the observed sample's mean ($\bar{y}$) and median ($\hat{Me}$) in the following way:
+
+- $\mu = \log(\hat{Me})$
+- $\sigma = 2\left(\log(\bar{y})-log(\hat{Me})\right)$
+
+Let's use these simple formulas to get the new estimated values for the $\mu,\sigma$ parameters and let's also rerun the visual density function on histogram check and the Q-Q Plot check!
+
+```{r}
+sample_median <- median(ess_small$DailyNetUse)
+
+mu <- log(sample_median)
+sigma <- 2*(log(sample_mean)-log(sample_median))
+c(mu,sigma)
+
+ggplot(ess_small, aes(x=DailyNetUse)) +
+  geom_histogram(aes(y = after_stat(density))) +
+  stat_function(fun = dlnorm, 
+                args = list(meanlog = mu, sdlog = sigma),
+                col = 'red',
+                linewidth = 1)
+
+ggplot(ess_small, aes(sample = DailyNetUse)) +
+  stat_qq(distribution = qlnorm, dparams = c(mu, sigma)) +
+  stat_qq_line(distribution = qlnorm, dparams = c(mu, sigma)) +
+  labs(x="Theoretical Quantiles", y="Empirical Quantiles")
+```
+
+<a href="https://youtu.be/y13n1CeyqjY?t=8" target="_blank">Huzzah</a>! Looking at the two plots we can see that this new $LN(5.01,0.41)$ distribution is a way better fit for the observed daily net usage time data then the previous lognormal was! Accoding to the histogram, the mode (place of the maximum for the density curve) is in the right place, although the maximum value is a bit too much compared to the histogram. But the empirical and theoretical quantiles match rather nicely: even in the higher ranges above 400-500 minutes, the theoretical quantiles underestimation of the empirical ones is not very substantial. And again, we need to note that these higher ranges are on the right tail of the distribution where we have very few observed data, so in these ranges the theoretical distribution is probably more reliable due to the fact that we don't have many empirical observations to work with in this part of the distribution.<br>
+So, overall, let's accept this $LN(5.01,0.41)$ distribution as the population distribution for the unobserved Hungarian's daily net usage time and do some calculations with it!
+
+#### Applications of the Fitted Exponenetial Distribution
+
+Now, let's see the $F(X)$ distribution function of the lognormal distribution in action. It is implemented in R as the `plnorm` function, and it works the same way as the `p` prefixed normal of exponential function. First parameter is the $x$ value for the $P(y_i<x)$ probability and then plug in the $\mu,\sigma$ parameters of the lognormal distribution just like we did for the density function.
+
+So, let's calculate what is the probability that we find a Hungarian that only surfs the net for less than 2 hours (120 minutes)?
+
+```{r}
+plnorm(120, meanlog = mu, sdlog = sigma)
+```
+
+Okay, looks like in Hungary almost $1/3$ of the population, $29.4\%$ is like this. Probably the substantial elderly population is more hostile toward the online world than in other European countries. Maybe a lognormal distribution fit by different age groups might reveal if this hypothesis is true. :)
+
+Let's see how much time the top 10% of net surfers spend on the net a day in Hungary with the $1-0.1=0.9=90\%$ quantile of the theoretical distribution!
+
+```{r}
+qlnorm(0.9, meanlog = mu, sdlog = sigma)
+```
+
+That is $254.6$ minutes, so roughly 4.2 hours! That's not so bad for the top 10% considering that this variable probably includes the time someone uses the net for work. This is probably a correct and not a conservative estimation since according to the Q-Q Plot the fit of theoretical quantiles to empirical ones is almost perfect for quantiles lower than 400 minutes.
+
+### 4.3. Student's t-distribution - Symmetric but Flat
+
+There is one more continuous distribution I'd like to mention in a separate subsection: Student's t-distribution. Usually this distribution is not applied to model a real-world statistical variable, but it has a major roles in constructing confidence intervals as I'm sure You all remember from your bachelor studies. :) If not, we are gonna revise the role of this distribution in confidence interval in <a href="Chapter04.html" target="_blank">Chapter 4</a>. Until that, let's summarize the most important details You need to know about this t-distribution. Even tough we don't have any variables in the ESS data that can be modeled with this distribution.
+
+First of all, the **shape of its density function**. The t-distribuation has 1 parameter that regulates the shape of its density function, the **degrees of freedom**, usually denoted as $v$. The main idea here is that for $v=+\infty$, the t-distribution is the same as the **standard normal distribution** $N(0,1)$ and as $v$ decreases, the t-distribution **gets flatter and flatter** (platykurtosis), but **remains** a **symmetric** bell curve. Platykurtosis is often called as **heavy tails** since as we can see on the plot below, **values on the** edges or **tails of the distribution have a higher chance of occurring** with flat density functions than they would have in a normal distribution.
+
+```{r echo=FALSE}
+x <- seq(-3, 3, 0.001)
+y_1 <- dnorm(x)
+y_2 <- dt(x, df=50)
+y_3 <- dt(x, df=30)
+y_4 <- dt(x, df=15)
+y_5 <- dt(x, df=5)
+
+DFRajz <- data.frame(x=x,
+                     y=y_1,
+                     y2=y_2,
+                     y3=y_3,
+                     y4=y_4,
+                     y5=y_5)
+
+ggplot(DFRajz, aes(x=x)) +
+  geom_line(aes(y=y, color="standard normal"), linewidth=1.5) +
+  geom_line(aes(y=y2, color="v=50"), linewidth=1) +
+  geom_line(aes(y=y3, color="v=30"), linewidth=1) +
+  geom_line(aes(y=y4, color="v=15"), linewidth=1) +
+  geom_line(aes(y=y5, color="v=5"), linewidth=1)
+```
+
+Very nice. Of course, these density functions can be drawn in R along different degrees of freedoms with the `dt` function, and of course, the t-distribution has `pt` and `qt` functions as well just like all the other distributions we covered so far.
+
+The behavior of this t-density function has an effect on the **moments** as well. Since the t-distribution is converging to the standard normal distribution as $v$ increases and it remains symmetric, it follows that its expected value is $0$ and that it has no skewness, so $\alpha_3=0$ and therefore $M_3=0$.<br>
+The $\alpha_4=\frac{6}{v-4}$ formula reflects the fact that if $v$ decreases t-distribution becomes flatter thans the standard normal distribution (platykurtosis). As it is easy to see that $$\lim_{v\to\infty} \frac{6}{v-4}=0$$
+The variance ($M_2$) is $\sigma^2=\frac{v}{v-2}$ reflects the fact that the standard deviation is larger for flatter distributions as flat distribution means more probability on extremely low/high values to occur, hence larger variance and standard deviation. Just like we saw this in case of the normal distribution at the beginning of Section 2.
+
+To demonstrate this heavy tail of the t-distribution, we start from the fact that in a $N(0,1)$, or a $t(\infty)$ distribution the probability of being between $\pm2$ is about $95\%$ as we saw in Section 2.
+
+```{r}
+pnorm(2) - pnorm(-2)
+```
+
+However if we switch to a more flat or heavy tailed t-distribution with a low degrees of freedom, let's say 5 ($t(5)$), then this probability would become smaller as more and more extreme values have a higher probability of occurring on the edges or tails that are outside of the $\pm2$ range.
+
+```{r}
+pt(2, df=5) - pt(-2, df=5)
+```
+
+And the probability is only $89.8\%$, so our reasoning with the heavy tails of the t-distribution seems correct. :)
 
 ### 4.4. Other Important Continuous Distributions
 
-TODO
+There some other important continuous distributions in the world that come up a lot in practice and we'll encounter them to some extent during this course. I highly recommend to check out the following things about these distributions:
+
+1. The general shape of their density functions
+2. What parameters does the distribution have and how they affect the shape of the density function
+3. How the first four moments can be expressed with the distribution parameters
+4. How are the distribution's `d`, `p` and `q` prefixed functions are called in R exactly. Is a new package is needed for them?
+
+So the list of distributions I recommend to check according to these 4 points are the following.
+
+- Long right tailed distributions
+  * <a href="https://search.r-project.org/CRAN/refmans/EnvStats/html/Pareto.html" target="_blank">Pareto</a>
+  * <a href="https://search.r-project.org/CRAN/refmans/ExtDist/html/Weibull.html" target="_blank">Weibull</a>
+  * <a href="https://search.r-project.org/CRAN/refmans/ExtDist/html/Gamma.html" target="_blank">Gamma</a>
+- Symmetrical distributions with heavy tails
+  * <a href="https://search.r-project.org/CRAN/refmans/VGAM/html/laplaceUC.html" target="_blank">Laplace</a>
+  * <a href="https://search.r-project.org/CRAN/refmans/distributional/html/dist_cauchy.html" target="_blank">Cauchy</a>
 
 ## 5. Discrete Theoretical Distributions
 
@@ -750,7 +982,31 @@ TODO - Insurance example dataset.
 
 TODO
 
+#### Application of Method of Moments (MM)
+
+TODO
+
+#### Checking the Goodness of Fit
+
+TODO
+
+#### Applications of the Fitted Exponenetial Distribution
+
+TODO
+
 ### 5.2. Binomial Distribution
+
+TODO
+
+#### Application of Method of Moments (MM)
+
+TODO
+
+#### Checking the Goodness of Fit
+
+TODO
+
+#### Applications of the Fitted Exponenetial Distribution
 
 TODO
 
@@ -758,7 +1014,31 @@ TODO
 
 TODO
 
+#### Application of Method of Moments (MM)
+
+TODO
+
+#### Checking the Goodness of Fit
+
+TODO
+
+#### Applications of the Fitted Exponenetial Distribution
+
+TODO
+
 ### 5.4. Negative Binomial Distribution
+
+TODO
+
+#### Application of Method of Moments (MM)
+
+TODO
+
+#### Checking the Goodness of Fit
+
+TODO
+
+#### Applications of the Fitted Exponenetial Distribution
 
 TODO
 
@@ -771,22 +1051,3 @@ TODO
 TODO
 
 https://github.com/ferenci-tamas/omsz-kierkezesi-ido-percentilis?tab=readme-ov-file#az-orsz%C3%A1gos-ment%C5%91szolg%C3%A1lat-ki%C3%A9rkez%C3%A9si-statisztik%C3%A1inak-vizsg%C3%A1lata-a-90percentilis-becsl%C3%A9se
-
-
-## ---Old Stuff---
-
-
-## 2. The Exponential Distribution
-
-Now, let’s leave the Tesla stock price changes for a moment and examine another dataset that resides in the <a href="https://github.com/KoLa992/Statistical-Modelling-Lecture-Notes/blob/main/CancerSurvival.xlsx\" target="_blank">CancerSurvival.xlsx</a> file. This dataset contains data for 58 severe head and neck cancer patients, recording *how many months* they survived after chemotherapy. The data is real, from 1988, and the source is <a href="https://www.jstor.org/stable/2288857#metadata_info_tab_contents\" target="_blank">this study</a>.
-
-Let’s load the data into a data frame!
-
-```{r}
-Surv <- read_excel("CancerSurvival.xlsx")
-
-str(Surv)
-```
-
-As we can see, this data frame also only contains two columns. The first column is the patient’s number, and the second column is the survival time in months after chemotherapy (**SurvMonth**).
-
