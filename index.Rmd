@@ -31,9 +31,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 5 - Basic Concepts of Hypothesis Testing
 
-## Chapter 6 - Designing Experiments and Correction For Multiple Comparisons
+## Chapter 6 - Multiple Linear Regression and Confounding
 
-## Chapter 7 - Multiple Linear Regression and Confounding
+## Chapter 7 - Designing Experiments and Correction For Multiple Comparisons
 
 ## Chapter 8 - Generalized Linear Models
 

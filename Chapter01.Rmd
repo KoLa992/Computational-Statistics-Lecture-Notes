@@ -976,39 +976,210 @@ So the list of distributions I recommend to check according to these 4 points ar
 
 ## 5. Discrete Theoretical Distributions
 
-TODO - Insurance example dataset.
+Up until this point we've dealt with statistical variables that could be modeled with continuous theoretical probability distributions. Now, we are switching to variables that can only be modeled with **discrete probability distributions**. The main difference is that a **discrete distribution has a limited value set** (the range of values the variable can take) **compared to a continuous distribution**.<br>
+For example, the normal distribution can take every real number between $\pm \infty$ with a positive probability. Long right tailed distributions like exponential or lognormal can take every real number in the $[0,+\infty)$ range with a positive probability. Compared to these discrete distributions can only take a limited value set. Like a Bernoulli distribution can take only $0$ or $1$. A Binomial distribution can only take integer values between $0$ and $n$, where $n$ is a positive integer parameter of the distribution. A Poisson distribution can take only integers from $0$ to $+\infty$. This is still a limited value set compared to every real number in the $[0,+\infty)$ range as decimals are excluded here.
+
+Due to the fact that discrete distributions have a limited value set on integers, they have **probability mass function**s (PMFs) instead of density functions. This different naming convention aims to reflect that in discrete distributions the exact $P(y_i=x)$ probabilities can be calculated with these PMFs, and these are not just approximated values like the $f(x)$ points of density functions (that need to account for the $x\pm\epsilon$ range to not get $0$ values due to the fact that every real number can "happen" in the distribution). However, in R these PMFs can be accessed for discrete distributions with the `d` prefixed built-in functions as well just like in the continuous cases.
+
+Now, unfortunately in the ESS dataset there are no variables that can be modeled with discrete distributions (if the categories of nominal variables are encoded as binary or dummy variables, then they can be modelled as Bernoulli, but nothing else), so we'll switch to a different dataset, the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/insurance_examples.xlsx" target="_blank">insurance_examples.xlsx</a>.<br>
+On the worksheet titled *CarInsurance_IsClaim*, we can find an insurance company's $500$ insured cars and the fact whether they caused an accident (claim) in the past year (1=yes and 0=no) in the *IsClaim* column.<br>
+On the worksheet titled *CarInsurance_NumberOfClaims*, we can find another insurance company's $400$ insured cars and the number of accidents (claims) they caused in the past year in the *NumClaims* column.<br>
+On the worksheet titled *CarInsurance_Fleet*, we have $150$ insured car fleets and the `NumClaims_Fleet` variable (column) shows the number of cars with accidents reported in a given year for each fleet. We also know here that each insured car fleet has a number of $m$ cars.
+Read all 3 worksheets into two separate data frames using the `sheet` parameter in the `read_excel` function of the `readxl` package.
+
+```{r}
+library(readxl)
+is_claim <- read_excel("insurance_examples.xlsx", sheet = "CarInsurance_IsClaim")
+num_claims <- read_excel("insurance_examples.xlsx", sheet = "CarInsurance_NumberOfClaims")
+carinsurance_fleet <- read_excel("insurance_examples.xlsx", sheet = "CarInsurance_Fleet")
+```
+
+Now, let's examine all three datasets separately and model them with the appropriate discrete distribution!
 
 ### 5.1. Bernoulli Distribution
 
-TODO
+Let's start with the `is_claim` dataframe. The observations here are $n=500$ cars and the `IsClaim` variable contains if these cars have caused any accidents (claims) in the past year (1=yes and 0=no).
+
+```{r}
+str(is_claim)
+```
+
+The `IsClaim` variable is a prefect example of a **Bernoulli distribution** as it can only take two values: $1$ there is a claim and $0$ there is no claim. The only parameter of the Bernoulli distribution that influences how its PMF looks like is $p$, the $P(y_i=1)$ probability. This makes the **Bernoulli PMF** rather simple.
+
+- $P(y_i=1) = p$
+- $P(y_i=0) = 1-p$
+
+So, to fit the distribution to the observed binary variable, we just need to determine $p$. Hence, the **Bernoulli distribution is denoted** as $I(p)$, where the $I$ refers the term "*Indicator*" and $p$ is the parameter.
 
 #### Application of Method of Moments (MM)
 
-TODO
+Since Bernoulli distribution has only one parameter $p$, all the four theoretical moments can be expressed with it. So if we know for a variable $Y$ that $Y \sim I(p)$ then
+
+- $M_1=E(Y)=p$
+- $M_2=D^2(Y)=p(1-p)$
+- $\alpha_3 = M_3/\sigma^3=\left[(1-p)-p\right]/\left[\sqrt{(p(1-p))}\right]$
+- $\alpha_4 = M_4/\sigma^4-3=\left[1-6(1-p)p\right]/\left[(p(1-p))\right]$
+
+This is all nice and fancy, but since we only have one parameter to estimate, we just need $M_1$ to apply the MM principle that says $\hat{M_1}=M_1$ that is $\bar{y}=p$. So $p$ is always the sample mean ($\bar{y}$) of the observed $0$ and $1$ data, which is basically the proportion of $1$s in the sample.
+
+```{r}
+p <- mean(is_claim$IsClaim)
+p
+```
+
+So, we have that $IsClaim \sim I(0.018)$. So the probability that a car causes accidents in a year is $1.8\%$
 
 #### Checking the Goodness of Fit
 
-TODO
+Due to the simplistic nature of the Bernoulli distribution we can't really test the goodness of fit here. Since $p$ is $\bar{y}$, the proportion of $1$s in the observed sample, it follows that $1-p$ is the proportion of $0$s in the sample. So there can be no difference in the empirical and theoretical PMFs in this distribution.
 
-#### Applications of the Fitted Exponenetial Distribution
+#### Applications of the Fitted Bernoulli Distribution
 
-TODO
+R does not have any built in functions for the Bernoulli distribution as there is no need. The PMF is very simple as we have seen before, so there is no need to introduce a separate `d` prefixed function for it. The cumulative distribution function $F(X)$ (the `p` prefix function) does not make much sense as there is no value below $0$ in this distribution, so $P(y_i<0)=0$ and the probability of being below $1$ is just $1-p$. The probability of being below $2$ is $100\%$ by definition as there can be no higher values than $1$ in this distribution.
+
+So, all in all, we only need to look out for the value of $p$ in a Bernoulli distribution as it is this simple due to its very limited value set.
 
 ### 5.2. Binomial Distribution
 
-TODO
+Now, let's examine the car fleet dataset and its `NumClaims_Fleet` variable. In this data the observations are not individual cars, but a fleet of cars that contain $m$ cars. The `NumClaims_Fleet` variable shows how many of the cars in the fleet reported any accidents (caused a claim) in a year. So, the `NumClaims_Fleet` variable can take integer values $0,1,2,...,m$ as the worst possible case is that all $m$ cars in the fleet have caused a claim.
+
+```{r}
+str(carinsurance_fleet)
+```
+
+This is a perfect example of a Binomial distribution! The **Binomial distribution is defined as a sum of $m$ independent $I(p)$ distributions**. This definition is perfect here as we just established in Section 5.1. that the binary information whether a car caused a claim is an $I(p)$ distribution and for a fleet of $m$ cars, we sum a number of $m$ Bernoulli distributions. Hence, we create a $Binomial(m,p)$ or just $B(m,p)$ distribution. So, the exact shape of the **Binomial PMF** is determined by two parameters. The $p$ probability of the Bernoulli distributions that are summed up ($p$) and the number of terms in this sum ($m$). Note that due to its meaning **the $m$ parameter can only take positive integer values**! So, the Binomial PMF looks like the following: $$P(y_i=x)=\binom{m}{x}p^x(1-p)^{m-x}$$
 
 #### Application of Method of Moments (MM)
 
-TODO
+Now let's see how the moments of a $B(m,p)$ distribution are expressed with its two parameters and apply the MM principle to estimate $m,p$ from the observed claim history data.<br>
+Since we have only two parameters to determine, we just need the first two moments of a $Y \sim B(m,p)$ distribution.
+
+- $M_1=E(Y)=mp$
+- $M_2=D(Y)=mp(1-p)$
+
+We can see that these are just the $I(p)$ expected value and variance taken $m$ times due to the sum in the definition of $B(m,p)$ due to assuming that the summed up $I(p)$ distribution are independent. It is a reasonable assumption to some extent: the $m$ cars in the fleet are probably not travelling the same roads with the same driver.
+
+Due to the MM principle, these two theoretical moments must match with the empirical mean ($\bar{y}$) and variance ($s^2$) respectively. So the system of equations to solve for $m,p$ is the following one.
+
+- $\bar{y}=mp$
+- $s^2=mp(1-p)$
+
+To solve this system of two equations, we should first substitute the first equation into the second one: $$s^2=\bar{y} \times (1-p)$$
+
+This, we can solve for $p$: $$p=1-\frac{s^2}{\bar{y}}$$
+
+We can try this formula rather easily in R.
+
+```{r}
+sample_mean <- mean(carinsurance_fleet$NumClaims_Fleet)
+sample_variance <- sd(carinsurance_fleet$NumClaims_Fleet)^2
+
+p <- 1-sample_variance/sample_mean
+p
+```
+
+Great, we have that $p=0.078$ for our data.
+
+With $p$, it's easy to obtain $m$ from the first equation: $$m=\frac{\bar{y}}{p}$$
+
+In R, we just simply follow this formula above as well.
+
+```{r}
+m <- sample_mean/p
+m
+```
+
+As $m$ must be an integer, we should round the result for $m$. if we aim to be cautious (in other words prudent), then we take the highest possible value on the maximum number of the claims, so we round $m$ to $10$.
+
+```{r}
+m <- ceiling(m)
+m
+```
+
+**Be very careful here**!! The $Y \sim B(m,p)$ variable has a property that $E(Y) > D^2(Y)$ as with the theoretical formulas the $mp > mp(1-p)$ inequality will always hold due to the fact that $p \in [0,1]$ due to it being a probability! So, it follows that **observed discrete data can only follow a $B(m,p)$ distribution if its mean is higher than its variance**: $\bar{y} > s^2$. As this is an essential property of a $B(m,p)$ distribution. Otherwise, the MM estimation for $p$ won't fall into the $[0,1]$ range since the $s^2/\bar{y}$ fraction will be smaller than $1$!<br>
+Thankfully, our car fleet insurance claim data fulfills this condition!
+
+```{r}
+sample_variance < sample_mean
+```
 
 #### Checking the Goodness of Fit
 
-TODO
+To see the goodness of fit for the Binomial Distribution, we need to compare the theoretical Binomial $P(y_i=x)$ probabilities with their empirical versions coming from relative frequencies of the observed data (number of favorable cases divided with total number of observations).<br>
+For the relative frequencies we do not need a binned histogram due to the discrete nature of the variable. We have a limited number values the discrete variable can take, so no need to put the data in bins. We can just apply the combination of the `table` and `prop.table` function to get the empirical probabilities through the relative frequencies.
 
-#### Applications of the Fitted Exponenetial Distribution
+```{r}
+empirical_probs <- prop.table(table(carinsurance_fleet$NumClaims_Fleet))
+empirical_probs
+```
 
-TODO
+For later usage, let's store the relative frequencies and the values they belong to a data frame. The result of the `prop.table` function is a named vector where the vector values are the relative frequencies and the variable values they belong to are the names that can be extracted with the `names` function from the named vector. Since they are assumed to be actual names, we need to convert them to `numeric` data type manually.
+
+```{r}
+variable_values <- as.numeric(names(empirical_probs))
+freq_table <- data.frame("variable_values"=variable_values,
+                         "empirical_probs" = as.numeric(empirical_probs))
+freq_table
+```
+
+
+As I mentioned in the start of this chapter, the PMF values of a discrete distribution can be calculated by the distribution's `d` prefixed function in R. For the Binomial distribution it is called `dbinom`. It works just like a density function for continuous distributions: first we need the $x$ value from the $P(y_i=x)$ and then come the two Binomial parameters. So, if I want to know the theoretical probability of $2$ cars reporting claims from a randomly selected fleet in the $B(10,0.078)$ distribution, I can get it the following way.
+
+```{r}
+dbinom(2, size = m, prob = p)
+```
+
+So, $P(y_i=2)=14.37\%$, that is quite close to the empirical relative frequency of $15.3\%$ indicating a good fit for $2$ claims. Now, let's see the theoretical probabilities for the rest of the observed values.
+
+```{r}
+freq_table$theoretical_probs <- dbinom(freq_table$variable_values, size = m, prob = p)
+freq_table
+```
+
+Looks like the empirical and theoretical probabilities are quite close to each other. Maybe $3$ is a bit underrepresented in the observed data, but the difference is just 2 %-points, which is not so large.<br>
+We can simple visualize these empirical and theoretical probabilities on a simple bar plot. The solution employs the `tidyverse` package from <a href="Prelude03.html" target="_blank">Prelude 3</a>.
+
+```{r}
+library(tidyverse)
+freq_table %>% gather("prob_type", "prob_value", -variable_values) %>%
+  ggplot(aes(x=variable_values, y=prob_value, fill = prob_type)) +
+  geom_bar(stat = "identity", position = "dodge")
+```
+
+Our nice little visualization confirms that the empirical and theoretical $B(10,0.078)$ probabilities are rather close to each other.
+
+**Q-Q Plots are NOT applied when testing the fit of discrete variables** since quantiles are not informative or useful when number of unique values in a variable is small. As discussed in <a href="Prelude03.html" target="_blank">Prelude 3</a>.
+
+#### Applications of the Fitted Binomial Distribution
+
+In discrete cases, just like in continuous ones, the main **aim in using a theoretical distribution is to account for data that is not observed in the sample**. We can see that in our observed data the maximum number of cars reporting accidents is $4$. However we now from the $m=10$ Binomial parameter that the theoretical maximum for the number of cars reporting accidents is $10$. So, the question is evident: What is the probability that we find a fleet where the number of cars reporting accidents is more than the observed maximum of $4$. So, $P(y_i>4)=?$<br>
+The blessings of the machine spirit are infinite: we have a `p` prefixed function for discrete distributions as well and can be used to get $P(y_i \leq x)$ probabilities. Note that the $=$ matters here as in discrete distributions the $P(y_i=x)$ probabilities are not negligible! So the `pbinom` function works to get the $P(y_i \leq 4)$ probability. But it can be also obtained as a sum of previous results: $\sum_{x=1}^4{P(y_i=x)}$.
+
+```{r}
+pbinom(4, size = m, prob = p)
+sum(freq_table$theoretical_probs)
+```
+
+With this the $P(y_i>4)$ probability can be answered easily as $1-P(y_i \leq 4)$.
+
+```{r}
+1 - pbinom(4, size = m, prob = p)
+```
+
+So, we have a $0.053\%$ probability that we find a fleet where the number of cars reporting accidents is higher than $4$, which is our observed maximum in the sample. This is quite small, but definitely not $0$, so it would be a mistake to ignore these events.
+
+Although, quantiles are generally not of interest for discrete distributions as discussed when checking the goodness of distribution fit, there is a `qbinom` function available calculating any quantiles of a Binomial distribution we might be interested in.<br>
+For example, we can get the value that is the minimum number of cars reporting accidents (claims) for the riskiest 5% of fleets. So, we are looking for the number where we have a 95% probability that we find a fleet with a lower number of cars reporting claims. 
+
+```{r}
+qbinom(0.95, size = m, prob = p)
+```
+
+The answer is $2$, but this is not such a great surprise, since we've already calculated the $P(y_i=0), P(y_i=1), P(y_i=2)$ probabilities when checking for distribution fit, and we can see that $P(y_i=0)+P(y_i=1)$ is only $81.8\%$, but $P(y_i=0)+P(y_i=1)+P(y_i=2)$ is $96.2\%$, so we reach $95\%$ by including $2$, so $2$ is the 95th percentile. We did not really need the `qbinom` function for that, but we can use it if the logic before doesn't come to mind on the exam. :)
+
+```{r}
+freq_table
+```
 
 ### 5.3. Poisson Distribution
 
@@ -1022,23 +1193,11 @@ TODO
 
 TODO
 
-#### Applications of the Fitted Exponenetial Distribution
+#### Applications of the Fitted Poisson Distribution
 
 TODO
 
 ### 5.4. Negative Binomial Distribution
-
-TODO
-
-#### Application of Method of Moments (MM)
-
-TODO
-
-#### Checking the Goodness of Fit
-
-TODO
-
-#### Applications of the Fitted Exponenetial Distribution
 
 TODO
 

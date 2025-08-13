@@ -11,7 +11,7 @@
 
 <meta name="author" content="László Kovács" />
 
-<meta name="date" content="2025-08-12" />
+<meta name="date" content="2025-08-14" />
 
 <title>Probability Distributions and Method of Moments</title>
 
@@ -2753,7 +2753,7 @@ border-radius: 0px;
 <h1 class="title toc-ignore">Probability Distributions and Method of
 Moments</h1>
 <h4 class="author">László Kovács</h4>
-<h4 class="date">2025-08-12</h4>
+<h4 class="date">2025-08-14</h4>
 
 </div>
 
@@ -4539,37 +4539,361 @@ package is needed for them?</li>
 </div>
 <div id="discrete-theoretical-distributions" class="section level2">
 <h2>5. Discrete Theoretical Distributions</h2>
-<p>TODO - Insurance example dataset.</p>
+<p>Up until this point we’ve dealt with statistical variables that could
+be modeled with continuous theoretical probability distributions. Now,
+we are switching to variables that can only be modeled with
+<strong>discrete probability distributions</strong>. The main difference
+is that a <strong>discrete distribution has a limited value set</strong>
+(the range of values the variable can take) <strong>compared to a
+continuous distribution</strong>.<br> For example, the normal
+distribution can take every real number between <span class="math inline">\(\pm \infty\)</span> with a positive probability.
+Long right tailed distributions like exponential or lognormal can take
+every real number in the <span class="math inline">\([0,+\infty)\)</span> range with a positive
+probability. Compared to these discrete distributions can only take a
+limited value set. Like a Bernoulli distribution can take only <span class="math inline">\(0\)</span> or <span class="math inline">\(1\)</span>. A Binomial distribution can only take
+integer values between <span class="math inline">\(0\)</span> and <span class="math inline">\(n\)</span>, where <span class="math inline">\(n\)</span> is a positive integer parameter of the
+distribution. A Poisson distribution can take only integers from <span class="math inline">\(0\)</span> to <span class="math inline">\(+\infty\)</span>. This is still a limited value
+set compared to every real number in the <span class="math inline">\([0,+\infty)\)</span> range as decimals are
+excluded here.</p>
+<p>Due to the fact that discrete distributions have a limited value set
+on integers, they have <strong>probability mass function</strong>s
+(PMFs) instead of density functions. This different naming convention
+aims to reflect that in discrete distributions the exact <span class="math inline">\(P(y_i=x)\)</span> probabilities can be calculated
+with these PMFs, and these are not just approximated values like the
+<span class="math inline">\(f(x)\)</span> points of density functions
+(that need to account for the <span class="math inline">\(x\pm\epsilon\)</span> range to not get <span class="math inline">\(0\)</span> values due to the fact that every real
+number can “happen” in the distribution). However, in R these PMFs can
+be accessed for discrete distributions with the <code>d</code> prefixed
+built-in functions as well just like in the continuous cases.</p>
+<p>Now, unfortunately in the ESS dataset there are no variables that can
+be modeled with discrete distributions (if the categories of nominal
+variables are encoded as binary or dummy variables, then they can be
+modelled as Bernoulli, but nothing else), so we’ll switch to a different
+dataset, the
+<a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/insurance_examples.xlsx" target="_blank">insurance_examples.xlsx</a>.<br>
+On the worksheet titled <em>CarInsurance_IsClaim</em>, we can find an
+insurance company’s <span class="math inline">\(500\)</span> insured
+cars and the fact whether they caused an accident (claim) in the past
+year (1=yes and 0=no) in the <em>IsClaim</em> column.<br> On the
+worksheet titled <em>CarInsurance_NumberOfClaims</em>, we can find
+another insurance company’s <span class="math inline">\(400\)</span>
+insured cars and the number of accidents (claims) they caused in the
+past year in the <em>NumClaims</em> column.<br> On the worksheet titled
+<em>CarInsurance_Fleet</em>, we have <span class="math inline">\(150\)</span> insured car fleets and the
+<code>NumClaims_Fleet</code> variable (column) shows the number of cars
+with accidents reported in a given year for each fleet. We also know
+here that each insured car fleet has a number of <span class="math inline">\(m\)</span> cars. Read all 3 worksheets into two
+separate data frames using the <code>sheet</code> parameter in the
+<code>read_excel</code> function of the <code>readxl</code> package.</p>
+<pre class="r"><code>library(readxl)
+is_claim &lt;- read_excel(&quot;insurance_examples.xlsx&quot;, sheet = &quot;CarInsurance_IsClaim&quot;)
+num_claims &lt;- read_excel(&quot;insurance_examples.xlsx&quot;, sheet = &quot;CarInsurance_NumberOfClaims&quot;)
+carinsurance_fleet &lt;- read_excel(&quot;insurance_examples.xlsx&quot;, sheet = &quot;CarInsurance_Fleet&quot;)</code></pre>
+<p>Now, let’s examine all three datasets separately and model them with
+the appropriate discrete distribution!</p>
 <div id="bernoulli-distribution" class="section level3">
 <h3>5.1. Bernoulli Distribution</h3>
-<p>TODO</p>
+<p>Let’s start with the <code>is_claim</code> dataframe. The
+observations here are <span class="math inline">\(n=500\)</span> cars
+and the <code>IsClaim</code> variable contains if these cars have caused
+any accidents (claims) in the past year (1=yes and 0=no).</p>
+<pre class="r"><code>str(is_claim)</code></pre>
+<pre><code>## tibble [500 × 2] (S3: tbl_df/tbl/data.frame)
+##  $ InsuredID: num [1:500] 1 2 3 4 5 6 7 8 9 10 ...
+##  $ IsClaim  : num [1:500] 0 0 0 0 0 0 0 0 0 0 ...</code></pre>
+<p>The <code>IsClaim</code> variable is a prefect example of a
+<strong>Bernoulli distribution</strong> as it can only take two values:
+<span class="math inline">\(1\)</span> there is a claim and <span class="math inline">\(0\)</span> there is no claim. The only parameter
+of the Bernoulli distribution that influences how its PMF looks like is
+<span class="math inline">\(p\)</span>, the <span class="math inline">\(P(y_i=1)\)</span> probability. This makes the
+<strong>Bernoulli PMF</strong> rather simple.</p>
+<ul>
+<li><span class="math inline">\(P(y_i=1) = p\)</span></li>
+<li><span class="math inline">\(P(y_i=0) = 1-p\)</span></li>
+</ul>
+<p>So, to fit the distribution to the observed binary variable, we just
+need to determine <span class="math inline">\(p\)</span>. Hence, the
+<strong>Bernoulli distribution is denoted</strong> as <span class="math inline">\(I(p)\)</span>, where the <span class="math inline">\(I\)</span> refers the term “<em>Indicator</em>”
+and <span class="math inline">\(p\)</span> is the parameter.</p>
 <div id="application-of-method-of-moments-mm-2" class="section level4">
 <h4>Application of Method of Moments (MM)</h4>
-<p>TODO</p>
+<p>Since Bernoulli distribution has only one parameter <span class="math inline">\(p\)</span>, all the four theoretical moments can
+be expressed with it. So if we know for a variable <span class="math inline">\(Y\)</span> that <span class="math inline">\(Y \sim
+I(p)\)</span> then</p>
+<ul>
+<li><span class="math inline">\(M_1=E(Y)=p\)</span></li>
+<li><span class="math inline">\(M_2=D^2(Y)=p(1-p)\)</span></li>
+<li><span class="math inline">\(\alpha_3 =
+M_3/\sigma^3=\left[(1-p)-p\right]/\left[\sqrt{(p(1-p))}\right]\)</span></li>
+<li><span class="math inline">\(\alpha_4 =
+M_4/\sigma^4-3=\left[1-6(1-p)p\right]/\left[(p(1-p))\right]\)</span></li>
+</ul>
+<p>This is all nice and fancy, but since we only have one parameter to
+estimate, we just need <span class="math inline">\(M_1\)</span> to apply
+the MM principle that says <span class="math inline">\(\hat{M_1}=M_1\)</span> that is <span class="math inline">\(\bar{y}=p\)</span>. So <span class="math inline">\(p\)</span> is always the sample mean (<span class="math inline">\(\bar{y}\)</span>) of the observed <span class="math inline">\(0\)</span> and <span class="math inline">\(1\)</span> data, which is basically the proportion
+of <span class="math inline">\(1\)</span>s in the sample.</p>
+<pre class="r"><code>p &lt;- mean(is_claim$IsClaim)
+p</code></pre>
+<pre><code>## [1] 0.018</code></pre>
+<p>So, we have that <span class="math inline">\(IsClaim \sim
+I(0.018)\)</span>. So the probability that a car causes accidents in a
+year is <span class="math inline">\(1.8\%\)</span></p>
 </div>
 <div id="checking-the-goodness-of-fit-2" class="section level4">
 <h4>Checking the Goodness of Fit</h4>
-<p>TODO</p>
+<p>Due to the simplistic nature of the Bernoulli distribution we can’t
+really test the goodness of fit here. Since <span class="math inline">\(p\)</span> is <span class="math inline">\(\bar{y}\)</span>, the proportion of <span class="math inline">\(1\)</span>s in the observed sample, it follows
+that <span class="math inline">\(1-p\)</span> is the proportion of <span class="math inline">\(0\)</span>s in the sample. So there can be no
+difference in the empirical and theoretical PMFs in this
+distribution.</p>
 </div>
-<div id="applications-of-the-fitted-exponenetial-distribution-2" class="section level4">
-<h4>Applications of the Fitted Exponenetial Distribution</h4>
-<p>TODO</p>
+<div id="applications-of-the-fitted-bernoulli-distribution" class="section level4">
+<h4>Applications of the Fitted Bernoulli Distribution</h4>
+<p>R does not have any built in functions for the Bernoulli distribution
+as there is no need. The PMF is very simple as we have seen before, so
+there is no need to introduce a separate <code>d</code> prefixed
+function for it. The cumulative distribution function <span class="math inline">\(F(X)\)</span> (the <code>p</code> prefix function)
+does not make much sense as there is no value below <span class="math inline">\(0\)</span> in this distribution, so <span class="math inline">\(P(y_i&lt;0)=0\)</span> and the probability of
+being below <span class="math inline">\(1\)</span> is just <span class="math inline">\(1-p\)</span>. The probability of being below <span class="math inline">\(2\)</span> is <span class="math inline">\(100\%\)</span> by definition as there can be no
+higher values than <span class="math inline">\(1\)</span> in this
+distribution.</p>
+<p>So, all in all, we only need to look out for the value of <span class="math inline">\(p\)</span> in a Bernoulli distribution as it is
+this simple due to its very limited value set.</p>
 </div>
 </div>
 <div id="binomial-distribution" class="section level3">
 <h3>5.2. Binomial Distribution</h3>
-<p>TODO</p>
+<p>Now, let’s examine the car fleet dataset and its
+<code>NumClaims_Fleet</code> variable. In this data the observations are
+not individual cars, but a fleet of cars that contain <span class="math inline">\(m\)</span> cars. The <code>NumClaims_Fleet</code>
+variable shows how many of the cars in the fleet reported any accidents
+(caused a claim) in a year. So, the <code>NumClaims_Fleet</code>
+variable can take integer values <span class="math inline">\(0,1,2,...,m\)</span> as the worst possible case is
+that all <span class="math inline">\(m\)</span> cars in the fleet have
+caused a claim.</p>
+<pre class="r"><code>str(carinsurance_fleet)</code></pre>
+<pre><code>## tibble [150 × 2] (S3: tbl_df/tbl/data.frame)
+##  $ InsuredID      : num [1:150] 1 2 3 4 5 6 7 8 9 10 ...
+##  $ NumClaims_Fleet: num [1:150] 1 0 1 0 0 0 1 0 2 0 ...</code></pre>
+<p>This is a perfect example of a Binomial distribution! The
+<strong>Binomial distribution is defined as a sum of <span class="math inline">\(m\)</span> independent <span class="math inline">\(I(p)\)</span> distributions</strong>. This
+definition is perfect here as we just established in Section 5.1. that
+the binary information whether a car caused a claim is an <span class="math inline">\(I(p)\)</span> distribution and for a fleet of
+<span class="math inline">\(m\)</span> cars, we sum a number of <span class="math inline">\(m\)</span> Bernoulli distributions. Hence, we
+create a <span class="math inline">\(Binomial(m,p)\)</span> or just
+<span class="math inline">\(B(m,p)\)</span> distribution. So, the exact
+shape of the <strong>Binomial PMF</strong> is determined by two
+parameters. The <span class="math inline">\(p\)</span> probability of
+the Bernoulli distributions that are summed up (<span class="math inline">\(p\)</span>) and the number of terms in this sum
+(<span class="math inline">\(m\)</span>). Note that due to its meaning
+<strong>the <span class="math inline">\(m\)</span> parameter can only
+take positive integer values</strong>! So, the Binomial PMF looks like
+the following: <span class="math display">\[P(y_i=x)=\binom{m}{x}p^x(1-p)^{m-x}\]</span></p>
 <div id="application-of-method-of-moments-mm-3" class="section level4">
 <h4>Application of Method of Moments (MM)</h4>
-<p>TODO</p>
+<p>Now let’s see how the moments of a <span class="math inline">\(B(m,p)\)</span> distribution are expressed with
+its two parameters and apply the MM principle to estimate <span class="math inline">\(m,p\)</span> from the observed claim history
+data.<br> Since we have only two parameters to determine, we just need
+the first two moments of a <span class="math inline">\(Y \sim
+B(m,p)\)</span> distribution.</p>
+<ul>
+<li><span class="math inline">\(M_1=E(Y)=mp\)</span></li>
+<li><span class="math inline">\(M_2=D(Y)=mp(1-p)\)</span></li>
+</ul>
+<p>We can see that these are just the <span class="math inline">\(I(p)\)</span> expected value and variance taken
+<span class="math inline">\(m\)</span> times due to the sum in the
+definition of <span class="math inline">\(B(m,p)\)</span> due to
+assuming that the summed up <span class="math inline">\(I(p)\)</span>
+distribution are independent. It is a reasonable assumption to some
+extent: the <span class="math inline">\(m\)</span> cars in the fleet are
+probably not travelling the same roads with the same driver.</p>
+<p>Due to the MM principle, these two theoretical moments must match
+with the empirical mean (<span class="math inline">\(\bar{y}\)</span>)
+and variance (<span class="math inline">\(s^2\)</span>) respectively. So
+the system of equations to solve for <span class="math inline">\(m,p\)</span> is the following one.</p>
+<ul>
+<li><span class="math inline">\(\bar{y}=mp\)</span></li>
+<li><span class="math inline">\(s^2=mp(1-p)\)</span></li>
+</ul>
+<p>To solve this system of two equations, we should first substitute the
+first equation into the second one: <span class="math display">\[s^2=\bar{y} \times (1-p)\]</span></p>
+<p>This, we can solve for <span class="math inline">\(p\)</span>: <span class="math display">\[p=1-\frac{s^2}{\bar{y}}\]</span></p>
+<p>We can try this formula rather easily in R.</p>
+<pre class="r"><code>sample_mean &lt;- mean(carinsurance_fleet$NumClaims_Fleet)
+sample_variance &lt;- sd(carinsurance_fleet$NumClaims_Fleet)^2
+
+p &lt;- 1-sample_variance/sample_mean
+p</code></pre>
+<pre><code>## [1] 0.0783203</code></pre>
+<p>Great, we have that <span class="math inline">\(p=0.078\)</span> for
+our data.</p>
+<p>With <span class="math inline">\(p\)</span>, it’s easy to obtain
+<span class="math inline">\(m\)</span> from the first equation: <span class="math display">\[m=\frac{\bar{y}}{p}\]</span></p>
+<p>In R, we just simply follow this formula above as well.</p>
+<pre class="r"><code>m &lt;- sample_mean/p
+m</code></pre>
+<pre><code>## [1] 9.278139</code></pre>
+<p>As <span class="math inline">\(m\)</span> must be an integer, we
+should round the result for <span class="math inline">\(m\)</span>. if
+we aim to be cautious (in other words prudent), then we take the highest
+possible value on the maximum number of the claims, so we round <span class="math inline">\(m\)</span> to <span class="math inline">\(10\)</span>.</p>
+<pre class="r"><code>m &lt;- ceiling(m)
+m</code></pre>
+<pre><code>## [1] 10</code></pre>
+<p><strong>Be very careful here</strong>!! The <span class="math inline">\(Y \sim B(m,p)\)</span> variable has a property
+that <span class="math inline">\(E(Y) &gt; D^2(Y)\)</span> as with the
+theoretical formulas the <span class="math inline">\(mp &gt;
+mp(1-p)\)</span> inequality will always hold due to the fact that <span class="math inline">\(p \in [0,1]\)</span> due to it being a
+probability! So, it follows that <strong>observed discrete data can only
+follow a <span class="math inline">\(B(m,p)\)</span> distribution if its
+mean is higher than its variance</strong>: <span class="math inline">\(\bar{y} &gt; s^2\)</span>. As this is an essential
+property of a <span class="math inline">\(B(m,p)\)</span> distribution.
+Otherwise, the MM estimation for <span class="math inline">\(p\)</span>
+won’t fall into the <span class="math inline">\([0,1]\)</span> range
+since the <span class="math inline">\(s^2/\bar{y}\)</span> fraction will
+be smaller than <span class="math inline">\(1\)</span>!<br> Thankfully,
+our car fleet insurance claim data fulfills this condition!</p>
+<pre class="r"><code>sample_variance &lt; sample_mean</code></pre>
+<pre><code>## [1] TRUE</code></pre>
 </div>
 <div id="checking-the-goodness-of-fit-3" class="section level4">
 <h4>Checking the Goodness of Fit</h4>
-<p>TODO</p>
+<p>To see the goodness of fit for the Binomial Distribution, we need to
+compare the theoretical Binomial <span class="math inline">\(P(y_i=x)\)</span> probabilities with their
+empirical versions coming from relative frequencies of the observed data
+(number of favorable cases divided with total number of
+observations).<br> For the relative frequencies we do not need a binned
+histogram due to the discrete nature of the variable. We have a limited
+number values the discrete variable can take, so no need to put the data
+in bins. We can just apply the combination of the <code>table</code> and
+<code>prop.table</code> function to get the empirical probabilities
+through the relative frequencies.</p>
+<pre class="r"><code>empirical_probs &lt;- prop.table(table(carinsurance_fleet$NumClaims_Fleet))
+empirical_probs</code></pre>
+<pre><code>## 
+##           0           1           2           3           4 
+## 0.473333333 0.353333333 0.153333333 0.013333333 0.006666667</code></pre>
+<p>For later usage, let’s store the relative frequencies and the values
+they belong to a data frame. The result of the <code>prop.table</code>
+function is a named vector where the vector values are the relative
+frequencies and the variable values they belong to are the names that
+can be extracted with the <code>names</code> function from the named
+vector. Since they are assumed to be actual names, we need to convert
+them to <code>numeric</code> data type manually.</p>
+<pre class="r"><code>variable_values &lt;- as.numeric(names(empirical_probs))
+freq_table &lt;- data.frame(&quot;variable_values&quot;=variable_values,
+                         &quot;empirical_probs&quot; = as.numeric(empirical_probs))
+freq_table</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["variable_values"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["empirical_probs"],"name":[2],"type":["dbl"],"align":["right"]}],"data":[{"1":"0","2":"0.473333333"},{"1":"1","2":"0.353333333"},{"1":"2","2":"0.153333333"},{"1":"3","2":"0.013333333"},{"1":"4","2":"0.006666667"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
 </div>
-<div id="applications-of-the-fitted-exponenetial-distribution-3" class="section level4">
-<h4>Applications of the Fitted Exponenetial Distribution</h4>
-<p>TODO</p>
+<p>As I mentioned in the start of this chapter, the PMF values of a
+discrete distribution can be calculated by the distribution’s
+<code>d</code> prefixed function in R. For the Binomial distribution it
+is called <code>dbinom</code>. It works just like a density function for
+continuous distributions: first we need the <span class="math inline">\(x\)</span> value from the <span class="math inline">\(P(y_i=x)\)</span> and then come the two Binomial
+parameters. So, if I want to know the theoretical probability of <span class="math inline">\(2\)</span> cars reporting claims from a randomly
+selected fleet in the <span class="math inline">\(B(10,0.078)\)</span>
+distribution, I can get it the following way.</p>
+<pre class="r"><code>dbinom(2, size = m, prob = p)</code></pre>
+<pre><code>## [1] 0.1437479</code></pre>
+<p>So, <span class="math inline">\(P(y_i=2)=14.37\%\)</span>, that is
+quite close to the empirical relative frequency of <span class="math inline">\(15.3\%\)</span> indicating a good fit for <span class="math inline">\(2\)</span> claims. Now, let’s see the theoretical
+probabilities for the rest of the observed values.</p>
+<pre class="r"><code>freq_table$theoretical_probs &lt;- dbinom(freq_table$variable_values, size = m, prob = p)
+freq_table</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["variable_values"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["empirical_probs"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["theoretical_probs"],"name":[3],"type":["dbl"],"align":["right"]}],"data":[{"1":"0","2":"0.473333333","3":"0.442384824"},{"1":"1","2":"0.353333333","3":"0.375919231"},{"1":"2","2":"0.153333333","3":"0.143747857"},{"1":"3","2":"0.013333333","3":"0.032573501"},{"1":"4","2":"0.006666667","3":"0.004843918"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<p>Looks like the empirical and theoretical probabilities are quite
+close to each other. Maybe <span class="math inline">\(3\)</span> is a
+bit underrepresented in the observed data, but the difference is just 2
+%-points, which is not so large.<br> We can simple visualize these
+empirical and theoretical probabilities on a simple bar plot. The
+solution employs the <code>tidyverse</code> package from
+<a href="Prelude03.html" target="_blank">Prelude 3</a>.</p>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## Warning: a(z) &#39;tidyverse&#39; csomag az R 4.4.3 verziójával lett fordítva</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.1.4     ✔ readr     2.1.5
+## ✔ forcats   1.0.0     ✔ stringr   1.5.1
+## ✔ lubridate 1.9.4     ✔ tibble    3.2.1
+## ✔ purrr     1.0.2     ✔ tidyr     1.3.1
+## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ psych::%+%()    masks ggplot2::%+%()
+## ✖ psych::alpha()  masks ggplot2::alpha()
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>freq_table %&gt;% gather(&quot;prob_type&quot;, &quot;prob_value&quot;, -variable_values) %&gt;%
+  ggplot(aes(x=variable_values, y=prob_value, fill = prob_type)) +
+  geom_bar(stat = &quot;identity&quot;, position = &quot;dodge&quot;)</code></pre>
+<p><img role="img" src="data:image/png;base64,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YCmJ1VaBsmgR6OHDjxeqfD/OOUOgd+cKdEptFWiRimqrQFm0XM4uQ/2BHdZICrRuaJpgKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKApIynQiEUpidVWgbJQoCkjKdCIRSmJ1VaBslCgKSMp0IhFKYnVVoGyUKAp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" width="672" /></p>
+<p>Our nice little visualization confirms that the empirical and
+theoretical <span class="math inline">\(B(10,0.078)\)</span>
+probabilities are rather close to each other.</p>
+<p><strong>Q-Q Plots are NOT applied when testing the fit of discrete
+variables</strong> since quantiles are not informative or useful when
+number of unique values in a variable is small. As discussed in
+<a href="Prelude03.html" target="_blank">Prelude 3</a>.</p>
+</div>
+<div id="applications-of-the-fitted-binomial-distribution" class="section level4">
+<h4>Applications of the Fitted Binomial Distribution</h4>
+<p>In discrete cases, just like in continuous ones, the main <strong>aim
+in using a theoretical distribution is to account for data that is not
+observed in the sample</strong>. We can see that in our observed data
+the maximum number of cars reporting accidents is <span class="math inline">\(4\)</span>. However we now from the <span class="math inline">\(m=10\)</span> Binomial parameter that the
+theoretical maximum for the number of cars reporting accidents is <span class="math inline">\(10\)</span>. So, the question is evident: What is
+the probability that we find a fleet where the number of cars reporting
+accidents is more than the observed maximum of <span class="math inline">\(4\)</span>. So, <span class="math inline">\(P(y_i&gt;4)=?\)</span><br> The blessings of the
+machine spirit are infinite: we have a <code>p</code> prefixed function
+for discrete distributions as well and can be used to get <span class="math inline">\(P(y_i \leq x)\)</span> probabilities. Note that
+the <span class="math inline">\(=\)</span> matters here as in discrete
+distributions the <span class="math inline">\(P(y_i=x)\)</span>
+probabilities are not negligible! So the <code>pbinom</code> function
+works to get the <span class="math inline">\(P(y_i \leq 4)\)</span>
+probability. But it can be also obtained as a sum of previous results:
+<span class="math inline">\(\sum_{x=1}^4{P(y_i=x)}\)</span>.</p>
+<pre class="r"><code>pbinom(4, size = m, prob = p)</code></pre>
+<pre><code>## [1] 0.9994693</code></pre>
+<pre class="r"><code>sum(freq_table$theoretical_probs)</code></pre>
+<pre><code>## [1] 0.9994693</code></pre>
+<p>With this the <span class="math inline">\(P(y_i&gt;4)\)</span>
+probability can be answered easily as <span class="math inline">\(1-P(y_i \leq 4)\)</span>.</p>
+<pre class="r"><code>1 - pbinom(4, size = m, prob = p)</code></pre>
+<pre><code>## [1] 0.0005306687</code></pre>
+<p>So, we have a <span class="math inline">\(0.053\%\)</span>
+probability that we find a fleet where the number of cars reporting
+accidents is higher than <span class="math inline">\(4\)</span>, which
+is our observed maximum in the sample. This is quite small, but
+definitely not <span class="math inline">\(0\)</span>, so it would be a
+mistake to ignore these events.</p>
+<p>Although, quantiles are generally not of interest for discrete
+distributions as discussed when checking the goodness of distribution
+fit, there is a <code>qbinom</code> function available calculating any
+quantiles of a Binomial distribution we might be interested in.<br> For
+example, we can get the value that is the minimum number of cars
+reporting accidents (claims) for the riskiest 5% of fleets. So, we are
+looking for the number where we have a 95% probability that we find a
+fleet with a lower number of cars reporting claims.</p>
+<pre class="r"><code>qbinom(0.95, size = m, prob = p)</code></pre>
+<pre><code>## [1] 2</code></pre>
+<p>The answer is <span class="math inline">\(2\)</span>, but this is not
+such a great surprise, since we’ve already calculated the <span class="math inline">\(P(y_i=0), P(y_i=1), P(y_i=2)\)</span>
+probabilities when checking for distribution fit, and we can see that
+<span class="math inline">\(P(y_i=0)+P(y_i=1)\)</span> is only <span class="math inline">\(81.8\%\)</span>, but <span class="math inline">\(P(y_i=0)+P(y_i=1)+P(y_i=2)\)</span> is <span class="math inline">\(96.2\%\)</span>, so we reach <span class="math inline">\(95\%\)</span> by including <span class="math inline">\(2\)</span>, so <span class="math inline">\(2\)</span> is the 95th percentile. We did not
+really need the <code>qbinom</code> function for that, but we can use it
+if the logic before doesn’t come to mind on the exam. :)</p>
+<pre class="r"><code>freq_table</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["variable_values"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["empirical_probs"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["theoretical_probs"],"name":[3],"type":["dbl"],"align":["right"]}],"data":[{"1":"0","2":"0.473333333","3":"0.442384824"},{"1":"1","2":"0.353333333","3":"0.375919231"},{"1":"2","2":"0.153333333","3":"0.143747857"},{"1":"3","2":"0.013333333","3":"0.032573501"},{"1":"4","2":"0.006666667","3":"0.004843918"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
 </div>
 </div>
 <div id="poisson-distribution" class="section level3">
@@ -4583,26 +4907,14 @@ package is needed for them?</li>
 <h4>Checking the Goodness of Fit</h4>
 <p>TODO</p>
 </div>
-<div id="applications-of-the-fitted-exponenetial-distribution-4" class="section level4">
-<h4>Applications of the Fitted Exponenetial Distribution</h4>
+<div id="applications-of-the-fitted-poisson-distribution" class="section level4">
+<h4>Applications of the Fitted Poisson Distribution</h4>
 <p>TODO</p>
 </div>
 </div>
 <div id="negative-binomial-distribution" class="section level3">
 <h3>5.4. Negative Binomial Distribution</h3>
 <p>TODO</p>
-<div id="application-of-method-of-moments-mm-5" class="section level4">
-<h4>Application of Method of Moments (MM)</h4>
-<p>TODO</p>
-</div>
-<div id="checking-the-goodness-of-fit-5" class="section level4">
-<h4>Checking the Goodness of Fit</h4>
-<p>TODO</p>
-</div>
-<div id="applications-of-the-fitted-exponenetial-distribution-5" class="section level4">
-<h4>Applications of the Fitted Exponenetial Distribution</h4>
-<p>TODO</p>
-</div>
 </div>
 </div>
 <div id="the-glivenkocantelli-theorem" class="section level2">
