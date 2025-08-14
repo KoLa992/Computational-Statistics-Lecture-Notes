@@ -1351,11 +1351,7 @@ This high variance also means that the value that is the minimum number of accid
 qnbinom(0.95, size = r, prob = p)
 ```
 
-The result of $5$ is way higher than the $2$s we've seen before as expected from the higher variance of the Negative Binomial distribution. So the insurance company needs to prepare for a minimum of 5 claims for the riskiest 5% in this model compared to the 2 claims of the simpler Poisson model. So the multiple groups of drivers hidden in this variable complicate the homogenous Poisson case. :)
-
-## 7. The Glivenko–Cantelli Theorem
-
-TODO
+The result of $5$ is way higher than the $2$s we've seen before as expected from the higher variance of the Negative Binomial distribution. So the insurance company needs to prepare for a minimum of 5 claims for the riskiest 5% in this model compared to the 2 claims of the simpler Poisson model. So the multiple groups of drivers hidden in this variable complicate the homogeneous Poisson case. :)
 
 ## 6. Case Study - Ambulance Arrival Times
 
