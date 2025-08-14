@@ -1183,23 +1183,175 @@ freq_table
 
 ### 5.3. Poisson Distribution
 
-TODO
+The `num_claims` dataframe again contains observations of individual cars, $n=500$ of them, but the `NumClaims` variable contains the number of accidents (or claims) they reported in a year. This means that this variable can take integers from $0$ to $+\infty$, as in theory there is no hard maximum on the number of accidents a car can have in a year. So there is no finite value on the Binomial distribution's $m$ parameter. This scenario is the case of the **Poisson distribution** that is the sum of $\infty$ $I(p)$ distributions or in other words it is the limiting distribution of the $B(m,p)$ if $m \rightarrow \infty$.
+
+```{r}
+str(num_claims)
+```
+
+The Poisson distribution has only one parameter denoted as $\lambda$ that determines the exact shape of its PMF. Hence, the Poisson distributoon is denoted as $P(\lambda)$ and if $Y \sim P(\lambda)$, then its PMF looks like the following. $$P(y_i=x)=\frac{\lambda^xe^{-\lambda}}{x!}$$
 
 #### Application of Method of Moments (MM)
 
-TODO
+The first two moments of the Poisson distribution are rather simple since bots its expected value and variance are equal to $\lambda$. So, if $Y \sim P(\lambda)$, then we have that $$M_1=M_2=E(Y)=D^2(Y)=\lambda$$
+
+So, the MM principle uses only $M_1$ for fitting the distribution since it has only 1 parameter, just like in the Exponential case in Section 4.1. So we have from $\hat{M_1}=M_1$ that the empirical mean of the sample is our $\lambda$ parameter as well. $$\bar{y}=\lambda$$
+
+```{r}
+lambda <- mean(num_claims$NumClaims)
+lambda
+```
+
+So, the number of claims a year follows a $P(0.71)$ distribution.
+
+It is important to note that due to its theoretical properties, the Poisson distribution is only a realistic fit for a discrete variable if its empirical mean and variance are close to each other. Let's check this for our data before we go on.
+
+```{r}
+c(mean(num_claims$NumClaims), sd(num_claims$NumClaims)^2)
+```
+
+Since $0.71 \approx 0.68$, we can accept that in the case of unobserved data, the theoretical property of the Poisson distribution ($E(Y)=D^2(Y)$) holds.
 
 #### Checking the Goodness of Fit
 
-TODO
+Checking the goodness of fit for our $P(0.71)$ distribution can be done the same way as for the Binomial distribution. We compare theoretical $P(y_i=x)$ probabilities and relative frequencies for every observed value of the variable in our sample.
+
+First we can get the relative frequencies (empirical probabilities) the same way we did in Section 5.2.
+
+```{r}
+empirical_probs <- prop.table(table(num_claims$NumClaims))
+variable_values <- as.numeric(names(empirical_probs))
+freq_table <- data.frame("variable_values"=variable_values,
+                         "empirical_probs" = as.numeric(empirical_probs))
+freq_table
+```
+
+Of course, the Poisson distribution has the same `d`, `p` and `q` prefixed functions the Binomial has, and the work the same way, we just need to input 1 distribution parameter, $\lambda$ instead of the Binomial's two parameters.<br>
+So, the theoretical $P(y_i=x)$ probabilities are easily obtained with the `dpois` function.
+
+```{r}
+freq_table$theoretical_probs <- dpois(freq_table$variable_values, lambda = lambda)
+freq_table
+```
+
+Looks like the empirical and theoretical probabilities are quite close to each other. I'd say, there is no under or over represented value here compared to the theoretical probabilities.<br>
+We can simple visualize these empirical and theoretical probabilities on a simple bar plot completely the same way as in Section 5.2.
+
+```{r}
+freq_table %>% gather("prob_type", "prob_value", -variable_values) %>%
+  ggplot(aes(x=variable_values, y=prob_value, fill = prob_type)) +
+  geom_bar(stat = "identity", position = "dodge")
+```
+
+Our nice little visualization confirms that the empirical and theoretical $P(0.71)$ probabilities are rather close to each other.
 
 #### Applications of the Fitted Poisson Distribution
 
-TODO
+Now that the goodness of fit of the Poisson distribution is confirmed, we can calculate what is the probability of more claims occurring on a random car than the observed maximum of $4$ in the sample. Of course, we need the `ppois` function for this!
+
+```{r}
+1 - ppois(4, lambda = lambda)
+```
+
+The result is $0.084\%$. This is a bit higher than what we had in the Binomial case ($0.05\%$), but this is no surprise as we have no theoretical maximum value in the Poisson distribution. Even $\infty$ can happen with a positive probability, just a very-very low one.
+
+Out of curiosity, we can obtain the value that is the minimum number of accidents (claims) for the riskiest 5% of cars. So, we are looking for the number where we have a 95% probability that we find a car with a lower number of claims. As expected, the `qpois` function works here.
+
+```{r}
+qpois(0.95, lambda = lambda)
+```
+
+The answer is $2$, which is again not surprise looking at the sums of the theoretical $P(y_i=x)$ probabilities in the `freq_table`. So, looks like the theoretical maximum value of the Binomial distribution does not cause the 95th percentile to change compared to the Poisson distribution. This is again no surprise since we discussed in Sections 5.2. and 5.1. quantiles are not informative for discrete distributions due to their low value sets.
 
 ### 5.4. Negative Binomial Distribution
 
-TODO
+So far we can say for discrete variables that are not binary (i.e. not Bernoulli) that if the empirical variance ($s^2$) is lower than the mean ($\bar{y}$) in the observed data, then we should try to fit a $B(m,p)$ distribution, and if these two measures are roughly the same, then try to fit a $P(\lambda)$ distribution.<br>
+But what about the case when in our observed sample we have a $s^2>\bar{y}$ situation? This is when the **Negative Binomial distribution** comes into play.
+
+The Negative Binomial distribution arises as a **mixture of Poisson distributions with different $\lambda$ parameters**. So if we are examining a discrete variable with let's say 3 groups that have Poisson distributions with different $\lambda_1, \lambda_2, \lambda_3$ parameters, then when examining this variable for all 3 groups included together, the overall distribution of the variable is Negative Binomial.
+
+A practical example for this is on the *CarInsurance_NumberOfClaims_v2* sheet of the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/insurance_examples.xlsx" target="_blank">insurance_examples.xlsx</a> file. Here we again have $n=400$ observation of insured cars and the `NumClaims` variable contains the number of accidents (or claims) reported in a year. However, in this case let's say we have young drivers who are quite risky, so their claim number is Poisson with a quite high $\lambda_1$ average claim number (Remember that if $Y \sim P(\lambda_1)$, then $E(Y)=\lambda_1$). Then we have middle-aged drivers with experience, so their claim number also follows a Poisson distribution, but with the lowest $\lambda_2$ average claim number. For elderly drivers the claim number still has a Poisson distribution but with a $\lambda_3$ average claim number that is in between $\lambda_1$ and $\lambda_2$ as elderly drivers are riskier for their slower reflexes but it is compensated with their experience. So, if we have these 3 driver groups and we are examining all 3 combined in a variable containing theor number of claims without knowing who belongs to which group, then this combined variable follows a Negative Binomial distribution. To confirm this, let's read the *CarInsurance_NumberOfClaims_v2* sheet to an R data frame and examine the emprirical mean and variance of the `NumClaims` variable.
+
+```{r}
+num_claims <- read_excel("insurance_examples.xlsx", sheet = "CarInsurance_NumberOfClaims_v2")
+str(num_claims)
+
+sd(num_claims$NumClaims)^2 > mean(num_claims$NumClaims)
+```
+
+Great, as expected, we have that $s^2>\bar{y}$, so we can go ahead with fitting a Negative Binomial distribution. :)
+
+The Negative Binomial distribution has two parameters defining the exact behavior of its PMF: $r,p$. In R, they are called similarly as the parameters of the classic Binomial distribution. So, $r$ is called `size` and $p$ is called `prob`. However, for the Negative Binomial $r$ can be any positive real number, it is NOT restricted to positive integers! So, if if $Y \sim NB(r,p)$, then the PMF is as follows. $$P(y_i=x)=\frac{\Gamma(x+r)}{\Gamma(r)x!}p^n(1-p)^x$$
+
+In the formula $\Gamma()$ is the <a href="https://en.wikipedia.org/wiki/Gamma_function" target="_blank">gamma function</a>
+
+#### Application of Method of Moments (MM)
+
+To get the $r,p$ parameters from the observed data with the MM principle, we need the first two moments as we have two parameters to determine. For a $Y \sim NB(r,p)$ variable, the first two theoretical moments, expressed with the help of the $r,p$ parameters, are the following.
+
+- $M_1 = E(Y) = \frac{r(1-p)}{p}$
+- $M_2 = D^2(Y) = \frac{r(1-p)}{p^2}$
+
+So, applying the MM principle of $\hat{M_1}=\bar{y}=M_1$ and $\hat{M_2}=s^2=M_2$ gives us the following system of equations to solve for $r,p$.
+
+- $\bar{y} = \frac{r(1-p)}{p}$
+- $s^2 = \frac{r(1-p)}{p^2}$
+
+From the 1st equation we can express that $\bar{y}p=r(1-p)$ and from the 2nd one we have that $s^2p^2=r(1-p)$. This also means that $\bar{y}p=s^2p^2$. And this way we have that $$p=\frac{\bar{y}}{s^2}$$
+
+And once we have a result for $p$ we can have $r$ from the 1st equation: $$r=\frac{\bar{y}p}{1-p}$$
+
+In R it is quite easy to substitute to these obtained formulas for $r,p$.
+
+```{r}
+sample_mean <- mean(num_claims$NumClaims)
+sample_variance <- sd(num_claims$NumClaims)^2
+
+p <- sample_mean/sample_variance
+r <- sample_mean*p/(1-p)
+
+c(r, p)
+```
+
+So we have that the number of claims in this case follow a $NB(1.73, 0.52)$ distribution.
+
+#### Checking the Goodness of Fit
+
+Since the Negative Binomial distribution has the usual prefixed functions in R: `dnbinom`, `pnbinom` and `qnbinom`, we can check the goodness of fit by comparing the empirical relative frequencies with the theoretical $P(y_i=x)$ probabilities of the $NB(1.73, 0.52)$ distribution.
+
+The technical solutions for this are completely the same as in Sections 5.2. and 5.3, so all the relevant code is in one unified chunk here. The only difference compared to the previous sections is in line 5, where the `dnbinom` is applied for the theoretical probabilities.
+
+```{r}
+empirical_probs <- prop.table(table(num_claims$NumClaims))
+variable_values <- as.numeric(names(empirical_probs))
+freq_table <- data.frame("variable_values"=variable_values,
+                         "empirical_probs" = as.numeric(empirical_probs))
+freq_table$theoretical_probs <- dnbinom(freq_table$variable_values, size = r, prob = p)
+
+freq_table %>% gather("prob_type", "prob_value", -variable_values) %>%
+  ggplot(aes(x=variable_values, y=prob_value, fill = prob_type)) +
+  geom_bar(stat = "identity", position = "dodge")
+```
+
+Our nice little visualization confirms that the empirical and theoretical $NB(1.73, 0.52)$ probabilities are rather close to each other.
+
+#### Applications of the Fitted Negative Binomial Distribution
+
+Now that the goodness of fit of the Poisson distribution is confirmed, we can calculate what is the probability of more claims occurring on a random car than the observed maximum of $9$ in the sample. Of course, we need the `pnbinom` function for this!
+
+```{r}
+1 - pnbinom(9, size = r, prob = p)
+```
+
+The result is $P(y_i>9) = 0.27\%$. This is quite a high value. Like for our $P(0.71)$ distribution $P(y_i>4)$ was just $0.084\%$. This is coming from the Negative Binomial distribution has the highest variance out of the discrete distributions examined so far. This high variance makes extremely high values to occur with a greater probability.
+
+This high variance also means that the value that is the minimum number of accidents (claims) for the riskiest 5% of cars also increases. So, we are looking for the number where we have a 95% probability that we find a car with a lower number of claims. As expected, the `qnbinom` function works here.
+
+```{r}
+qnbinom(0.95, size = r, prob = p)
+```
+
+The result of $5$ is way higher than the $2$s we've seen before as expected from the higher variance of the Negative Binomial distribution. So the insurance company needs to prepare for a minimum of 5 claims for the riskiest 5% in this model compared to the 2 claims of the simpler Poisson model. So the multiple groups of drivers hidden in this variable complicate the homogenous Poisson case. :)
 
 ## 7. The Glivenko–Cantelli Theorem
 
