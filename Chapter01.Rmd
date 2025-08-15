@@ -1372,7 +1372,7 @@ So, from the structure of the data frame we can see that we have the following 5
 - DATE: The date on which the data was collected. This is data on year-month level, where the day always marks the first day of the month.
 - CATEGORY: The priority category of the calls. It has values from P1 (highest priority: serious injury) to P5 (lowest priority: no emergency, only patient transport). It also has an extra category called High P1, which is for life-or-death situations. Naturally, arrival times are influenced by this priority category. An ambulance needs to arrive to a High P1 case than to a P5 case. So we must break the 90th percentiles down to these categories as well.
 - GEO: Indicating that the reported data is for Budapest only or nationwide.
-- METRIC: Whether the data value reported is an average/mean ($\bar{y}$) or a median ($Me$).
+- METRIC: Whether the data value reported is an average/mean ($\bar{y}$) or a median ($\hat{Me}$).
 - VALUE: The exact numerical value reported for the Date+Category+Geo+Metric combination of the given row.
 
 This means that our data frame is in a so called **long format**. That means that all the numerical data is collected in one column (VALUE) and we have an additional column that describes what that numerical value actually is (METRIC). First, we need to **transform** this data frame **into a wide format** where we have two separate columns for the average and the median. This can be done with the help of the `spread` function in the `tidyverse` package.
@@ -1382,7 +1382,12 @@ response_times <- response_times %>% spread(METRIC, VALUE)
 response_times
 ```
 
-Get the lognormal $\mu,\sigma$ parameters using the formula in Section 4.2.
+Once we have the data in a form where we have the observed empirical averages ($\bar{y}$) and medians ($\hat{Me}$) in separate columns, we can easily get the lognormal $\mu,\sigma$ parameters using the formula derived in Section 4.2.
+
+- $\mu = \log(\hat{Me})$
+- $\sigma = \sqrt{2\left(\log(\bar{y})-log(\hat{Me})\right)}$
+
+We just need to substitute in these in R and save the results as two new columns for the two parameters.
 
 ```{r}
 response_times$mu <- log(response_times$Median)
@@ -1390,14 +1395,19 @@ response_times$sigma <- sqrt(2*(log(response_times$Average) - log(response_times
 response_times
 ```
 
-And calculate the 90th percentile we are looking for with the `qlnorm` function.
+Unfortunately, we cannot check the goodness of fit for the fitted lognormal distributions as the individual-level empirical data is not published, only the mean and median are available that we've used for fitting the lognormal distribution.
+
+Once we have the parameters of the lognormal distribution for every DATE-CATEGORY-GEO combination in our data frame, we can calculate the 90th percentile we are looking for in every case with the `qlnorm` function.
 
 ```{r}
 response_times$P90 <- qlnorm(0.9, meanlog = response_times$mu, sdlog = response_times$sigma)
 response_times
 ```
 
-Finally, let's visualize the results.
+Ok, seems we have the results! In the 1st row, for example, we can see that 90% of ambulances arrived within $39.7$ minutes for High P1 (most urgent) cases in Budapest in 2018 November. Nationwide the result is a bit better (2nd row): only $32.4$ minutes is the time within which 90% of cases is served.<br>
+Is this result good or bad? Well, <a href="https://www.england.nhs.uk/statistics/wp-content/uploads/sites/2/2025/01/20250117-AmbSYS-specification.pdf" target="_blank">according to the English Ambulance Service</a>, the **90th percentile should be under 15 minutes, meaning that at least 90% of cases should be reached within 15 minutes**. So, if we compare our results to English standards, the 90th percentile of Hungarian arrival time is more than double of the required time. Unpleasant.
+
+But we can say that okay, this is a very old, 2018 data. Surely, the results have improved since then! So, let's visualize the results as a time series on line chart with different colors for the different emergency categories. And let's also add the rarget value of 15 minutes as a dotted horizontal line. Finally, let's create a separate plot for Budapest and Nationwide data by adding `facet_wrap(~GEO)` in the lat layer of our `gpplot` code.
 
 ```{r}
 ggplot(response_times, aes(x=DATE, y=P90, color=CATEGORY)) +
@@ -1406,7 +1416,7 @@ ggplot(response_times, aes(x=DATE, y=P90, color=CATEGORY)) +
   facet_wrap(~GEO)
 ```
 
+On the one hand, we can say based on the plots that the 90th percentile of arrival times improved over time in the two most urgent categories (High P1 and P1). They decreased from roughly 40-45 minutes to roughly 18-20 minutes. In February 2023 and May 2021 they were even below 15 minutes in the High P1 category in Budapest! But this is just two months and just in Budapest.<br>
+However, in the P2 and P3 categories the 90th percentile even increased quite significantly after 2020. In Budapest, the P3 category was around 150 minutes until 2024, but in 2024 there is a substantial decrease to around 100 minutes. We only have data for the P4 and P5 categories in 2024. Truth be told, in the English standards only 120 minutes are expected for the 90th percentile in the P3 category, so the results after 2024 are ok in that regard. Nationwide data is even lower thankfully!
 
-Based on the plots we can conlude that...
-
-https://github.com/ferenci-tamas/omsz-kierkezesi-ido-percentilis?tab=readme-ov-file#az-orsz%C3%A1gos-ment%C5%91szolg%C3%A1lat-ki%C3%A9rkez%C3%A9si-statisztik%C3%A1inak-vizsg%C3%A1lata-a-90percentilis-becsl%C3%A9se
+So overall, there is room to improve to reach the English standard of 15 minutes in the High P1 and P1 categories.
