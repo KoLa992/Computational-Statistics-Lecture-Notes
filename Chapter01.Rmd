@@ -859,7 +859,7 @@ So, the idea is that based on the histogram **the lognormal distribution is a go
 This is way more easy to solve than the original MM system, and get the $\mu,\sigma$ parameters of the lognormal distribution from the observed sample's mean ($\bar{y}$) and median ($\hat{Me}$) in the following way:
 
 - $\mu = \log(\hat{Me})$
-- $\sigma = 2\left(\log(\bar{y})-log(\hat{Me})\right)$
+- $\sigma = \sqrt{2\left(\log(\bar{y})-log(\hat{Me})\right)}$
 
 Let's use these simple formulas to get the new estimated values for the $\mu,\sigma$ parameters and let's also rerun the visual density function on histogram check and the Q-Q Plot check!
 
@@ -867,7 +867,7 @@ Let's use these simple formulas to get the new estimated values for the $\mu,\si
 sample_median <- median(ess_small$DailyNetUse)
 
 mu <- log(sample_median)
-sigma <- 2*(log(sample_mean)-log(sample_median))
+sigma <- sqrt(2*(log(sample_mean)-log(sample_median)))
 c(mu,sigma)
 
 ggplot(ess_small, aes(x=DailyNetUse)) +
@@ -883,8 +883,8 @@ ggplot(ess_small, aes(sample = DailyNetUse)) +
   labs(x="Theoretical Quantiles", y="Empirical Quantiles")
 ```
 
-<a href="https://youtu.be/y13n1CeyqjY?t=8" target="_blank">Huzzah</a>! Looking at the two plots we can see that this new $LN(5.01,0.41)$ distribution is a way better fit for the observed daily net usage time data then the previous lognormal was! Accoding to the histogram, the mode (place of the maximum for the density curve) is in the right place, although the maximum value is a bit too much compared to the histogram. But the empirical and theoretical quantiles match rather nicely: even in the higher ranges above 400-500 minutes, the theoretical quantiles underestimation of the empirical ones is not very substantial. And again, we need to note that these higher ranges are on the right tail of the distribution where we have very few observed data, so in these ranges the theoretical distribution is probably more reliable due to the fact that we don't have many empirical observations to work with in this part of the distribution.<br>
-So, overall, let's accept this $LN(5.01,0.41)$ distribution as the population distribution for the unobserved Hungarian's daily net usage time and do some calculations with it!
+<a href="https://youtu.be/y13n1CeyqjY?t=8" target="_blank">Huzzah</a>! Looking at the two plots we can see that this new $LN(5.01,0.64)$ distribution is a way better fit for the observed daily net usage time data then the previous lognormal was! According to the histogram, the mode (place of the maximum for the density curve) is in the right place, and the maximum value is in the sample place as the maximum value of the empirical histogram. The empirical and theoretical quantiles also match rather nicely: even in the higher ranges above 500-600 minutes, the theoretical quantiles underestimation of the empirical ones is not very substantial. And again, we need to note that these higher ranges are on the right tail of the distribution where we have very few observed data, so in these ranges the theoretical distribution is probably more reliable due to the fact that we don't have many empirical observations to work with in this part of the distribution.<br>
+So, overall, let's accept this $LN(5.01,0.64)$ distribution as the population distribution for the unobserved Hungarian's daily net usage time and do some calculations with it!
 
 #### Applications of the Fitted Exponenetial Distribution
 
@@ -896,7 +896,7 @@ So, let's calculate what is the probability that we find a Hungarian that only s
 plnorm(120, meanlog = mu, sdlog = sigma)
 ```
 
-Okay, looks like in Hungary almost $1/3$ of the population, $29.4\%$ is like this. Probably the substantial elderly population is more hostile toward the online world than in other European countries. Maybe a lognormal distribution fit by different age groups might reveal if this hypothesis is true. :)
+Okay, looks like in Hungary a bit more than $1/3$ of the population, $36.4\%$ is like this. Probably the substantial elderly population is more hostile toward the online world than in other European countries. Maybe a lognormal distribution fit by different age groups might reveal if this hypothesis is true. :)
 
 Let's see how much time the top 10% of net surfers spend on the net a day in Hungary with the $1-0.1=0.9=90\%$ quantile of the theoretical distribution!
 
@@ -904,7 +904,7 @@ Let's see how much time the top 10% of net surfers spend on the net a day in Hun
 qlnorm(0.9, meanlog = mu, sdlog = sigma)
 ```
 
-That is $254.6$ minutes, so roughly 4.2 hours! That's not so bad for the top 10% considering that this variable probably includes the time someone uses the net for work. This is probably a correct and not a conservative estimation since according to the Q-Q Plot the fit of theoretical quantiles to empirical ones is almost perfect for quantiles lower than 400 minutes.
+That is $341.7$ minutes, so roughly 5.7 hours! That's not so bad for the top 10% considering that this variable probably includes the time someone uses the net for work. This is probably a correct and not a conservative estimation since according to the Q-Q Plot the fit of theoretical quantiles to empirical ones is almost perfect for quantiles lower than 500 minutes.
 
 ### 4.3. Student's t-distribution - Symmetric but Flat
 
@@ -1355,6 +1355,58 @@ The result of $5$ is way higher than the $2$s we've seen before as expected from
 
 ## 6. Case Study - Ambulance Arrival Times
 
-TODO
+Okay, so after getting familiar with theoretical probability distributions and their usefulness compared to analyzing observed sample data alone, let's examine a **real-world case study for the Hungarian National Ambulance Service** where all of the knowledge acquired in this chapter (fitting distributions with MM, checking goodness of fit and then apply the fitted distribution's distribution and quantile functions to answer questions about unobserved population data) can be applied to **estimate ambulance arrival times**.
+
+On 10th February 2025, an online Hungarian blog focused on healthcare <a href="https://rontgen.444.hu/2025/02/10/bozotharc-aran-sikerult-megszerezni-az-orszagos-mentoszolgalat-kierkezesi-statisztikajat-a-szamoktol-nem-lesz-boldog-senki" target="_blank">reported</a> the statistics of ambulance arrival times from the National Ambulance Service (NAS). Characteristic of Eastern European realities, data that in England would be freely downloadable, continuously updated, and accompanied by explanations on the ambulance service’s <a href="https://www.england.nhs.uk/statistics/statistical-work-areas/ambulance-quality-indicators/" target="_blank">own website</a>, in Hungary must be obtained by a blog through a formal data request.<br>
+However, there is a twist in the story: the NAS provided only the mean and median (that is, the time within which half of the cases are reached). The typical 90th percentile used in quality assessment of ambulance services (the time within which 90% of cases are reached) was not disclosed. This, however, presents an interesting statistical problem: if we know the theoretical distribution of the arrival times, and it is a distribution defined by its mean and median, then from these two values we can compute the undisclosed 90th percentile! In fact, such problems are exactly what we have been solving throughout this chapter. Of course, we cannot know the true theoretical distribution in Hungary, but based on literature and statistical reasoning, we can make reasonable assumptions. In this case study, we are assuming that these **arrival times follow a lognormal distribution**. On the one hand, <a href="https://doi.org/10.3390/mca26040070" target="_blank">Pury (2021)</a> concluded that the long-right-tailed nature of the lognormal distribution is a good fit for modeling ambulance arrival times. On the other hand, as shown in Section 4.2, the parameters $\mu,\sigma$ of a lognormal distribution can be estimated from the sample mean and median using the principle of the method of moments.
+
+The task is thus set. But first, let us examine the available data contained in the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/ambulance_arrival.xlsx" target="_blank">ambulance_arrival.xlsx</a> file.
+
+```{r}
+response_times <- read_excel("ambulance_arrival.xlsx")
+str(response_times)
+```
+
+So, from the structure of the data frame we can see that we have the following 5 variables:
+
+- DATE: The date on which the data was collected. This is data on year-month level, where the day always marks the first day of the month.
+- CATEGORY: The priority category of the calls. It has values from P1 (highest priority: serious injury) to P5 (lowest priority: no emergency, only patient transport). It also has an extra category called High P1, which is for life-or-death situations. Naturally, arrival times are influenced by this priority category. An ambulance needs to arrive to a High P1 case than to a P5 case. So we must break the 90th percentiles down to these categories as well.
+- GEO: Indicating that the reported data is for Budapest only or nationwide.
+- METRIC: Whether the data value reported is an average/mean ($\bar{y}$) or a median ($Me$).
+- VALUE: The exact numerical value reported for the Date+Category+Geo+Metric combination of the given row.
+
+This means that our data frame is in a so called **long format**. That means that all the numerical data is collected in one column (VALUE) and we have an additional column that describes what that numerical value actually is (METRIC). First, we need to **transform** this data frame **into a wide format** where we have two separate columns for the average and the median. This can be done with the help of the `spread` function in the `tidyverse` package.
+
+```{r}
+response_times <- response_times %>% spread(METRIC, VALUE)
+response_times
+```
+
+Get the lognormal $\mu,\sigma$ parameters using the formula in Section 4.2.
+
+```{r}
+response_times$mu <- log(response_times$Median)
+response_times$sigma <- sqrt(2*(log(response_times$Average) - log(response_times$Median)))
+response_times
+```
+
+And calculate the 90th percentile we are looking for with the `qlnorm` function.
+
+```{r}
+response_times$P90 <- qlnorm(0.9, meanlog = response_times$mu, sdlog = response_times$sigma)
+response_times
+```
+
+Finally, let's visualize the results.
+
+```{r}
+ggplot(response_times, aes(x=DATE, y=P90, color=CATEGORY)) +
+  geom_line(linewidth=1) +
+  geom_hline(yintercept = 15, linetype='dotted') +
+  facet_wrap(~GEO)
+```
+
+
+Based on the plots we can conlude that...
 
 https://github.com/ferenci-tamas/omsz-kierkezesi-ido-percentilis?tab=readme-ov-file#az-orsz%C3%A1gos-ment%C5%91szolg%C3%A1lat-ki%C3%A9rkez%C3%A9si-statisztik%C3%A1inak-vizsg%C3%A1lata-a-90percentilis-becsl%C3%A9se
