@@ -685,7 +685,7 @@ ggplot(ess_small, aes(sample = AlcoholWeekend)) +
 
 We can see that the fit of the $Exp(0.021)$ distribution is quite ok even in the lower ranges around 0 grams, but it breaks down above 200 grams. Specifically, the quantiles calculated from the observed empirical data are higher than what the $Exp(0.021)$ distribution would say. On the one hand, it is quite understandable, as we have very few observations above 200 grams, so we might trust the theoretical exponential distribution here. On the other hand the deviations between empirical and theoretical quantiles are more substantial in this case than the ones we saw in Section 2.4. So, we might consider using another distribution for modelling the extremely large values above 200 grams. However, this is in the domain of <a href="https://en.wikipedia.org/wiki/Extreme_value_theory" target="_blank">extreme value theory (EVT)</a> and are out of scope for this course as it is covered in Actuarial Science MSc. So, we go with the exponential distribution as an acceptable fit for weekend alcohol consumption.
 
-#### Applications of the Fitted Exponenetial Distribution 
+#### Applications of the Fitted Exponential Distribution 
 
 Let’s now calculate a few probabilities related to the weekend alcohol consumption of the entire Hungarian population! Since we're **fitting this theoretical** exponential **distribution to account for the alcohol consumption habits of the unobserved Hungarians as well**.
 
@@ -886,7 +886,7 @@ ggplot(ess_small, aes(sample = DailyNetUse)) +
 <a href="https://youtu.be/y13n1CeyqjY?t=8" target="_blank">Huzzah</a>! Looking at the two plots we can see that this new $LN(5.01,0.64)$ distribution is a way better fit for the observed daily net usage time data then the previous lognormal was! According to the histogram, the mode (place of the maximum for the density curve) is in the right place, and the maximum value is in the sample place as the maximum value of the empirical histogram. The empirical and theoretical quantiles also match rather nicely: even in the higher ranges above 500-600 minutes, the theoretical quantiles underestimation of the empirical ones is not very substantial. And again, we need to note that these higher ranges are on the right tail of the distribution where we have very few observed data, so in these ranges the theoretical distribution is probably more reliable due to the fact that we don't have many empirical observations to work with in this part of the distribution.<br>
 So, overall, let's accept this $LN(5.01,0.64)$ distribution as the population distribution for the unobserved Hungarian's daily net usage time and do some calculations with it!
 
-#### Applications of the Fitted Exponenetial Distribution
+#### Applications of the Fitted Lognormal Distribution
 
 Now, let's see the $F(X)$ distribution function of the lognormal distribution in action. It is implemented in R as the `plnorm` function, and it works the same way as the `p` prefixed normal of exponential function. First parameter is the $x$ value for the $P(y_i<x)$ probability and then plug in the $\mu,\sigma$ parameters of the lognormal distribution just like we did for the density function.
 

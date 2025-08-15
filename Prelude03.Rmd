@@ -636,7 +636,7 @@ quantile(COVID$PerCapita_HealthExp_2016, probs = c(0.2,0.4,0.6,0.8))
 
 So, for example $40\%$ of the countries spent less on healthcare in2016 than 851 dollars per capita. But only the top $20\%$ of countries spent more on healthcare than 2592 dollars per capita in 2016.
 
-## 7. Standard Deviation
+## 7. Standard Deviation and Covariance
 
 Let's take a look at the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/PolishInvestments.xlsx" target="_blank">PolishInvestments.xlsx</a> file. it contains the daily price changes in *euro* for two investment funds for $1229$ trading days between 2017 and 2022:
 
@@ -796,4 +796,63 @@ Dividing by $-2$ and taking $n \times A$ to the right hand side (RHS): $$\sum_{i
 
 Finally, dividing by $n$: $$A=\frac{\sum_{i=1}^n{y_i}}{n}=\bar{y}$$
 
-So, **the mean is the statistical measure $A$, such that if every $y_i$ values are replaced by $A$, then I make the less mistake, or lose the less information**. This why the mean is "*loved*" as the third measure of location along the mode and median: since **using the mean results in the smallest standard deviation**. 
+So, **the mean is the statistical measure $A$, such that if every $y_i$ values are replaced by $A$, then I make the less mistake, or lose the less information**. This why the mean is "*loved*" as the third measure of location along the mode and median: since **using the mean results in the smallest standard deviation**.
+
+### 7.2. Covariance
+
+It is important to note that we can take **the joined variance of two statistical variables $X$ and $Y$ as well**. This measure is logically called **co-variance or simply covariance**. This measure is **originated from the simple univarate variance**, as **taking the covariance of a variable $Y$ with itself, it results in the simple variance we know**. Let's work with R's version of variance where we are dividing with $n-1$ as this is the formula that R's built-in `cov` function applies. $$cov(Y,Y)=\sigma_Y^2=\frac{\sum_{i=1}^N{(y_i-\bar{y})^2}}{n-1}=\frac{\sum_{i=1}^n{(y_i-\bar{y})(y_i-\bar{y})}}{n-1}$$
+
+Generalizing this formula for two variables $X$ and $Y$, we **get the formula for the classic covariance**: $$cov(X,Y)=\frac{\sum_{i=1}^n{(y_i-\bar{y})(x_i-\bar{x})}}{n-1}$$
+
+The most important part of the covariance is **its sign**:
+
+- if a covariance is **positive, than the two numerical variables are in a positive linear relationship**: if one variable increases, we can expect the other to increase as well. And if one variable decreases, we can expect the other to decrease as well.
+- if a covariance is **negative, than the two numerical variables are in a negative linear relationship**: if one variable increases, we can expect the other to decrease. And if one variable decreases, we can expect the other to increase.
+
+Let's see this on the example of our two investment funds with the R function called `cov`:
+
+```{r}
+cov(Invest$BondFund, Invest$StockFund)
+```
+
+As we can see, the covariance of these two variables is negative: meaning if the stock price changes increase, than usually the bond price changes decrease. This is no surprise, since **stocks tend to perform better when bonds** (and other fixed income assets) **are faring worse, for example because they pay low interests**.
+
+It is important to note that **if two statistical variables are independent, then their covariance is 0,but if a covariance is 0, then that does NOT necessarily mean that the two variables are independent**. They are just not moving in the same direction, not in the opposite direction. So, there is no observable *linear* dependence between th two variables, but there can be a non-linear one. E.g. they are both following the same sinus wave. Since that is not a straightforward same/oppisite directional relationship, covariance does not pick it up.
+
+### 7.3. Combined Variance of the Two Investments
+
+Let's say we have a given amount of money to invest and we decide to put $70\%$ of our money in the relatively safer *BondFund* and $30\%$ to the riskier *StockFund* with a higher average daily gain.
+
+Let's denote the proportion of our money in the $1$st investment (*BondFund*) generally with $w_1$ and let's denote with $w_2$ our money in the $2$nd investment option (*StockFund*). So, we now have
+
+- $w_1=0.7$
+- $w_2=0.3$
+
+We can calculate the **variance of this mixed investment with proportions $w_1$ and $w_2$ from the variance of the $1$st and $2$nd investment options $\sigma_1^2, \sigma_2^2$ and their covariance $cov_{1,2}$: $$\sigma^2(1,2)=w_1^2\sigma_1^2 + w_2^2\sigma_2^2 + 2w_1w_2cov_{1,2}$$
+
+For our two investments with the given proportion, this formula means the following calculation:
+
+```{r}
+# variance of the two original investment options
+var(Invest$BondFund)
+var(Invest$StockFund)
+
+0.7^2*var(Invest$BondFund) + 0.3^2*var(Invest$StockFund) +
+  2*0.7*0.3*cov(Invest$BondFund, Invest$StockFund)
+```
+
+This means that the **volatility (variance) of our investment portfolio** consisting of $70\%$ Polish Bonds and $30\%$  Polish Stocks **is smaller than the volatility of both the two original investments. This is due to their negative covariance which diversifies the volatility among the two investment options**. As when Stocks tend to fare worse, the losses are compensated with the increase in the prices of the "Bond-part" of our portfolio.
+
+This also means smaller *relative standard deviation* compared to that of the two original investment options as well, so even the risk-gain ratio has improved a bit with diversification:
+
+```{r}
+# variance of the two original investment options
+sd(Invest$BondFund + 1) / mean(Invest$BondFund + 1)
+sd(Invest$StockFund + 1) / mean(Invest$StockFund + 1)
+
+mean_portf <- 0.7*mean(Invest$BondFund) + 0.3*mean(Invest$StockFund)
+sd_portf <- sqrt(0.7^2*var(Invest$BondFund) + 0.3^2*var(Invest$StockFund) +
+  2*0.7*0.3*cov(Invest$BondFund, Invest$StockFund))
+
+sd_portf/(mean_portf+1)
+```

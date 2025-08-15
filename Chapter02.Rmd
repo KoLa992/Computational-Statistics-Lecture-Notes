@@ -1,0 +1,707 @@
+---
+title: "Simulations and Sampling"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Generating Random Numbers and Samples
+
+**Simulations** are the **common fundamental root for every advanced method in Computational Statistics**. So, in this chapter we review the basics of random number generation in R and explore how this can be used to
+
+1. Simulate empirical data from any probability distribution
+2. Generate different kinds of samples from observed population data
+3. How 1+2 can be used to simulate the behavior of theorems like CLT
+
+**These three points** covered in this chapter are going to be **utilized in Computational Statistics methods covered in subsequent chapters**.<br>
+So, let's **start with** covering the **basics of random number generation** in R.
+
+Every programming language includes a function that generates random numbers between $0$ and $1$. More precisely, these functions **generate numbers in such a way that they each have an equal probability of being any value between $0$ and $1$**, that is, they follow a **uniform distribution**.<br>
+Such random number generators that follow a uniform distribution between $0$ and $1$ are basic tools in every programming language, and they are based on the <a href="https://en.wikipedia.org/wiki/Linear_congruential_generator" target="_blank">linear congruential systems</a> as discussed in the Computer Science course.
+
+To generate completely random numbers between $0$ and $1$ in R, we need to use a function called `runif`. I will now set its `n` parameter to specify that I want only $n=1$ random number between $0$ and $1$.
+
+```{r}
+this_is_so_random = runif(n=1)
+this_is_so_random
+```
+
+Running the above code, everyone will get a different result since we are generating a *random* number. :) The point is that our number is between $0$ and $1$!
+
+Node, **what does this random number generator do from a statistical point of view**? Well, in this case, they **randomly draw a $x$ value from a random variable $Y$, whose distribution is uniform between the $0$ and $1$ values**. The mathematical notation for this is: $Y \sim U(0,1)$. The $U$ comes from the fact that the *distribution is uniform*. :)
+
+Now, let's draw $50$ random values from the $Y \sim U(0,1)$ random variable, and store the results in a `vector` object! We can also write that the $y_i$ observations ($i=1,2,...,50$) of this vector are all coming from a $U(0,1)$ distribution: $y_i \sim U(0,1)$<br>
+That is, **we are taking a sample of size $n=50$ from the $U(0,1)$ distribution**.
+
+Technically, we only need to change the `n` parameter of the function to take this sample.
+
+```{r}
+unlucky_numbers = runif(n=50)
+unlucky_numbers
+```
+
+Here are my $50$ nice little random numbers. Of course, these will be different for everyone. :)
+
+In the next step, **let's transform this sample of size $50$ so that it no longer comes from a $U(0,1)$ distribution, but rather from a $U(40,160)$ distribution**! In other words, we want these $50$ random numbers to be between $40$ and $160$, instead of between $0$ and $1$!
+
+We can achieve this in the following way:
+
+- If we multiply the $0$ to $1$ random numbers by $160-40=120$, the resulting random numbers will be between $0$ and $120$.
+- If we then add $40$ to these $0$ to $120$ random numbers, the result will be random numbers between $(0+40)$ and $(120+40)$, i.e., between $40$ and $160$.
+
+```{r}
+unlucky_numbers = (unlucky_numbers * (160-40)) + 40
+unlucky_numbers
+```
+
+It seems that our task is accomplished: there are indeed no numbers smaller than $40$ or larger than $160$! :)
+
+Now, let's check how uniform the distribution of our generated $U(40,160)$ numbers is! Let's plot the histogram!
+
+```{r}
+hist(unlucky_numbers)
+```
+
+What should we expect to see on this histogram? Well, generally speaking, the density function for a uniform distribution $U(a,b)$ over the interval $(a,b)$ is $f(x) = \frac{1}{b-a}$, because the value of the density function represents the probability of any specific $x$ occurring in the $U(a,b)$ distribution, $P(Y_i=x)$. For a uniform distribution, this is the same for all $x$ within $a$ and $b$, specifically "*1 divided by the length of the $(a,b)$ interval*".
+
+In our case, the **density function for the $U(40,160)$ distribution** is $f(x)=\frac{1}{160-40}=\frac{1}{120}=0.0083$, which is a **horizontal line** at height $0.0083$. Therefore, **the histogram should show approximately the same frequency for each $x$ value, although this is clearly not the case!**
+
+**Let's plot the histogram using `ggplot` with `aes(y = after_stat(density))` setting, and overlay the density function of the $U(40,160)$ distribution on it!** This plot can be created just like we did it in <a href="Chapter01.html" target="_blank">Chapter 1</a>.<br>
+Before we do this, we need to convert the vector to a data frame so that `ggplot` can handle it.<br>
+Moreover, we can of course calculate the constant density function $f(x)=0.0083$ for the $U(40,160)$ distribution using R's `dunif` function, just as we calculated the normal distribution's density function values using the `dnorm` function in Chapter 1. With the `dunif` function, we need to specify the lower limit of the $U(a,b)$ distribution, $a$, in the `min` parameter, and the upper limit $b=160$ in the `max` parameter!<br>
+We will apply 6 bins on the histogram so that the plot resembles the histogram we previously made using the standard `hist` function.
+
+```{r}
+random_df <- as.data.frame(unlucky_numbers)
+
+library(ggplot2)
+
+ggplot(random_df, aes(x=unlucky_numbers)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 6) +
+  stat_function(
+                fun = dunif, 
+                args = list(min = 40, max = 160),
+                col = 'red')
+```
+
+We can see that the **observed frequencies of our $50$-element sample do not fully reflect the horizontal density function of the uniform distribution $f(x) = 0.0083$**, but they are generally close to it. And we have already checked that all values of the generated sample are indeed within the $(40,160)$ interval, which is clearly visible on the $x$ axis of the histogram.
+
+Thus, we have successfully **transformed our $50$-element sample from a $U(0,1)$ distribution to a $U(40,160)$ distribution**. Very soon, we will see that **we can transform random numbers from a $U(0,1)$ distribution not only into another uniform $U(a,b)$ distribution, but into any distribution we want**!!
+
+### 1.1. General Principles for Generating a Sample
+
+Let's think about how we can **formalize the formula that we used to transform $U(0,1)$ random numbers into $U(a,b)$ random numbers!** <br>
+As you know, we multiplied the generated number by the length of the $(a,b)$ interval and added the lower bound, $a$. Formally, we can say that if $y \sim U(0,1)$, then $z = y \times (b-a) + a \sim U(a,b)$.
+
+But where does this formula come from? **Let's consider how we calculate the "cumulative" probability $P(y_i < x)$ for a $U(a,b)$ distribution?** That is, what is the result of the improper integral $\int_{-\infty}^x{\frac{1}{b-a}}dx$?
+
+This is not as complicated as calculating the same thing for a normal distribution, because since there are no values below $a$ in the uniform distribution between $a$ and $b$, our improper integral immediately turns into a definite integral: $\int_a^x{\frac{1}{b-a}}dx$. And now we can easily handle this, since the integrand does not include the variable $x$, so it’s a constant function: $$\int_a^x{\frac{1}{b-a}}dx=\left[\frac{x}{b-a}\right]_a^x=\frac{x}{b-a}-\frac{a}{b-a}=\frac{x-a}{b-a}$$
+
+The result is visually the area of the rectangle below, since the lengths of the two sides are $side_1=x-a$ and the density function itself is $side_2=f(x)=\frac{1}{b-a}$, so the area of the rectangle is $T=side_1 \times side_2 = (x-a) \times\frac{1}{b-a} = \frac{x-a}{b-a}$.
+
+<center>
+![](unifelo.jpg){width=60%}
+</center>
+
+So, if **I randomly draw a $y_i$ number from the $U(a,b)$ distribution, then the probability that I get a value smaller than $x$ is just $P(y_i < x) = \frac{x-a}{b-a}$.**
+
+Very good. Now, **let's see what the quantile function looks like in the uniform distribution!** That is, how do I answer the question: **What is the value at which there is only a $5\%$ probability of getting a smaller value in a $U(a,b)$ distribution?**
+
+At this point, I should express $x$ from the relationship $P(y_i < x) = \frac{x-a}{b-a}$, which is relatively easy to do: $$x=P(y_i < x) \times (b-a) + a$$
+
+**Oops!** What we got is practically **exactly the same formula that we used to transform a $y \sim U(0,1)$ random number into a $z \sim U(a,b)$ random number**: $z = y \times (b-a) + a$
+
+So, **in general, we get the result that if I treat a random number from the $U(0,1)$ distribution as a $P(y_i < x)$ probability, and plug it into the quantile function of any distribution, the result will be a random number with the same distribution as the one whose quantile function I used for the $U(0,1)$ random number!!** <br>
+Of course, I can simply treat a random number between $0$ and $1$ as a $P(y_i < x)$ probability, since every probability is a number between $0$ and $1$. :)
+
+**Let’s check this theory in practice!** As we know, in R, we calculate the quantile function for every distribution using a function that has the `q` prefix (see <a href="Chapter01.html" target="_blank">Chapter 1.</a>).
+
+```{r}
+low_bound <- 40
+upp_bound <- 160
+
+# Generating 50 numbers from the U(0,1) distribution
+unlucky_numbers <- runif(n=50)
+
+# transforming to U(40,160) with the quantile function
+unlucky_numbers <- qunif(unlucky_numbers, min = low_bound, max = upp_bound)
+
+# Check the results on a histogram
+random_df <- as.data.frame(unlucky_numbers)
+ggplot(random_df, aes(x=unlucky_numbers)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 6) +
+  stat_function(
+                fun = dunif, 
+                args = list(min = 40, max = 160),
+                col = 'red')
+```
+
+E voila: success! The values range from $40$ to $160$, and the frequencies of the generated sample fluctuate around the $f(x)$ density function of the $U(40,160)$ distribution!
+
+### 1.2. Generating NOT Uniformly Distributed Samples
+
+Well, then we hope that **the trick observed for the uniform distribution will work for other distributions too**.
+
+So, **if I plug a $U(0,1)$ random number into the quantile function of any distribution, the result will be a random number from the same distribution as the one whose quantile function I used to plug the initial $U(0,1)$ random number into!!**
+
+**Let’s generate, for example, a sample of $50$ elements from a $N(80,20)$ distribution!** That is, our normal distribution has a mean of $\mu=80$ and a standard deviation of $\sigma = 20$. To transform the initial $U(0,1)$ numbers, we can use the R `qnorm` function.<br>
+Notice that when plotting the density function, the lower and upper bounds of the $x$ axis are taken from the generated data because we can’t determine them from the theoretical distribution! --> We no longer have the $U(a,b)$ uniform distribution so to speak.
+
+```{r}
+mu <- 80
+sigma <- 20
+
+# Generating 50 numbers from a U(0,1) distribution
+unlucky_numbers <- runif(n=50)
+
+# Transforming to N(80,20) with the help of the quantile function
+normies <- qnorm(unlucky_numbers, mean = mu, sd = sigma)
+
+# Check the results on a histogram
+norm_df <- as.data.frame(normies)
+ggplot(norm_df, aes(x=normies)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 6) +
+  stat_function(
+                fun = dnorm, 
+                args = list(mean = mu, sd = sigma),
+                col = 'red')
+```
+
+Well, the frequencies of the generated data fit quite well to the normal distribution’s density function! :)
+
+Naturally, the trick works similarly for an exponential distribution (and anything else), but that wouldn’t be much *copy-paste magic* to code. :)
+
+The important point is that this solution really **works for every existing distribution!** Even for distributions that **are not included** in R!! You just **need to know the formula for the distribution's quantile function, and by plugging in $U(0,1)$ random numbers, you generate a sample from the distribution!**
+
+The good news, however, is that for distributions in R, there is an `r`-prefixed function (like the `runif` for the uniform distribution), which **automatically performs the above trick, so you don't have to** always **copy-paste** the longer code snippet **every time**. In the function, the parameters for the current distribution (uniform, normal, exponential, binomial or other) need to be specified accordingly (e.g., `mean`, `sd`, or `rate`), and the quantity of numbers to generate (sample size) can be set using the `n` parameter.
+
+So, simplifying, you can generate data (a sample) from a $N(80,20)$ distribution as follows.
+
+```{r}
+mu <- 80
+sigma <- 20
+
+# Generating 50 numbers from the N(80,20) distribution
+normies <- rnorm(n = 50, mean = mu, sd = sigma)
+
+# Check the results on a histogram
+norm_df <- as.data.frame(normies)
+ggplot(norm_df, aes(x=normies)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 6) +
+  stat_function(
+                fun = dnorm, 
+                args = list(mean = mu, sd = sigma),
+                col = 'red')
+```
+
+If we run the `set.seed` function before the `r`-prefixed functions, and **we all enter the same number in its parentheses**, for example, my birth year, $1992$, then **everyone will generate the same $50$ random numbers!** And we will all be staring at the same histogram! :)
+
+```{r}
+mu <- 80
+sigma <- 20
+
+# Generating 50 numbers from the N(80,20) distribution
+set.seed(1992)
+normies <- rnorm(n = 50, mean = mu, sd = sigma)
+
+# Check the results on a histogram
+norm_df <- as.data.frame(normies)
+ggplot(norm_df, aes(x=normies)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 6) +
+  stat_function(
+                fun = dnorm, 
+                args = list(mean = mu, sd = sigma),
+                col = 'red')
+```
+
+Awesome! :) The value $1992$ in the `set.seed` function is often referred to as the **random seed** in random number generation.
+
+Now, let’s generate a $50$-element sample from the $U(40,160)$ distribution, along with a $50$-element sample from a $N(80,20)$ and a $50$-element sample from an $Exp(0.0125)$ distribution, using the same $1992$ random seed. Then, let’s combine the results into a data frame, where the columns represent the different distributions (so the number of rows will be $50$, of course).<br>
+The $\lambda$ parameter for the Exponential distribution can be set in R’s `rate` parameter, for example, using the reciprocal of the mean. Since the expected value of the Exponential distribution is $\frac{1}{\lambda}$. For a reminder, see <a href="Chapter01.html" target="_blank">Section 4.1. of Chapter 1.</a>!
+
+```{r}
+# Generating 50 numbers from the N(80,20) distribution
+mu <- 80
+sigma <- 20
+
+set.seed(1992)
+normies <- rnorm(n = 50, mean = mu, sd = sigma)
+  
+# Generating 50 numbers from the Exp(0.0125) distribution
+lam <- 0.0125
+
+set.seed(1992)
+expies <- rexp(n = 50, rate = lam)
+
+# Generating 50 numbers from the U(40, 160) distribution
+low_bound <- 40
+upp_bound <- 160
+
+set.seed(1992)
+unis <- runif(n = 50, min = low_bound, max = upp_bound)
+
+# Put the results into the same data frame
+all_in_one <- data.frame(normies=normies,
+                         expies=expies,
+                         unis=unis)
+str(all_in_one)
+```
+
+Great, based on the `str` function, we have all three $50$-element samples! With the `gather` function from the `tidyverse` package to convert it to a long format for `ggplot` visualization utilizing the `facet_wrap` layer just like we did in <a href="Chapter01.html" target="_blank">Sections 5 and 6. of Chapter 1</a>.
+
+```{r}
+library(tidyverse)
+all_in_one_long <- all_in_one %>% gather("distribution", "sample_value")
+all_in_one_long
+```
+
+So, let's view the result on a histogram with $k=6$ bins in `ggplot`. The `scales="free"` option in `facet_wrap` allows the subplots of the different distributions to have `x` and `y` axes and are not forced in the same `x` and `y` ranges.
+
+```{r}
+ggplot(all_in_one_long, aes(x=sample_value)) +
+  geom_histogram(aes(y = after_stat(density)), bins=6) +
+  facet_wrap(~distribution, scales = "free")
+```
+
+Well, we're done, and pretty much every histogram follows the shape of its corresponding Uniform, Normal, and Exponential density functions.
+
+## 2. Probability Distribution vs Observed Sample
+
+We have already established on several occasions that the **histograms created from the observed data DO NOT follow the density functions of the corresponding distributions exactly**. They deviate from them to some extent, as illustrated by the three histograms at the end of the previous section.<br>
+This is, by the way, a **completely logical and natural phenomenon**, as the density functions $f(x)$ of the distributions we are examining assign a positive probability of occurrence to many numbers in the case of a random draw:
+
+- The $N(80,20)$ distribution specifically assigns a positive probability of occurrence to *every real number*
+- The $Exp(0.0125)$ distribution assigns a positive probability of occurrence to *every positive real number*
+- The $U(40,160)$ distribution assigns a positive probability of occurrence to *every real number between $40$ and $160$*
+
+The number of elements in each of these sets is **infinite**. Therefore, **no matter which distribution we look at**, to observe the **density function in its entirety, we would need to generate samples with an infinite number of elements**. Obviously, this will never happen. This is why we have **somewhat erratic histogram shapes**. :)
+
+This is only annoying because in **reality, we are not gods**, so we will **NEVER be able to observe the true density function behind our observed sample**, only the **data contained in our sample**. And the sample size is never infinite. **At best, we can hope that based on the sample histogram, we can approximately guess which distribution is lurking behind our data**.<br>
+This **also applies to various statistical measures**! Logically, **we get different values for the mean, standard deviation, median, or the proportion of elements smaller than $x$ if we calculate them from the observed sample data, rather than from the theoretical density function behind the variable**!
+
+### 2.1. Statistical Measures based on the Theoretical Distributions
+
+Let’s go through how we would calculate the **basic statistical indicators** from the **3 distributions we examined**, knowing their **density functions**.
+
+- $N(80,20)$ distribution
+  * Mean: $\mu=80$
+  * Standard deviation: $\sigma=20$
+  * Median: the value of the quantile function at $0.5$
+  * Probability of values smaller than 100: $P(y_i<100)=\int_{-\infty}^{100}{f(x)}dx$
+- $Exp(0.0125)$ distribution
+  * Mean: $\mu=\frac{1}{\lambda}=\frac{1}{0.0125}=80$
+  * Standard deviation: $\sigma=\frac{1}{\lambda}=\frac{1}{0.0125}=80$
+  * Median: the value of the quantile function at $0.5$
+  * Probability of values smaller than 100: $P(y_i<100)=\int_{-\infty}^{100}{f(x)}dx$
+- $U(40,160)$ distribution
+  * Mean: $\mu=\frac{a+b}{2}=\frac{40+160}{2}=100$
+  * Standard deviation: $\sigma=\frac{b-a}{\sqrt{12}}=\frac{160-40}{\sqrt{12}}=34.64$
+  * Median: the value of the quantile function at $0.5$
+  * Probability of values smaller than 100: $P(y_i<100)=\int_{-\infty}^{100}{f(x)}dx$
+  
+Let’s **calculate these for each distribution** in separate `vector`s, then combine them into a data frame! The row indices of the data frame will be named after the calculated measure's name!
+
+```{r}
+# parameters of N(80,20)
+mu <- 80
+sigma <- 20
+
+# parameters of Exp(0.0125)
+lam <- 0.0125
+
+# parameters of U(40,160)
+low_bound <- 40
+upp_bound <- 160
+
+NormStat <- c(
+  mu, # Mean (Expected Value)
+  sigma, # St Dev
+  qnorm(0.5, mu, sigma), # Median
+  pnorm(100, mu, sigma)) # P(y_i<100)
+
+ExponStat = c(
+  (1/lam), # Mean (Expected Value)
+  (1/lam), # St Dev
+  qexp(0.5, rate = lam), # Median
+  pexp(100, rate = lam)) # P(y_i<100)
+
+UnifStat = c(
+  ((low_bound + upp_bound)/2), # Mean (Expected Value)
+  ((upp_bound-low_bound)/sqrt(12)), # St Dev
+  qunif(0.5, min=low_bound, max=upp_bound), # Median
+  punif(100, min=low_bound, max=upp_bound)) # P(y_i<100)
+
+TheoreticalMeasures <- data.frame(Normal=NormStat,
+                                  Exponential=ExponStat,
+                                  Uniform=UnifStat)
+
+rownames(TheoreticalMeasures) <- c("Exp Value", "St Dev", "Median", "P(y_i<100)") # name of the measures as row indices
+
+TheoreticalMeasures
+```
+
+And we’re done!
+
+### 2.2. Statistical Measures based on the Observed Samples
+
+Now, let's **put the values of the theoretical statistical measures alongside their versions calculated from the $50$-element samples!** We can similarly combine them into a data frame, as we did above with the theoretical values.
+
+For calculating the proportion (relative frequency) of values smaller than $100$, two technical notes:
+
+- For the calculation, we use the trick that, for example, the `all_in_one$normies < 100` command returns a `logical` array indicating whether the logical statement `all_in_one$normies < 100` is `TRUE` or `FALSE`.
+- The `mean` function then sums such an array with `TRUE = 1` and `FALSE = 0` and divides with total number of observations: in other words, it gives the *proportion of favorable observations*: the *the relative frequencies of values smaller than 100*.
+
+```{r}
+NormalSampleStat = c(
+  mean(all_in_one$normies), # Mean
+  sd(all_in_one$normies), # St Dev
+  median(all_in_one$normies), # Median
+  sum(all_in_one$normies < 100)/nrow(all_in_one)) # P(y_i<100), now relative freq.
+
+ExponSampleStat = c(
+  mean(all_in_one$expies), # Mean
+  sd(all_in_one$expies), # St Dev
+  median(all_in_one$expies), # Median
+  sum(all_in_one$expies < 100)/nrow(all_in_one)) # P(y_i<100), now relative freq.
+
+UnifSampleStat = c(
+  mean(all_in_one$unis), # Mean
+  sd(all_in_one$unis), # St Dev
+  median(all_in_one$unis), # Median
+  sum(all_in_one$unis < 100)/nrow(all_in_one)) # P(y_i<100), now relative freq.
+
+SampleStatAll <- data.frame(Normal=NormalSampleStat,
+                            Exponential=ExponSampleStat,
+                            Uniform=UnifSampleStat)
+rownames(SampleStatAll) <- c("Mean", "St Dev", "Median", "P(Y_i<100)") # name of the measures as row indices
+
+SampleStatAll
+```
+
+And we're done!
+
+### 2.3. The Concept of Sampling Error
+
+Let’s now compare two data frames containing different statistical measures!
+
+```{r}
+TheoreticalMeasures
+SampleStatAll
+```
+
+We can see that, **with statistical indicators**, we observe the same thing as we did with histograms and density functions. The **calculated indicators from the $50$-element sample are close to the theoretical values but do not exactly match them**.
+
+The **difference between the two sets of values (theoretical and sample-based) is called SAMPLING ERROR**. Since in practice, we can only observe a sample with a fixed sample size, and we need to infer the true values of the examined indicators and the true distribution behind the data from that sample, **it would be really helpful to measure/compute/estimate this sampling error!** This is the **core task of statistical estimation theory**!
+
+The road to calculating sampling error is long, but we can **understand the behavior of sampling error** by generating a few extra samples from the distributions we’ve examined, with different sample sizes.
+
+Let’s write an R function that implements all of the operations we’ve done so far in one function, with arbitrary sample sizes and random seeds:
+
+- Generation of samples from $N(80,20)$, $Exp(0.0125)$, and $U(40,160)$ distributions
+- Calculation of the 4 examined statistical indicators from the samples and combining them into a data frame
+
+This function will take the following form after some copy-paste magic.
+
+```{r}
+GenerateSample <- function(sample_size, random_seed){
+  # generating sample from N(80,20)
+  mu <- 80
+  sigma <- 20
+
+  set.seed(random_seed)
+  normies <- rnorm(n = sample_size, mean = mu, sd = sigma)
+  
+  # generating sample from Exp(0.0125)
+  lam <- 0.0125
+
+  set.seed(random_seed)
+  expies <- rexp(n = sample_size, rate = lam)
+
+  # generating sample from U(40, 160)
+  low_bound <- 40
+  upp_bound <- 160
+
+  set.seed(random_seed)
+  unis <- runif(n = sample_size, min = low_bound, max = upp_bound)
+
+  # Put results in the same data frame
+  all_in_one <- data.frame(normies=normies,
+                          expies=expies,
+                          unis=unis)
+  
+  NormalSampleStat = c(
+    mean(all_in_one$normies), # Mean
+    sd(all_in_one$normies), # St Dev
+    median(all_in_one$normies), # Median
+    sum(all_in_one$normies < 100)/nrow(all_in_one)) # P(y_i<100), now relative freq.
+
+  ExponSampleStat = c(
+    mean(all_in_one$expies), # Mean
+    sd(all_in_one$expies), # St Dev
+    median(all_in_one$expies), # Median
+    sum(all_in_one$expies < 100)/nrow(all_in_one)) # P(y_i<100), now relative freq.
+
+  UnifSampleStat = c(
+    mean(all_in_one$unis), # Mean
+    sd(all_in_one$unis), # St Dev
+    median(all_in_one$unis), # Median
+    sum(all_in_one$unis < 100)/nrow(all_in_one)) # P(y_i<100), now relative freq.
+
+  SampleStatAll <- data.frame(Normal=NormalSampleStat,
+                              Exponential=ExponSampleStat,
+                              Uniform=UnifSampleStat)
+  rownames(SampleStatAll) <- c("Mean", "St Dev", "Median", "P(Y_i<100)") # name of the measures as row indices
+  
+  return(SampleStatAll)
+}
+```
+
+If the code defining the `GenerateSample` function runs successfully, we can use the function to generate a $50$-element sample with a $1994$ random seed like this.
+
+```{r}
+GenerateSample(50, 1994)
+```
+
+Looks like it works! :)
+
+Now, let's check out **what happens to the differences between the sample-based and theoretical statistical measures** (i.e., the sampling errors) when I **generate samples with $1000$ elements instead of $50$** from the distributions.
+
+```{r}
+TheoreticalMeasures
+GenerateSample(50, 1992)
+GenerateSample(1000, 1992)
+```
+
+Well, if I observed $1000$ elements instead of $50$, all of my statistical measures' sample-based values are much closer to the true theoretical values! So, it seems that **by increasing the sample size, sampling error decreases!** This is a very important property that **holds true for all statistical measures in general!**<br>
+Since this is a really important concept, here’s a meme to help it stick in your minds! **Let this burn into the brains! ;)**
+
+<center>
+![](sample_size.jpg){width=40%}
+</center>
+
+<br>For further experimentation with sampling error, feel free to use the following interactive interface.
+
+<iframe src ="https://kola992.shinyapps.io/samplingfromdistributions/" height=700px width=900px data-external="1" />
+
+By interacting with the interface above, it’s worth noting a few things.
+
+- As the sample size increases, the shape of the histogram gets closer to the density function of the underlying distribution. So, **by increasing the sample size, the sampling error of the density function decreases**.
+- The **mean and the proportion of values smaller than 100** are generally **quite close to the true theoretical value for all three distributions**.
+- On the other hand, the **median and standard deviation** values for the **exponential distribution tend to differ more seriously from the true values even with larger** (e.g., around 500) **sample sizes**.
+
+### 2.1. The Glivenko–Cantelli Theorem
+
+As the sample size increases, the shape of the histogram gets closer to the density function of the underlying distribution.
+
+```{r}
+mu <- 5.01
+sigma <- 0.64
+
+gc_df <- data.frame(n=c(rep("n = 10",10),
+                        rep("n = 50",50),
+                        rep("n = 100",100),
+                        rep("n = 500",500)),
+                    values = c(rlnorm(10, meanlog = mu, sdlog = sigma),
+                               rlnorm(50, meanlog = mu, sdlog = sigma),
+                               rlnorm(100, meanlog = mu, sdlog = sigma),
+                               rlnorm(500, meanlog = mu, sdlog = sigma)))
+gc_df
+```
+
+Visualization of convergence.
+
+```{r warning=FALSE}
+ggplot(gc_df, aes(x=values)) +
+  geom_histogram(aes(y = after_stat(density))) +
+  stat_function(fun = dlnorm, 
+                args = list(meanlog = mu, sdlog = sigma),
+                col = 'red',
+                linewidth = 1) +
+  facet_wrap(~n)
+```
+
+
+## 3. Simulating the Central Limit Theorem
+
+With the help of these `r`-prefixed functions of probability distributions, I can simulate the behavior some famous theorems in R. Like the *Central Limit Theorem* (CLT).
+
+The CLT states that if I have a number of $n$ random variables denoted as $X_1,X_2,...,X_n$ that are independent from each other ($cov(X_i,X_j)=0,\forall i\neq j$) and have the same identical distribution ($X_1 \sim X_2 \sim ... \sim X_n$) with $E(X_i)=\mu, \forall i$ and $Var(X_i)= \sigma^2, \forall i$, then $\sum_{i=1}^n{X_i} \sim N(n \mu, \sqrt{n}\sigma)$ if $n$ is "large enough", meaning as $n \rightarrow \infty$.
+
+Ok, so let's see a specific version of this with $X_i \sim Exp(0.01), \forall i$ (we could use any other distribution as well) and $n=10, n=100, n=500$. We'll calculate these $\sum_{i=1}^n{X_i}$ sums with the different $n$s $1000$ times with the help of the `sapply` function.
+
+The `sapply` function has two parameters: a `vector` and a `function` with an input parameter (`x` for example, but it can be called as anything else). And it applies the function on all elements of the vector and it returns the results in a `vector` as well. So, it can be used to calculate the sum of all integers between $1$ and $100$ and to this $10$ times. Note in the code, that we do not necessarily need to use the input parameter `x` in the `function`.
+
+```{r}
+sapply(1:10, function(x) sum(1:100))
+```
+
+Ok, now we use this `sapply` function to simulate the CLT $1000$ for $n=10, n=100, n=500$ with $X_i \sim Exp(0.01), \forall i$. In the end we store the sums with each $n$ in different columns of a data frame. Note that this data frame has $1000$ rows as we run the simulations $1000$ times. Don't forget to use the `set.seed` function before the random number generators to obtain the same results that I do. :)
+
+```{r}
+lam <- 0.01
+
+set.seed(1992)
+n_10 <- sapply(1:1000, function(x) sum(rexp(n=10, rate = lam)))
+n_50 <- sapply(1:1000, function(x) sum(rexp(n=50, rate = lam)))
+n_100 <- sapply(1:1000, function(x) sum(rexp(n=100, rate = lam)))
+n_500 <- sapply(1:1000, function(x) sum(rexp(n=500, rate = lam)))
+
+clt_df <- data.frame(n_10=n_10,
+                     n_50=n_50,
+                     n_100=n_100,
+                     n_500=n_500)
+str(clt_df)
+```
+
+Ok, see the mean and standard deviation for the $n=10$ case. As for the $X_i$ exponential distributions $E(X_i)=\mu=1/\lambda=1/0.01=100$ and $\sqrt{Var(X_i)}=\sigma=1/\lambda=1/0.01=100$, we expect the sums to have a mean of $E(\sum_{i=1}^n{X_i})=n \mu=10 \times100=1000$ and to have a standard deviation of $\sqrt{Var(\sum_{i=1}^n{X_i})}=\sqrt{n}\sigma=\sqrt{10} \times 100=316.23$. Due to the fact that $cov(X_i,X_j)=0$, the variances can simply be added up.
+
+```{r}
+c(mean(clt_df$n_10), sd(clt_df$n_10))
+```
+
+We can see that the results more-or-less match with what we expect for the mean and standard deviation. If we would check the results for the higher $n$s, we would find that the the mean and standard deviation matches more exactly to what we would expect from the CLT, as the theorem states that it works for large enough $n$s ($n \rightarrow \infty$).
+
+Ad we can see from the histograms that the simulated distributions for the $\sum_{i=1}^n{X_i}$ sums approximate the $N(100,316.23)$ density function (bell curve) more accurately if the $n$ is larger. Before plotting the histograms, the data frame is converted to long format as seen in <a href="Chapter01.html" target="_blank">Sections 5 and 6. of Chapter 1</a>. I also fix the bin number on $15$.
+
+```{r}
+clt_df %>% gather("n", "sum_values") %>%
+  ggplot(aes(x=sum_values)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 15) +
+  facet_wrap(~n, scales = "free")
+```
+
+## 4. IID Sampling of Statistical Populations
+
+What we did in the first two sections, was the **sampling from theoretical distributions, known as Independent Identically Distributed (IID) sampling** in its maiden name.
+
+Thus, the IID sample has two characteristics:
+
+- **Independent**: the **selection of sample elements is random**, meaning that what I select for the 3rd element **does not depend** on what I selected for the 1st and 2nd elements. In more technical terms this means that the covariance of any two $i \neq j$ observations is $0$: $cov(y_i,y_j)=0$
+- **Identically Distributed**: Each sample element comes from the **same distribution** (e.g., $N(80,20)$ or $Exp(0.0125)$), with no change in the distribution from which values are randomly drawn.
+
+This IID sampling **can also be done with real statistical data, i.e., populations**, not just theoretical distributions.<br>
+For instance, I want to know the average gross monthly salary of approximately 4.5 million Hungarian employees. Obviously, the Hungarian Tax Authority (NAV) has all the detailed salary data of the 4.5 million Hungarian workers (these values are not given by an exponential distribution, for example, but are listed individually in a table somewhere), but we know when they release these data to anyone. Therefore, we do the following: we request the addresses of these 4.5 million Hungarian employees from the population registry, place the slips containing the addresses into a hat, and randomly draw 100 addresses *with replacement*, meaning we always put the selected address back into the hat, not setting it aside. We then visit all 100 addresses and ask people their gross monthly salary. With this **random sampling with replacement**, we are actually **performing an IID sampling from the Hungarian workforce population**. Why?
+
+1. The **sample elements (observations) are independent**, as we randomly drew them, "*blindfolded*".
+2. Since it was **sampling with replacement, the distribution of salaries did not change during the sampling**. In other words, we sampled from the same theoretical salary distribution throughout, just like when we generated sample elements from the same theoretical density function in the previous sampling exercises.
+
+Therefore, we trust that the **sampling error between the sample mean salary and the true population mean salary will be the same as the error encountered between the theoretical means of distributions and the sample means generated from them!!**<br> In practice, we **can't always perform such neat IID sampling**, because:
+
+1. We **cannot replace elements**. This is the **smaller issue**. If the **sample size is very small compared to the population size** (e.g., selecting 100 people out of 4.5 million, not 2 million), the **sampling with and without replacement is pretty much the same**, because the chance of selecting someone twice in the replacement case is very small.
+2. We **cannot truly select elements randomly**. This is the **bigger problem**, and unfortunately, it is quite common. For example, we might *not get a directory of addresses from which we can randomly select people for our sample*. In this case, non-sampling errors come into play. These are factors that are introduced due to "*human shortcomings*". For example, I might like red-haired girls a lot, so I ask disproportionately many of them compared to their proportion in the population. Or, I might be too lazy to go to a village with fewer than 500 people, so I ask fewer people from lower-income social strata than the proportion they should have based on their population size. So, in technical terms, I can say that the **sample will not be representative of hair color or settlement size**. We will **ignore these non-sampling errors for now, assuming there are none**. This is because **calculating and correcting them is quite complicated**, and <a href="https://tatk.elte.hu/mesterszakok/survey" target="_blank">complete master's programs</a> deal with this specific topic alone.
+
+So, first let’s see **how we can take an IID sample from a known population in R**. In the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/LIDLBalaton2022.xlsx" target="_blank">LIDLBalaton2022.xlsx</a> file, the participants' *name, sex, and time results measured in minutes* from the 2022 LIDL Balaton Swim are listed. Let’s load the table into an R data frame!
+
+```{r}
+swimming <- readxl::read_excel("LIDLBalaton2022.xlsx")
+str(swimming)
+```
+
+Great, it looks like we have all $N=9751$ contestants' time results, without missing values. **This will be our population.**
+
+Let’s calculate three statistical measures for the time results:
+
+- The **mean** time denoted as $\bar{Y}$ or $\mu$
+- The **standard deviation** of individual times denoted as $\sigma$
+- The **proportion** of people who completed the swim in more than 3 hours (180 minutes), denoted as $P$
+  * For this calculation, we use the trick that the command `swimming$TIME > 180` returns a `logical` vector indicating whether the `swimming$TIME > 180` logical condition is `TRUE` or `FALSE`
+  * The `sum` function then sums this array with `TRUE = 1` and `FALSE = 0`, essentially giving us the **count of favorable cases**: the number of swimmers who completed the swim in more than 180 minutes.
+
+```{r}
+PopMean = mean(swimming$TIME)
+PopStd = sd(swimming$TIME)
+PopProp = sum(swimming$TIME > 180)/nrow(swimming)
+
+PopMean
+PopStd
+PopProp
+```
+
+We’re all set, these are **the population’s true statistical measures**:
+
+- $\bar{Y}=\mu=167.5$ minutes
+- $\sigma = 44.1$ minutes
+- $P = 0.3295=32.95\%$
+
+Based on this, the **following notation conventions apply to the population (i.e., the entire data set)**:
+
+- Number of Elements $N$
+- The joint notation for population-based statistical measures: $\theta$
+  * So $\theta$ is a general notation for a population statistic.
+  * It can represent mean ($\bar{Y}=\mu$), standard deviation ($\sigma$), proportion ($P$), but also median ($Me$), mode ($Mo$), etc.!
+  
+The general rule is that we use either **capital or Greek letters** for "*population-related things*".
+
+Now, let’s **take** a $n=100$ **sample from the population of swimmers in the 2022 Balaton Swim**! In R, there is a `sample` function that allows us to **take a sample from a vector-type object**. So, what we will do is randomly select a sample from the row indices of the data frame (`rownames`), then use square bracket filtering to select the corresponding rows from the original data frame and save them in a separate data frame. The `size` parameter of the `sample` function lets us specify the desired **sample size**. With the `replace = TRUE` setting, we instruct the machine spirit that we want **sampling with replacement, i.e., an IID sample**.<br>
+It's also a good idea to use the `set.seed` function before sampling, so by setting it to the same number (e.g., still 1992), we will *get the same random sample every time*.
+
+```{r}
+set.seed(1992)
+selected_into_sample <- sample(rownames(swimming), size = 100, replace = TRUE)
+swimming_sample <- swimming[selected_into_sample,]
+str(swimming_sample)
+```
+
+Looks like we have our $n=100$ IID sample! :)
+
+Before we proceed and calculate the sample’s mean time, standard deviation, and the proportion of swimmers who swam in more than 3 hours, let’s establish a **notation convention for the sample**:
+
+- Sample Size $n$
+- The joint notation for sample-based statistical measures: $\hat{\theta}$
+  * So $\hat{\theta}$ is a general notation for a statistic calculated from the sample.
+  * In general, the "*hat*" symbol $\hat{}$ always refers to an **estimated value** from the sample.
+  * It can represent the mean ($\bar{y}$), standard deviation ($s$), proportion ($p$), but also median ($me$), mode ($mo$), etc.!
+
+The general rule is that we use either **lowercase letters** or **hats** for "*sample-based calculations*".
+
+Now, let’s see the **statistical measures calculated/estimated from** our $n = 100$ **sample**!
+
+```{r}
+SampleMean = mean(swimming_sample$TIME)
+SampleStd = sd(swimming_sample$TIME)
+SampleProp = sum(swimming_sample$TIME > 180)/nrow(swimming_sample)
+
+SampleMean
+SampleStd
+SampleProp
+```
+
+Here we go, these are **the estimated statistical measures from our sample**:
+
+- $\bar{y}=160.81$ minutes
+- $s = 36.74$ minutes
+- $p = 0.27=27\%$
+
+These don't exactly match the true population values, but they are *not drastically different* from the reality. Again, we trust that the **difference between the estimated and true values is due to sampling error alone**.
+
+### 4.1. The Method of Resampling
+
+What we last look at in this chapter is how to **generate $10000$ IID samples of size $100$ from the population** of the Balaton swimmers.
+
+The `replicate` function is going to be our main tool here.
+
+First, we create an initial sample of $100$ elements from the values in the `TIME` column only. Don’t forget the `set.seed` function here either.
+
+```{r}
+set.seed(1992)
+samples <- replicate(10000, sample(swimming$TIME, size=100, replace = TRUE))
+samples <- as.data.frame(t(samples))
+rownames(samples) <- paste0("Sample",1:10000)
+colnames(samples) <- paste0("Element",1:100)
+head(samples)
+```
