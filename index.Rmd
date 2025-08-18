@@ -23,7 +23,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 1 - <a href="Chapter01.html" target="_blank">Probability Distributions and Method of Moments</a>
 
-## Chapter 2 - Simulations and Sampling
+## Chapter 2 - <a href="Chapter02.html" target="_blank">Simulations and Sampling</a>
 
 ## Chapter 3 - Maximum Likelihood Estimators
 

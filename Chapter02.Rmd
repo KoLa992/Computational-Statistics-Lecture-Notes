@@ -504,9 +504,24 @@ By interacting with the interface above, it’s worth noting a few things.
 - The **mean and the proportion of values smaller than 100** are generally **quite close to the true theoretical value for all three distributions**.
 - On the other hand, the **median and standard deviation** values for the **exponential distribution tend to differ more seriously from the true values even with larger** (e.g., around 500) **sample sizes**.
 
-### 2.1. The Glivenko–Cantelli Theorem
+### 2.4. The Glivenko–Cantelli Theorem
 
-As the sample size increases, the shape of the histogram gets closer to the density function of the underlying distribution.
+One of the conclusions drawn based on our previous simulations is actually so important that it is actually mathematical theorem, the **Glivenko–Cantelli Theorem** which says that as the **sample size increases, the shape of the histogram gets closer to the density function of the underlying distribution**.
+
+Let's see what this theorem says a bit **more formally**. 
+
+1. We have **a theoretical distribution** (Normal, Exponential, Binomial, Poisson, etc.) that is **given by its cumulative distribution function**, $F(x)$ (as defined in <a href="Chapter01.html" target="_blank">Section 2.2. of Chapter 1.</a>)
+2. We have an **independent, identically distributed = IID sample** of size $n$ from this distribution with elements denoted as $y_1,y_2,...,y_i,...,y_n$. This IID assumption means two things for the sample observations $y_i$s.
+    * **Sample elements are randomly drawn, so they are independent of each other**: what is drawn as the $i$th observation is not influenced by any other $i \neq j$ observations. More formally it can be expressed that the covariance (as seen in <a href="Prelude03.html" target="_blank">Section 7.2. of Prelude 3.</a>) of any two observations is $0$: $cov(y_i,y_j)=0, \forall i \neq j$
+    * **Each** sample **observation is drawn from the same theoretical distribution**, so for every observation the $P(y_i<x)$ probability is defined by the same $F(x)$ distribution function given in the 1st point. That is $\forall i=\{1,2,...,n\}:P(y_i<x)=F(x)$
+3. The in the observed sample, we can get the **cumulative relative frequencies** denoted by $F_n(x)$ which is the proportion of every $y_i$ observation smaller than an arbitrary $x$ number in the observed sample. In the $F_n(x)$ notation $n$ is the sample size in which these proportions were calculated.
+4. The **statement of the Glivenko–Cantelli Theorem** with the notations and assumptions given in points 1-3. is the following: $\lim_{n\to\infty} |F_n(x)-F(x)|=0$ This simply means that the **empirical distribution $F_n(x)$ converges to the true theoretical distribution $F(x)$ as the sample size $n$ increases**.
+
+Visually speaking, this theorem says that as the sample size increases ($n\to\infty$), the shape of the histogram (visual representation of $F_n(x)$) gets closer to the density function of the underlying distribution (visual representation of $F(x)$). However this statement is only true if the sample elements are randomly drawn (independent) from the same distribution (identical distribution), but this is exactly what the `r` prefixed functions of the theoretical distributions in R do. So, we are in the position of **simulating the inner workings of this theorem**.
+
+Let's do this with a $LN(5.01,0.64)$ distribution (we could use any other distribution as well). So, we are drawing IID samples with the `rlnorm` function with sizes of $n=\{10,50,100,500\}$. And hopefully we'll see that the empirical histograms of these samples get closer and closer to the $LN(5.01,0.64)$ density function as the sample size ($n$) increases.
+
+First, we are generating these 4 samples and store their values in a column of a data frame below each other, and in a separate column we denote which element is in which sample (n = 10, n = 50, n = 100, n = 500). The `rep` function will help a great deal in replicating these sample size labels in the data frame. This way, the simulated data frame is in a long format as seen in <a href="Chapter01.html" target="_blank">Sections 5 and 6. of Chapter 1</a>.
 
 ```{r}
 mu <- 5.01
@@ -523,7 +538,7 @@ gc_df <- data.frame(n=c(rep("n = 10",10),
 gc_df
 ```
 
-Visualization of convergence.
+This long format is useful for visualizing the convergence of the histograms to the theoretical $LN(5.01,0.64)$ density function. We create the usual histogram+density plot with `ggplot` as seen in <a href="Chapter01.html" target="_blank">Chapter 1.</a> several times, then we add the `facet_wrap(~n)` layer to show the plot separately for every label given in the `n` column of our long data frame.
 
 ```{r warning=FALSE}
 ggplot(gc_df, aes(x=values)) +
@@ -535,12 +550,22 @@ ggplot(gc_df, aes(x=values)) +
   facet_wrap(~n)
 ```
 
+The inner workings of the **Glivenko–Cantelli Theorem** are shown rather nicely: **as sample size increases, the shape of the histogram gets closer to the density function of the underlying $LN(5.01,0.64)$ distribution**.
 
 ## 3. Simulating the Central Limit Theorem
 
-With the help of these `r`-prefixed functions of probability distributions, I can simulate the behavior some famous theorems in R. Like the *Central Limit Theorem* (CLT).
+With the help of these `r`-prefixed functions of probability distributions, I can simulate the behavior of some other famous theorems. Like the *Central Limit Theorem* (CLT).
 
-The CLT states that if I have a number of $n$ random variables denoted as $X_1,X_2,...,X_n$ that are independent from each other ($cov(X_i,X_j)=0,\forall i\neq j$) and have the same identical distribution ($X_1 \sim X_2 \sim ... \sim X_n$) with $E(X_i)=\mu, \forall i$ and $Var(X_i)= \sigma^2, \forall i$, then $\sum_{i=1}^n{X_i} \sim N(n \mu, \sqrt{n}\sigma)$ if $n$ is "large enough", meaning as $n \rightarrow \infty$.
+The CLT states that
+
+1. If I have a number of $n$ random variables denoted as $X_1,X_2,...,X_n$
+2. that are independent from each other ($cov(X_i,X_j)=0,\forall i\neq j$)
+3. have the same identical distribution ($X_1 \sim X_2 \sim ... \sim X_n$)
+    * with $E(X_i)=\mu, \forall i$
+    * and $Var(X_i)= \sigma^2, \forall i$
+4. then $\sum_{i=1}^n{X_i} \sim N(n \mu, \sqrt{n}\sigma)$ if $n$ is "large enough", meaning as $n \rightarrow \infty$
+
+In other words, the sum of IID random variables follows a normal distribution if the number of terms in the sum is large enough. Since we are talking about IID random variables just like in the Glivenko–Cantelli Theorem, the `r`-prefixed functions of probability distributions are perfect for simulating the terms of the $\sum_{i=1}^n{X_i}$ sum.
 
 Ok, so let's see a specific version of this with $X_i \sim Exp(0.01), \forall i$ (we could use any other distribution as well) and $n=10, n=100, n=500$. We'll calculate these $\sum_{i=1}^n{X_i}$ sums with the different $n$s $1000$ times with the help of the `sapply` function.
 
@@ -568,7 +593,15 @@ clt_df <- data.frame(n_10=n_10,
 str(clt_df)
 ```
 
-Ok, see the mean and standard deviation for the $n=10$ case. As for the $X_i$ exponential distributions $E(X_i)=\mu=1/\lambda=1/0.01=100$ and $\sqrt{Var(X_i)}=\sigma=1/\lambda=1/0.01=100$, we expect the sums to have a mean of $E(\sum_{i=1}^n{X_i})=n \mu=10 \times100=1000$ and to have a standard deviation of $\sqrt{Var(\sum_{i=1}^n{X_i})}=\sqrt{n}\sigma=\sqrt{10} \times 100=316.23$. Due to the fact that $cov(X_i,X_j)=0$, the variances can simply be added up.
+Ok, see the mean and standard deviation for the $n=10$ case.
+
+- As for the $X_i$ exponential distributions
+  * $E(X_i)=\mu=1/\lambda=1/0.01=100$
+  * $\sqrt{Var(X_i)}=\sigma=1/\lambda=1/0.01=100$
+- So we expect the sums to have
+  * $E(\sum_{i=1}^n{X_i})=n \mu=10 \times100=1000$
+  * $\sqrt{Var(\sum_{i=1}^n{X_i})}=\sqrt{n}\sigma=\sqrt{10} \times 100=316.23$.
+    - Due to the fact that $cov(X_i,X_j)=0$, the variances can simply be added up.
 
 ```{r}
 c(mean(clt_df$n_10), sd(clt_df$n_10))
@@ -576,7 +609,7 @@ c(mean(clt_df$n_10), sd(clt_df$n_10))
 
 We can see that the results more-or-less match with what we expect for the mean and standard deviation. If we would check the results for the higher $n$s, we would find that the the mean and standard deviation matches more exactly to what we would expect from the CLT, as the theorem states that it works for large enough $n$s ($n \rightarrow \infty$).
 
-Ad we can see from the histograms that the simulated distributions for the $\sum_{i=1}^n{X_i}$ sums approximate the $N(100,316.23)$ density function (bell curve) more accurately if the $n$ is larger. Before plotting the histograms, the data frame is converted to long format as seen in <a href="Chapter01.html" target="_blank">Sections 5 and 6. of Chapter 1</a>. I also fix the bin number on $15$.
+Ad we can see from the histograms that the simulated distributions for the $\sum_{i=1}^n{X_i}$ sums approximate the normal density function (bell curve) more accurately if the $n$ is larger. Before plotting the histograms, the data frame is converted to long format as seen in <a href="Chapter01.html" target="_blank">Sections 5 and 6. of Chapter 1</a>. I also fix the bin number on $15$.
 
 ```{r}
 clt_df %>% gather("n", "sum_values") %>%
@@ -587,14 +620,14 @@ clt_df %>% gather("n", "sum_values") %>%
 
 ## 4. IID Sampling of Statistical Populations
 
-What we did in the first two sections, was the **sampling from theoretical distributions, known as Independent Identically Distributed (IID) sampling** in its maiden name.
+So, what we did so far in this chapter, was the **sampling from theoretical distributions, known as Independent Identically Distributed (IID) sampling** in its maiden name.
 
-Thus, the IID sample has two characteristics:
+Remember form Section 2.4. that the IID sample has two characteristics:
 
-- **Independent**: the **selection of sample elements is random**, meaning that what I select for the 3rd element **does not depend** on what I selected for the 1st and 2nd elements. In more technical terms this means that the covariance of any two $i \neq j$ observations is $0$: $cov(y_i,y_j)=0$
-- **Identically Distributed**: Each sample element comes from the **same distribution** (e.g., $N(80,20)$ or $Exp(0.0125)$), with no change in the distribution from which values are randomly drawn.
+1. **Independent**: the **selection of sample elements is random**, meaning that what I select for the 3rd element **does not depend** on what I selected for the 1st and 2nd elements. In more technical terms this means that the covariance of any two $i \neq j$ observations is $0$: $cov(y_i,y_j)=0$
+2. **Identically Distributed**: Each sample element comes from the **same distribution** (e.g., $N(80,20)$ or $Exp(0.0125)$), with no change in the distribution from which values are randomly drawn.
 
-This IID sampling **can also be done with real statistical data, i.e., populations**, not just theoretical distributions.<br>
+This IID sampling **can also be done with "real" statistical data, i.e., populations**, not just theoretical distributions.<br>
 For instance, I want to know the average gross monthly salary of approximately 4.5 million Hungarian employees. Obviously, the Hungarian Tax Authority (NAV) has all the detailed salary data of the 4.5 million Hungarian workers (these values are not given by an exponential distribution, for example, but are listed individually in a table somewhere), but we know when they release these data to anyone. Therefore, we do the following: we request the addresses of these 4.5 million Hungarian employees from the population registry, place the slips containing the addresses into a hat, and randomly draw 100 addresses *with replacement*, meaning we always put the selected address back into the hat, not setting it aside. We then visit all 100 addresses and ask people their gross monthly salary. With this **random sampling with replacement**, we are actually **performing an IID sampling from the Hungarian workforce population**. Why?
 
 1. The **sample elements (observations) are independent**, as we randomly drew them, "*blindfolded*".
@@ -683,19 +716,21 @@ SampleProp
 
 Here we go, these are **the estimated statistical measures from our sample**:
 
-- $\bar{y}=160.81$ minutes
-- $s = 36.74$ minutes
-- $p = 0.27=27\%$
+- $\bar{y}=\hat{\mu}=160.81$ minutes
+- $s=\hat{\sigma} = 36.74$ minutes
+- $p=\hat{P} = 0.27=27\%$
 
 These don't exactly match the true population values, but they are *not drastically different* from the reality. Again, we trust that the **difference between the estimated and true values is due to sampling error alone**.
 
 ### 4.1. The Method of Resampling
 
-What we last look at in this chapter is how to **generate $10000$ IID samples of size $100$ from the population** of the Balaton swimmers.
+What we last look at in this chapter is how to **generate $10000$ IID samples of size $100$ from the population** of the Balaton swimmers. This technique is called as **resampling** (retaking a random sample several times) and it'll be the basis for lots of methods in Computational Statistics.
 
-The `replicate` function is going to be our main tool here.
+The `replicate` function is going to be our main tool here. It replicates (what a surprise...:)) a given R codes as many times as we want and stores the results in `matrix` format which is technically data frame that contains only numbers (basically the tabular format of a numeric vector). The function has two input parameters. The first is the number of times we want to replicated the code given in the second parameter of the function.
 
-First, we create an initial sample of $100$ elements from the values in the `TIME` column only. Don’t forget the `set.seed` function here either.
+I want to replicate the `sample(swimming$TIME, size=100, replace = TRUE)` function `10000` times, so this is how I call the parameters of the `replicate` function.<br>
+The  `sample(swimming$TIME, size=100, replace = TRUE)` function takes a sample of size 100 from the `TIME` column alone and stores the elements in a numeric vector of length 100. The `replicate` function returns this vector of 100 times in a `matrix` of 100 rows and 10000 columns. So, in this format sample observations are in the rows and samples are separated in the columns. For later usage, a more practical format for is the one where the sample observations are in the columns and samples are separated in the rows. So we transpose the result `matrix` of `replicate` with the `t()` function and convert it to `data frame` format.<br>
+Finally, I just add the row and column names of the data frame as an optical tuning and remember that observations are in the columns and samples are separated in the rows.
 
 ```{r}
 set.seed(1992)
@@ -705,3 +740,29 @@ rownames(samples) <- paste0("Sample",1:10000)
 colnames(samples) <- paste0("Element",1:100)
 head(samples)
 ```
+
+Very nice, so now I have 10000 IID samples of size 100 from the Balaton swimmers' time results! :) Notice that if I fix the random seed in the beginning of the code, I'll get the same 10000 samples each time, but the individual samples are different. This way the resampling code is reproducible without worrying that I get the same sample of size 100 10000 times. So the machine spirit is smart here. :)
+
+Of course, I can do the same thing with any theoretical distribution here. So, I can easily get 10000 IID samples of size 200 from an $Exp(0.01)$ distribution the same way with the `replicate` function.
+
+```{r}
+set.seed(1992)
+exp_samples <- replicate(10000, rexp(n = 200, rate = 0.01))
+exp_samples <- as.data.frame(t(exp_samples))
+rownames(exp_samples) <- paste0("Sample",1:10000)
+colnames(exp_samples) <- paste0("Element",1:100)
+head(exp_samples)
+```
+
+Let's check the distribution of let's say the 6666th sample. :) Here, I need to transpose the selected sample back as `ggplot` expects that observations (i.e. sample elements) are in the rows.
+
+```{r}
+ggplot(as.data.frame(t(exp_samples[6666,])), aes(x=Sample6666)) +
+  geom_histogram(aes(y = after_stat(density))) +
+  stat_function(fun = dexp, 
+                args = list(rate = 0.01),
+                col = 'red',
+                linewidth = 1)
+```
+
+All is perfect, praise the glory of our machine spirit again! :)
