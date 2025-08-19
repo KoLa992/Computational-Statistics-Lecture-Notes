@@ -11,7 +11,7 @@
 
 <meta name="author" content="László Kovács" />
 
-<meta name="date" content="2025-08-04" />
+<meta name="date" content="2025-08-19" />
 
 <title>The tidyverse in R and Further Descriptive Statistics</title>
 
@@ -2753,7 +2753,7 @@ border-radius: 0px;
 <h1 class="title toc-ignore">The <code>tidyverse</code> in R and Further
 Descriptive Statistics</h1>
 <h4 class="author">László Kovács</h4>
-<h4 class="date">2025-08-04</h4>
+<h4 class="date">2025-08-19</h4>
 
 </div>
 
@@ -2799,10 +2799,11 @@ we can just include the functions from these packages to our R
 environment.</p>
 <pre class="r"><code>library(tidyverse)</code></pre>
 <pre><code>## Warning: a(z) &#39;tidyverse&#39; csomag az R 4.4.3 verziójával lett fordítva</code></pre>
+<pre><code>## Warning: a(z) &#39;ggplot2&#39; csomag az R 4.4.3 verziójával lett fordítva</code></pre>
 <pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
 ## ✔ dplyr     1.1.4     ✔ readr     2.1.5
 ## ✔ forcats   1.0.0     ✔ stringr   1.5.1
-## ✔ ggplot2   3.5.1     ✔ tibble    3.2.1
+## ✔ ggplot2   3.5.2     ✔ tibble    3.2.1
 ## ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
 ## ✔ purrr     1.0.2     
 ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
@@ -3842,8 +3843,8 @@ countries spent less on healthcare in2016 than 851 dollars per capita.
 But only the top <span class="math inline">\(20\%\)</span> of countries
 spent more on healthcare than 2592 dollars per capita in 2016.</p>
 </div>
-<div id="standard-deviation" class="section level2">
-<h2>7. Standard Deviation</h2>
+<div id="standard-deviation-and-covariance" class="section level2">
+<h2>7. Standard Deviation and Covariance</h2>
 <p>Let’s take a look at the
 <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/PolishInvestments.xlsx" target="_blank">PolishInvestments.xlsx</a>
 file. it contains the daily price changes in <em>euro</em> for two
@@ -4074,6 +4075,102 @@ the less information</strong>. This why the mean is “<em>loved</em>” as
 the third measure of location along the mode and median: since
 <strong>using the mean results in the smallest standard
 deviation</strong>.</p>
+</div>
+<div id="covariance" class="section level3">
+<h3>7.2. Covariance</h3>
+<p>It is important to note that we can take <strong>the joined variance
+of two statistical variables <span class="math inline">\(X\)</span> and
+<span class="math inline">\(Y\)</span> as well</strong>. This measure is
+logically called <strong>co-variance or simply covariance</strong>. This
+measure is <strong>originated from the simple univarate
+variance</strong>, as <strong>taking the covariance of a variable <span class="math inline">\(Y\)</span> with itself, it results in the simple
+variance we know</strong>. Let’s work with R’s version of variance where
+we are dividing with <span class="math inline">\(n-1\)</span> as this is
+the formula that R’s built-in <code>cov</code> function applies. <span class="math display">\[cov(Y,Y)=\sigma_Y^2=\frac{\sum_{i=1}^N{(y_i-\bar{y})^2}}{n-1}=\frac{\sum_{i=1}^n{(y_i-\bar{y})(y_i-\bar{y})}}{n-1}\]</span></p>
+<p>Generalizing this formula for two variables <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span>, we <strong>get the formula for the
+classic covariance</strong>: <span class="math display">\[cov(X,Y)=\frac{\sum_{i=1}^n{(y_i-\bar{y})(x_i-\bar{x})}}{n-1}\]</span></p>
+<p>The most important part of the covariance is <strong>its
+sign</strong>:</p>
+<ul>
+<li>if a covariance is <strong>positive, than the two numerical
+variables are in a positive linear relationship</strong>: if one
+variable increases, we can expect the other to increase as well. And if
+one variable decreases, we can expect the other to decrease as
+well.</li>
+<li>if a covariance is <strong>negative, than the two numerical
+variables are in a negative linear relationship</strong>: if one
+variable increases, we can expect the other to decrease. And if one
+variable decreases, we can expect the other to increase.</li>
+</ul>
+<p>Let’s see this on the example of our two investment funds with the R
+function called <code>cov</code>:</p>
+<pre class="r"><code>cov(Invest$BondFund, Invest$StockFund)</code></pre>
+<pre><code>## [1] -0.622818</code></pre>
+<p>As we can see, the covariance of these two variables is negative:
+meaning if the stock price changes increase, than usually the bond price
+changes decrease. This is no surprise, since <strong>stocks tend to
+perform better when bonds</strong> (and other fixed income assets)
+<strong>are faring worse, for example because they pay low
+interests</strong>.</p>
+<p>It is important to note that <strong>if two statistical variables are
+independent, then their covariance is 0,but if a covariance is 0, then
+that does NOT necessarily mean that the two variables are
+independent</strong>. They are just not moving in the same direction,
+not in the opposite direction. So, there is no observable
+<em>linear</em> dependence between th two variables, but there can be a
+non-linear one. E.g. they are both following the same sinus wave. Since
+that is not a straightforward same/oppisite directional relationship,
+covariance does not pick it up.</p>
+</div>
+<div id="combined-variance-of-the-two-investments" class="section level3">
+<h3>7.3. Combined Variance of the Two Investments</h3>
+<p>Let’s say we have a given amount of money to invest and we decide to
+put <span class="math inline">\(70\%\)</span> of our money in the
+relatively safer <em>BondFund</em> and <span class="math inline">\(30\%\)</span> to the riskier <em>StockFund</em>
+with a higher average daily gain.</p>
+<p>Let’s denote the proportion of our money in the <span class="math inline">\(1\)</span>st investment (<em>BondFund</em>)
+generally with <span class="math inline">\(w_1\)</span> and let’s denote
+with <span class="math inline">\(w_2\)</span> our money in the <span class="math inline">\(2\)</span>nd investment option
+(<em>StockFund</em>). So, we now have</p>
+<ul>
+<li><span class="math inline">\(w_1=0.7\)</span></li>
+<li><span class="math inline">\(w_2=0.3\)</span></li>
+</ul>
+<p>We can calculate the **variance of this mixed investment with
+proportions <span class="math inline">\(w_1\)</span> and <span class="math inline">\(w_2\)</span> from the variance of the <span class="math inline">\(1\)</span>st and <span class="math inline">\(2\)</span>nd investment options <span class="math inline">\(\sigma_1^2, \sigma_2^2\)</span> and their
+covariance <span class="math inline">\(cov_{1,2}\)</span>: <span class="math display">\[\sigma^2(1,2)=w_1^2\sigma_1^2 + w_2^2\sigma_2^2 +
+2w_1w_2cov_{1,2}\]</span></p>
+<p>For our two investments with the given proportion, this formula means
+the following calculation:</p>
+<pre class="r"><code># variance of the two original investment options
+var(Invest$BondFund)</code></pre>
+<pre><code>## [1] 59.04844</code></pre>
+<pre class="r"><code>var(Invest$StockFund)</code></pre>
+<pre><code>## [1] 288.6587</code></pre>
+<pre class="r"><code>0.7^2*var(Invest$BondFund) + 0.3^2*var(Invest$StockFund) +
+  2*0.7*0.3*cov(Invest$BondFund, Invest$StockFund)</code></pre>
+<pre><code>## [1] 54.65143</code></pre>
+<p>This means that the <strong>volatility (variance) of our investment
+portfolio</strong> consisting of <span class="math inline">\(70\%\)</span> Polish Bonds and <span class="math inline">\(30\%\)</span> Polish Stocks <strong>is smaller
+than the volatility of both the two original investments. This is due to
+their negative covariance which diversifies the volatility among the two
+investment options</strong>. As when Stocks tend to fare worse, the
+losses are compensated with the increase in the prices of the
+“Bond-part” of our portfolio.</p>
+<p>This also means smaller <em>relative standard deviation</em> compared
+to that of the two original investment options as well, so even the
+risk-gain ratio has improved a bit with diversification:</p>
+<pre class="r"><code># variance of the two original investment options
+sd(Invest$BondFund + 1) / mean(Invest$BondFund + 1)</code></pre>
+<pre><code>## [1] 7.044309</code></pre>
+<pre class="r"><code>sd(Invest$StockFund + 1) / mean(Invest$StockFund + 1)</code></pre>
+<pre><code>## [1] 12.33796</code></pre>
+<pre class="r"><code>mean_portf &lt;- 0.7*mean(Invest$BondFund) + 0.3*mean(Invest$StockFund)
+sd_portf &lt;- sqrt(0.7^2*var(Invest$BondFund) + 0.3^2*var(Invest$StockFund) +
+  2*0.7*0.3*cov(Invest$BondFund, Invest$StockFund))
+
+sd_portf/(mean_portf+1)</code></pre>
+<pre><code>## [1] 6.282479</code></pre>
 </div>
 </div>
 
