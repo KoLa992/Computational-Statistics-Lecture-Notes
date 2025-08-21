@@ -1,0 +1,379 @@
+---
+title: "Maximum Likelihood Estimators"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. General Principles of Maximum Likelihood (ML) Estimation
+
+If we somehow know or suspect (e.g. from a histogram) that our data has Negative Binomial Distribution, then what are the $r$ and $p$ parameter that best fit for our data. Or if our data is assumed to have Exponential distribution, then what is the $\lambda$ that best fits our observed sample data.
+
+The **method of moments** has **one** great **advantage**: its **calculations are very-very simple**! However, it **does NOT consider every observation in our sample when estimating the distribution parameters**. It only uses calculated statistical measures of our sample, its moments.
+
+The **maximum likelihood method uses every observation our sample directly when estimating the distribution parameters**. On the other hand, its **calculations are more complex** than those of the method of moments.
+
+Now, after seeing its benefits, let's see the **general principles of the maximum likelihood method**.
+
+The basic concept is quite simple: let's **find those parameters** for a given probability distribution that **maximize the probability of all our observed data occurring in an IID sample** (i.e. random sample with replacement) from that given distribution. So, if the elements of the observed sample of size $n$ are denoted as $y=(y_1,y_2,...,y_n)$, and the parameters of the probability distribution we are looking for denoted as $\theta$, then we are looking for the $\theta$ values that maximizes the probability of $y$ occurring in case of $n$ random draws from the examined distribution.<br>
+A mathematical formulation for this task is as follows: $$P(y|\theta) \rightarrow \max_{\theta}$$
+
+Here, the $P(y|\theta)$ probability is called as the **likelihood of the sample**. This is the **probability** of our observed **sample occurring on the condition that we give some arbitrary values for $\theta$.** So, in other words, we are **looking for those $\theta$ conditions that maximize our $y$ sample occurring.**<br>
+To calculate this, we can **use the $f(x,\theta)$ mass/density functions of the discrete/continuous distributions**, as they **show the probability of an arbitrary number $x$ occurring in a random draw from the probability distribution with $\theta$ parameters**. So if we say that every $y_1,y_2,...,y_n$ observations of our sample are from the same probability distribution with the same mass/density function denoted as $f$, then this function can be used to give the **probability of the a specific $y_i$ sample observations occurring in a random draw as $f(y_i, \theta)$.**
+
+So, the **probability of each $y_i$ observation of our sample occurring for a random draw under some $\theta$ parameter conditions** is given as $$f(y_i)=P(y_i|\theta)$$
+
+This is the **likelihood of the $y_i$ observation**.
+
+The **likelihood of the whole sample is the probability of all the observed $y_i$ values ($y_1,y_2,...,y_n$) occurring all at once!** This is the **PRODUCT of the $P(y_i|\theta)$ probabilities if the $y_i$ values are independent**, and since **we assume that we work with IID** (independent, identically distributed) **samples, the independence of the $y_i$ values can also be assumed**, because of the first "I" in IID. :)
+
+Therefore, the **likelihood of our whole $y$ sample under the condition of some $\theta$ parameters in an IID sample of size $n$** is given as follows: $$L(\theta)=\prod_{i=1}^{n}{P(y_i|\theta)}=\prod_{i=1}^{n}{f(y_i, \theta)}$$
+
+And we need to **maximize this $L(\theta)$ by varying the $\theta$ conditions**. As this is what is the **direct expression of the maximum likelihood principle**: *find those parameters that maximize the probability of all our observed data occurring in an IID sample*.
+
+To **solve this maximization task**, we need to take the $\frac{\partial L(\theta)}{\partial\theta}$ derivatives and make them equal to $0$. However, **taking the derivative of a product-function that is $L(\theta)$ is rather painful**. Best to avoid this. :) And thankfully we can avoid this by **maximizing the log-likelihood function of the sample**, as **on a log-scale a multiplicative function becomes an additive one!** $$l(\theta)=\ln(L(\theta))=\ln\prod_{i=1}^{n}{f(y_i,\theta)}=\sum_{i=1}^{n}{\ln(f(y_i,\theta)})$$
+
+So, in practice, to **make our jobs easy, we maximize the log-likelihood function in $\theta$:** $$l(\theta) \rightarrow \max_{\theta}$$
+
+And we can simply do this maximization by **taking the derivative of the log-likelihood** according to $\theta$ and solve the equation of **this derivative being equal to $0$:** $$\frac{\partial l(\theta)}{\partial\theta}=0$$
+
+Ok, great: we now know what to do to get maximum likelihood (ML) estimators. Let's see some **practical examples** for this maximum likelihood estimation process!
+
+## 2. Exponential Distribution
+
+!!!ESS Dataset description again!!!
+
+```{r}
+ess <- readxl::read_excel("ess_hun_2024.xlsx")
+str(ess)
+```
+
+Alcohol consumption was our example for Exponential distribution is Chapter 1.
+
+```{r}
+mean(is.na(ess$AlcoholWeekend))
+ess_small <- ess[!is.na(ess$AlcoholWeekend),c("idno", "AlcoholWeekend")]
+hist(ess_small$AlcoholWeekend)
+```
+
+The parameter to estimate for the Exponential distribution is $\lambda$. So, in the exponential case: $\theta=\lambda$.
+
+Now, let's write the negative log-likelihood function for our sample as a custom R function. We need the **negative log-likelihood** as the **built-in methods for optimization in R can only minimize** a function, and NOT maximize. So, we'll **minimize the negative log-likelihood which is the same as maximizing the original log-likelihood**.<br>
+The input parameter of the function, `theta_expon` is treated as the value for the $\lambda$ parameter of course. We can use the `dexp` function for calculating the $P(y_i|\theta)=f(y_i,\theta)$ probabilities for the Exponential distribution. Then, we just apply the $l(\theta)=\sum_{i=1}^{n}{\ln(f(y_i,\theta)})$ formula.
+
+```{r}
+# function definition
+neg_log_likelihood_expon <- function(theta_expon){
+  log_lik_observations <- log(dexp(x = ess_small$AlcoholWeekend,
+                                   rate = theta_expon)) # log-probability of every observations occurring under the current parameters
+  return(-sum(log_lik_observations))
+}
+
+# function test on some random parameter value
+neg_log_likelihood_expon(0.001)
+```
+
+Do the **optimization with R's built-in `optim` function**. The first parameter of this function is the starting $\lambda$ value for the optimization. This value can be any arbitrary starting value, but we should respect the constraint on the Exponential parameter: $\lambda>0$. We can *ignore the possible warnings*, it just means that R encountered some bad parameter values when trying out different $\lambda$ values during the optimization. R automatically ignores these cases, they won't cause any problems.
+
+```{r warning=FALSE}
+expon_ml <- optim(0.001, neg_log_likelihood_expon)
+expon_ml$par # optimal parameter value
+expon_ml$val # minimized negative log-likelihood of the sample
+```
+
+So, our result is $\hat{\lambda}_{ML}=0.0214$. Which is the **reciprocal of the sample mean and not the standard deviation**!
+
+```{r}
+1/mean(ess_small$AlcoholWeekend)
+1/sd(ess_small$AlcoholWeekend)
+```
+
+As the ML method takes every observation into account when estimation a distribution parameter and just utilizes a few moments, we can finally confirm that we **need to take the reciprocal of the mean and NOT the standard deviation when estimating $\lambda$ of an exponential distribution**.
+
+### 2.1. Analitical Solution for the Exponential Distribution
+
+The previous result can also be derived analytically by **taking the derivative of the log-likelihood** according to $\theta$ and solve the equation of **this derivative being equal to $0$:** $$\frac{\partial l(\theta)}{\partial\theta}=0$$
+
+The $P(y_i|\theta)=f(y_i,\theta)$ probabilities for the Exponential distribution (where $\theta = \lambda$) are given by the Exponential density function: $$f(y_i, \lambda)=\lambda e^{-\lambda y_i}$$
+
+The likelihood of the whole sample is the individual $y_i$ likelihoods multiplied together because of the $y_i$s independence (IID sample): $$L(\lambda)=\prod_{i=1}^n{\lambda e^{-\lambda y_i}}$$
+
+We can expand the product by using the fact that multiplication becomes additive in the power: $$L(\lambda)=\lambda^n e^{-\lambda \sum_{i=1}^n{y_i}}$$
+
+Taking the natural logarithm of the likelihood function to produce the log-likelihood: $$l(\lambda)=\ln(L(\lambda))=\ln(\lambda^n e^{-\lambda \sum_{i=1}^n{y_i}})$$
+
+Using logarithm properties we can make the expression additive, so its easier to derivative: $$l(\lambda)=n \times \ln(\lambda) - \lambda \times \sum_{i=1}^n{y_i}$$
+
+Taking the derivative according to $\lambda$: $$\frac{\partial l(\lambda)}{\partial\lambda}=\frac{n}{\lambda}-\sum_{i=1}^n{y_i}$$
+
+Setting this derivative to zero: $$\frac{n}{\lambda}=\sum_{i=1}^n{y_i}$$
+
+And finally, solving for $\lambda$ we have: $$\lambda=\frac{n}{\sum_{i=1}^n{y_i}}$$
+
+So we arrived to the same conclusion as in the previous section: **the maximum likelihood estimation (MLE) for $\lambda$ is the reciprocal of the sample mean**.
+
+## 3. Normal Distribution
+
+!!!ESS BMI variable!!!
+
+```{r}
+ess$BMI <- ess$Weight/(ess$Height/100)^2
+ess_small <- ess[!is.na(ess$BMI),c("idno", "BMI")]
+hist(ess_small$BMI)
+```
+
+Parameters to estimate for the normal distribution are $\mu$ and $\sigma$, so in this case: $\theta=(\mu,\sigma)$
+
+Write the negative log-likelihood function for our sample in case of the normal distribution as a custom R function. The input parameter `theta_norm` is treated as a `vector`.
+
+```{r}
+# function definition
+neg_log_likelihood_norm <- function(theta_norm){
+  log_lik_observations <- log(dnorm(x = ess_small$BMI,
+                                    mean = theta_norm[1],
+                                    sd = theta_norm[2])) # log-probability of every observations occurring under the current parameters
+  return(-sum(log_lik_observations))
+}
+
+# function test on some random parameter combination
+neg_log_likelihood_norm(c(250, 250))
+```
+
+Do the optimization. We can *ignore the warnings* like before.
+
+```{r warning=FALSE}
+norm_ml <- optim(c(250, 250), neg_log_likelihood_norm)
+norm_ml$par # optimal parameter values
+norm_ml$val # minimized negative log-likelihood of the sample
+```
+
+So, our results are $\hat{\mu}_{ML}=26.27$ and $\hat{\sigma}_{ML}=4.028872$.
+
+See that the $\hat{\sigma}_{ML}$ is actually the **uncorrected sample standard deviation** (where we divide by $n$ and not $n-1$ like the `sd` function). Difference is just some rounding error.
+
+```{r}
+sqrt(mean((ess_small$BMI - mean(ess_small$BMI ))^2))
+```
+
+So, this is **NOT the corrected sample standard deviation**.
+
+```{r}
+sd(ess_small$BMI)
+```
+
+!!!Interesting!!!
+
+### 3.1. Analitical Solution for the Normal Distribution
+
+We can derive the results for the two parameters of the Normal distribution we've seen in *Section 3.* analytically as well. Just like we did for the Exponential distribution in *Section 2.1.*<br>
+So, let's **take the derivative of the log-likelihood** according to **both $\theta$ parameters** and solve the equations of **these two derivatives being equal to $0$:** $$\frac{\partial l(\theta)}{\partial\theta_i}=0$$
+
+Where $\theta=(\mu, \sigma)$, so $\theta_1=\mu$ and $\theta_2=\sigma$.
+
+The $P(y_i|\theta)=f(y_i,\theta)$ probabilities for the Exponential distribution (where $\theta=(\mu, \sigma)$) are given by the Normal density function: $$f(y_i, \mu, \sigma)=\frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{(y_i-\mu)^2}{2\sigma^2}\right)$$
+
+The likelihood of the whole sample is the individual $y_i$ likelihoods multiplied together because of the $y_i$s independence (IID sample): $$L(\mu, \sigma)=\prod_{i=1}^n{\frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{(y_i-\mu)^2}{2\sigma^2}\right)}$$
+
+We can expand the product by using the fact that multiplication becomes additive in the power: $$L(\mu, \sigma)=\left(2\pi\sigma^2\right)^{-n/2} \exp\left(-\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^2}}\right)$$
+
+Taking the natural logarithm of the likelihood function to produce the log-likelihood: $$l(\mu, \sigma)=\ln(L(\mu, \sigma))=\ln\left(\left(2\pi\sigma^2\right)^{-n/2} \exp\left(-\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^2}}\right)\right)$$
+
+Using logarithm properties we can make the expression additive, so its easier to derivative: $$l(\mu, \sigma)=\frac{n}{2} \ln(2\pi\sigma^2)-\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^2}}$$
+
+Taking the derivative with respect to $\mu$ (remember $\sigma$ is treated as a constant term here): $$\frac{\partial l(\mu, \sigma)}{\partial\mu}=\sum_{i=1}^n{\frac{y_i-\mu}{\sigma^2}}$$
+
+We've used the chain rule to get the derivative of the $(y_i-\mu)^2$ part which is $2(y_i-\mu) \times (-1)$. We can simplify with $2$ in the division. And the $-1$ takes care of the $-$ before the sum.
+
+So, setting this derivative to zero, we have: $$0=\sum_{i=1}^n{(y_i-\mu)}$$
+
+And finally, solving for $\mu$ we get that: $$\mu=\frac{\sum_{i=1}^n{y_i}}{n}=\bar{y}$$
+
+Notice that we actually we just needed to maximize the $-\sum_{i=1}^n{(y_i-\mu)^2}$ part which is equivalent with minimizing $\sum_{i=1}^n{(y_i-\mu)^2}$ according to $\mu$. So, we can **get the maximum likelihood estimation for the Normal distribution's expected value by minimizing the squared error**. This is the **ordinary least squares** logic learnt on the *Fundamentals of Statistics* course!! That is, the **mean is the statistical measure that minimizes the standard deviation, i.e. it has minimal squared error when we substitute all observations with the mean**!
+
+Now, let's see the **maximum likelihood estimation of $\sigma$:** we need to take the derivative of the log-likelihood with respect to $\sigma$ (remember $\mu$ is treated as a constant term here): $$\frac{\partial l(\mu, \sigma)}{\partial\sigma^2}=-\frac{n}{2\sigma^2}+\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^4}}$$
+
+Setting this derivative to zero, we have: $$\frac{n}{2\sigma^2}=\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^4}}$$
+
+Multiplying both sides by $2\sigma^4$, we get: $$n \times \sigma^2=\sum_{i=1}^n{(y_i-\mu)^2}$$
+
+Solving for $\sigma^2$: $$\sigma^2=\frac{\sum_{i=1}^n{(y_i-\mu)^2}}{n}$$
+
+So, we've arrived at the same conclusion as in *Section 3*: the maximum likelihood estimation for the variance of a Normal distribution is the **uncorrected sample standard deviation**, where we divide by $n$ and NOT by $n-1$.
+
+## 4. Negative Binomial Distribution
+
+!!!Neg Binomial Carinsurance data!!!
+
+```{r}
+num_claims <- readxl::read_excel("insurance_examples.xlsx", sheet = "CarInsurance_NumberOfClaims_v2")
+str(num_claims)
+```
+
+The parameters to estimate for the Binomial distribution are $r$ and $p$, so in this case: $\theta=(r,p)$
+
+Now, let's write the negative log-likelihood function for our sample as a custom R function in this case as well.<br>
+The input parameter of the function, `theta_nbinom` is treated as a `vector` where the 1st value is the $r$ parameter and the 2nd value is the $p$ parameter. We can use the `dnbinom` function for calculating the $P(y_i|\theta)=f(y_i,\theta)$ probabilities for the Negative Binomial distribution. Then, we just apply the $l(\theta)=\sum_{i=1}^{n}{\ln(f(y_i,\theta)})$ formula.
+
+```{r}
+# function definition
+neg_log_likelihood_nbinom <- function(theta_nbinom){
+  log_lik_observations <- log(dnbinom(x = num_claims$NumClaims,
+                                     size = theta_nbinom[1],
+                                     prob = theta_nbinom[2])) # log-probability of every observations occurring under the current parameters
+  return(-sum(log_lik_observations))
+}
+
+# function test on some random parameter combination
+neg_log_likelihood_nbinom(c(8, 0.1))
+```
+
+Do the **optimization with R's built-in `optim` function**. The first parameter of this function are the starting $r$ and $p$ values for the optimization given in `vector` format. These values can be any arbitrary starting values, but we should respect the constraints on the Negative Binomial parameters: like $p$ should be between $0$ and $1$. We can *ignore the possible warnings*, it just means that R encountered some bad parameter combinations when trying out different $r$ and $p$ values during the optimization. R automatically ignores these cases, they won't cause any problems.
+
+```{r warning=FALSE}
+nbinom_ml <- optim(c(8, 0.1), neg_log_likelihood_nbinom)
+nbinom_ml$par # optimal parameter values
+nbinom_ml$val # minimized negative log-likelihood of the sample
+```
+
+So, our results are $\hat{r}_{ML}=1.7$ and $\hat{p}_{ML}=0.52$.
+
+### 5. Compare Different Distributions Fitted on the Same Data - Information Criterions
+
+!!!Daily Net Usage Time!!!
+
+```{r}
+mean(is.na(ess$DailyNetUse))
+ess_small <- ess[!is.na(ess$DailyNetUse),c("idno", "DailyNetUse")]
+ess_small <- ess_small[ess_small$DailyNetUse > 0,]
+hist(ess_small$DailyNetUse)
+```
+
+Fit the lognormal distribution with ML
+
+Parameters to estimate for the lognormal distribution are $\mu$ and $\sigma$, so in this case: $\theta=(\mu,\sigma)$
+
+Write the negative log-likelihood function for our sample in case of the normal distribution as a custom R function. The input parameter `theta_lnorm` is treated as a `vector`.
+
+```{r}
+# function definition
+neg_log_likelihood_lnorm <- function(theta_lnorm){
+  log_lik_observations <- log(dlnorm(x = ess_small$DailyNetUse,
+                                    meanlog = theta_lnorm[1],
+                                    sdlog = theta_lnorm[2])) # log-probability of every observations occurring under the current parameters
+  return(-sum(log_lik_observations))
+}
+
+# function test on some random parameter combination
+neg_log_likelihood_lnorm(c(2, 2))
+```
+
+Do the optimization. We can *ignore the warnings* like before.
+
+```{r warning=FALSE}
+lnorm_ml <- optim(c(2,2), neg_log_likelihood_lnorm)
+lnorm_ml$par # optimal parameter values
+lnorm_ml$val # minimized negative log-likelihood of the sample
+```
+
+Fit exponential with ML.
+
+```{r}
+# function definition
+neg_log_likelihood_expon <- function(theta_expon){
+  log_lik_observations <- log(dexp(x = ess_small$DailyNetUse,
+                                   rate = theta_expon))
+  return(-sum(log_lik_observations))
+}
+
+# function test on some random parameter value
+neg_log_likelihood_expon(0.001)
+```
+
+Do the **optimization with R's built-in `optim` function**. The first parameter of this function is the starting $\lambda$ value for the optimization. This value can be any arbitrary starting value, but we should respect the constraint on the Exponential parameter: $\lambda>0$. We can *ignore the possible warnings*, it just means that R encountered some bad parameter values when trying out different $\lambda$ values during the optimization. R automatically ignores these cases, they won't cause any problems.
+
+```{r warning=FALSE}
+expon_ml <- optim(0.001, neg_log_likelihood_expon)
+expon_ml$par # optimal parameter value
+expon_ml$val # minimized negative log-likelihood of the sample
+```
+
+Compare the **normal and exponential distributions with the histogram of the daily net usage time data**. Graphically and logically, its obvious that the exponential is a better fit because of the long right tail.<br>
+We apply the `ggplot` package here: we add two `stat_function` layers to the `geom_histogram`: one for the Normal (*red*) and another for the Exponential (*blue*) distribution.
+
+```{r}
+library(ggplot2)
+
+ggplot(data = ess_small, mapping = aes(x=DailyNetUse)) + geom_histogram(aes(y = after_stat(density))) +
+  stat_function(fun = dlnorm, 
+                args = list(meanlog = lnorm_ml$par[1], sdlog = lnorm_ml$par[2]),
+                col = 'blue',
+                linewidth = 1) +
+  stat_function(fun = dexp, 
+                args = list(rate = expon_ml$par),
+                col = 'red',
+                linewidth = 1)
+  
+```
+
+We can see this result form the results of the maximum likelihood estimation as well. It can be concluded that **the Exponential distribution fits better on the observed data by having smaller minimized negative log-likelihood value**, i.e.: smaller "*error*" at the end of the optimization process. Or we can say that **the distribution with higher maximized log-likelihood has a greater probability to generate our observed data in an IID sampling** of $58$ observations.
+
+```{r}
+expon_ml$value > lnorm_ml$value
+```
+
+However, it is NOT always enough to say that if one distribution has a better maximized log-likelihood value, it is a better fit for the data. we need to **control for the fact that the normal distribution is more flexible as it has two parameters instead of one**. So, what we need to consider is a phenomenon called **overfitting**. Overfitting means that **a distribution only fits our data better because it has more parameters, so its density/mass function is more flexible** and more of its properties can be customized. Remember from <a href="Chapter03.html" target="_blank">Chapter 3</a>: the expected value determines the maximum point of the Normal density function and the standard deviation determines its peakedness. While for the Exponential distribution, we only have $\lambda$ and it only influences its peakedness.  This means that **a distribution with more parameters has more chances to fit on the noise in the observed histogram and NOT on its main tendencies**. This is problematic, as we want to use the fitted distribution for predicting the statistical properties (e.g. percentiles) of unobserved data. And it **causes uncomfortable moments if we predict the noise of the data, not its main tendencies**. This phenomenon is called **overfitting** and we need to **control for this when selecting the best fitting distribution** for our data.
+
+Our **tools for controlling overfitting are the Information Criterion** ($IC$s). All the $IC$s are **based on the negative log-likelihood, they always needs to be minimized**. So, the smaller $IC$ shows a better distribution fit. However, every $IC$ **applies a penalty on the negative log-likelihood that is dependent on the number of estimated parameters** ($p$). The specific $IC$s differ on **how strong this penalty should be**. The logic is that a **distribution with more parameters is more likely to have a smaller negative log-likelihood** However, if the **penalty term** of the $IC$s are **applied**, then they need to **cause more negative log-likelihood decrease in order to get preferred than a distribution with fewer parameters**. Because the distribution with more parameter is more likely to fit on the noise in the data and not on its main tendencies. So, the $IC$s **level the playing field** between distributions with different number of parameters so to speak.
+
+We cover two specific $IC$s now.
+
+The Akaike Information Criterion ($AIC$) is the one with the **most lenient penalty on the number of parameters** among all the $IC$s. It has many specific formulas, but the simplest one is the following with $p$ being the number of estimated parameters: $$AIC=2p-2l(\theta)$$ 
+
+It's quite easy to calculate in R.
+
+```{r}
+aic_exp <- 2*1 + 2*expon_ml$value # as the exponential distribution has p=1 parameter
+aic_lnorm <- 2*2 + 2*lnorm_ml$value # as the lognormal distribution has p=2 parameters
+```
+
+The Bayes - Schwarz Information Criterion ($BIC$ or $SBC$) has the **strictest penalty on the number of parameters** among all the $IC$s. It has many specific formulas, but the simplest one is the following: $$BIC=p\ln(n) - 2l(\theta)$$
+
+The $BIC$ can be implemented in R as follows.
+
+```{r}
+bic_exp <- 1*log(nrow(ess_small)) + 2*expon_ml$value # as the exponential distribution has p=1 parameter
+bic_lnorm  <- 2*log(nrow(ess_small)) + 2*lnorm_ml$value # as the normal distribution has p=2 parameters
+```
+
+When calculating these two values, $AIC$ and $BIC$ show that the exponential is a better fit, despite having one parameter instead of two.
+
+```{r}
+aic_exp > aic_lnorm
+bic_exp > bic_lnorm
+```
+
+As the $BIC$ has a stronger penalty on $p$ in its formula, so we can state that for all distributions: $AIC < BIC$
+
+```{r}
+aic_lnorm < bic_lnorm
+aic_exp < bic_exp
+```
+
+It follows that **$BIC$ usually always prefers distributions with fewer parameters, than the $AIC$**. There are many more $IC$s in between the values of $AIC$ and $BIC$, we'll cover some later in this course.
+
+As I've briefly mentioned, **$IC$s have several specific formulas and R doesn't necessarily use the ones I just showed You**. It **does not matter which specific formulas You use as long as You apply them consistently**: like such that the $AIC<BIC$ relationship remains.

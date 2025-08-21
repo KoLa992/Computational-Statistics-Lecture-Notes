@@ -25,7 +25,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 2 - <a href="Chapter02.html" target="_blank">Simulations and Sampling</a>
 
-## Chapter 3 - Maximum Likelihood Estimators
+## Chapter 3 - <a href="Chapter03.html" target="_blank">Maximum Likelihood Estimators</a>
 
 ## Chapter 4 - Properties of Estimators and Confidence Intervals
 
