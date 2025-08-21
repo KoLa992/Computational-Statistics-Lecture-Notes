@@ -66,7 +66,6 @@ str(ess)
 Alcohol consumption was our example for Exponential distribution is Chapter 1.
 
 ```{r}
-mean(is.na(ess$AlcoholWeekend))
 ess_small <- ess[!is.na(ess$AlcoholWeekend),c("idno", "AlcoholWeekend")]
 hist(ess_small$AlcoholWeekend)
 ```
