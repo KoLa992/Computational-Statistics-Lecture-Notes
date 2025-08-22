@@ -1,0 +1,337 @@
+---
+title: "Properties of Estimators and Confidence Intervals"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Simulating Sampling Distributions
+
+Resampling an Exponential distribution.
+
+```{r}
+rate <- 0.01
+exp_value <- 1/rate
+theor_sd <- 1/rate
+
+sample_size <- 90
+replication_number <- 10000
+
+set.seed(1992)
+exp_samples <- replicate(replication_number, rexp(n = sample_size, rate = rate))
+exp_samples <- as.data.frame(t(exp_samples))
+
+rownames(exp_samples) <- paste0("Sample",1:replication_number)
+colnames(exp_samples) <- paste0("Element",1:sample_size)
+head(exp_samples)
+```
+
+Calculate sample means and standard deviations.
+
+```{r}
+exp_samples$sample_mean <- apply(exp_samples, 1, mean)
+exp_samples$sample_sd <- apply(exp_samples, 1, sd)
+head(exp_samples[,(sample_size-2):ncol(exp_samples)])
+```
+
+Show sampling distribution of the means with true expected value.
+
+```{r}
+library(ggplot2)
+ggplot(exp_samples, aes(x=sample_mean)) + geom_histogram(aes(y = after_stat(density))) +
+  geom_vline(xintercept = exp_value, color="red", linewidth=1)
+```
+
+Show sampling distribution of the sample standard deviations with true standard deviation.
+
+```{r}
+ggplot(exp_samples, aes(x=sample_sd)) + geom_histogram(aes(y = after_stat(density))) +
+  geom_vline(xintercept = theor_sd, color="red", linewidth=1)
+```
+
+## 2. Bias and (Estimation) Variance
+
+Definition of Bias: $$Bs=E(\hat{\theta})-\theta$$
+
+Calculate Bias of the means.
+
+```{r}
+round(exp_value - mean(exp_samples$sample_mean),5)
+```
+
+Calculate Bias of the corrected standard deviations.
+
+```{r}
+round(theor_sd - mean(exp_samples$sample_sd),5)
+```
+
+Calculate the uncorrected standard deviations.
+
+```{r}
+exp_samples$uncorr_sd <- exp_samples$sample_sd * sqrt((sample_size-1)/sample_size)
+head(exp_samples[,(sample_size-2):ncol(exp_samples)])
+```
+
+Bias of the uncorrected standard deviations.
+
+```{r}
+round(theor_sd - mean(exp_samples$uncorr_sd),5)
+```
+
+Definition of Standard Error: $$SE=\sqrt{Var\left(\hat\theta\right)}=\sqrt{E\left(\left(\hat\theta-E\left(\hat{\theta}\right)\right)^2\right)}$$
+
+Standard Error of the means.
+
+```{r}
+sqrt(mean((exp_samples$sample_mean - mean(exp_samples$sample_mean))^2))
+```
+
+Standard Error of corrected sample standard deviations.
+
+```{r}
+sqrt(mean((exp_samples$sample_sd - mean(exp_samples$sample_sd))^2))
+```
+
+Standard Error of uncorrected sample standard deviations.
+
+```{r}
+sqrt(mean((exp_samples$uncorr_sd - mean(exp_samples$uncorr_sd))^2))
+```
+
+Definition of MSE: $$MSE(\hat{\theta})=E\left(\left(\hat\theta-\theta\right)^2\right)=\left(E\left(\hat{\theta}\right)-\theta\right)^2+E\left(\left(\hat\theta-E\left(\hat{\theta}\right)\right)^2\right)=Bs^2+SE^2$$
+
+MSE of the means.
+
+```{r}
+mean((exp_samples$sample_mean - exp_value)^2)
+```
+
+MSE of the corrected sample standard deviations.
+
+```{r}
+mean((exp_samples$sample_sd - theor_sd)^2)
+```
+
+MSE of the uncorrected sample standard deviations.
+
+```{r}
+mean((exp_samples$uncorr_sd - theor_sd)^2)
+```
+
+MLE property: minimal MSE. Most efficient estimator.
+
+## 3. Sampling Distribution of the Mean
+
+Derived from CLT: $$\bar{y} \sim N\left(\mu,\frac{\sigma}{\sqrt{n}}\right)$$
+
+Calculate theoretical SE of the mean.
+
+```{r}
+se_mean_theor <- theor_sd/sqrt(sample_size)
+se_mean_theor
+```
+
+Versus empirical SE.
+
+```{r}
+se_mean_empir <- sqrt(mean((exp_samples$sample_mean - mean(exp_samples$sample_mean))^2))
+c(se_mean_theor, se_mean_empir)
+```
+
+Show the sampling distribution, which is $N(100,10.54)$
+
+```{r}
+ggplot(data = exp_samples, mapping = aes(x=sample_mean)) + geom_histogram(aes(y = after_stat(density))) +
+  stat_function(fun = dnorm, 
+                args = list(mean = exp_value, sd = se_mean_theor),
+                col = 'red',
+                linewidth = 1)
+```
+
+Get z-scores of the sample means and their distribution.
+
+```{r}
+exp_samples$z_score <- (exp_samples$sample_mean - exp_value)/se_mean_empir
+
+ggplot(data = exp_samples, mapping = aes(x=z_score)) + geom_histogram(aes(y = after_stat(density))) +
+  stat_function(fun = dnorm, 
+                args = list(mean = 0, sd = 1),
+                col = 'red',
+                linewidth = 1)
+```
+
+
+## 4. Confidence Interval of the Mean
+
+Get t-scores of the sample means and their distribution.
+
+```{r}
+exp_samples$t_score <- (exp_samples$sample_mean - exp_value)/(exp_samples$sample_sd/sqrt(sample_size))
+
+ggplot(data = exp_samples, mapping = aes(x=t_score)) + geom_histogram(aes(y = after_stat(density))) +
+  stat_function(fun = dnorm, 
+                args = list(mean = 0, sd = 1),
+                col = 'red',
+                linewidth = 1) +
+  stat_function(fun = dt, 
+                args = list(df = sample_size-1),
+                col = 'blue',
+                linewidth = 1)
+```
+
+Confidence Interval formula for the mean: $$P\left(\bar{y}-t_{1-\frac{\alpha}{2}}^{n-1} \times \frac{s}{\sqrt{n}}< \mu <+t_{1-\frac{\alpha}{2}}^{n-1} \times \frac{s}{\sqrt{n}}\right) = 1- \alpha$$
+
+See its hit rate for 98% confidence, so $\alpha=0.02$.
+
+```{r}
+t_mult <- qt(1-0.02/2, df = sample_size-1)
+exp_samples$ci_mean_low_t <- exp_samples$sample_mean - exp_samples$sample_sd/sqrt(sample_size) * t_mult
+exp_samples$ci_mean_upp_t <- exp_samples$sample_mean + exp_samples$sample_sd/sqrt(sample_size) * t_mult
+mean((exp_samples$ci_mean_low_t <= exp_value) & (exp_samples$ci_mean_upp_t >= exp_value))
+```
+
+
+In large sample sizes it simplifies to: $$P\left(\bar{y}-z_{1-\frac{\alpha}{2}} \times \frac{s}{\sqrt{n}}< \mu <+z_{1-\frac{\alpha}{2}} \times \frac{s}{\sqrt{n}}\right) = 1- \alpha$$
+
+See this hit rate also for 98% confidence, so $\alpha=0.02$.
+
+```{r}
+z_mult <- qnorm(1-0.02/2)
+exp_samples$ci_mean_low_z <- exp_samples$sample_mean - exp_samples$sample_sd/sqrt(sample_size) * z_mult
+exp_samples$ci_mean_upp_z <- exp_samples$sample_mean + exp_samples$sample_sd/sqrt(sample_size) * z_mult
+mean((exp_samples$ci_mean_low_z <= exp_value) & (exp_samples$ci_mean_upp_z >= exp_value))
+```
+
+## 5. Sampling Distribution and Confidence Interval of MLEs
+
+Sampling distribution definition: $$\hat{\theta}_{ML} \sim N(\theta,\sqrt{I^{-1}})$$
+
+
+Get the empirical standard error for $\hat{\lambda}_{ML}$ from the simulations.
+
+```{r}
+exp_samples$est_rate <- 1/exp_samples$sample_mean
+se_lambda_empir <- sqrt(mean((exp_samples$est_rate - rate)^2))
+se_lambda_empir
+```
+
+See for the 666th sample that the $\sqrt{I^{-1}}$ approximation works.
+
+Get the $\hat{\lambda}_{ML}$ numerically with Hessian matrix included.
+
+```{r}
+sample_666 <- as.numeric(t(exp_samples[666,1:sample_size]))
+
+# function definition
+neg_log_likelihood_expon <- function(theta_expon){
+  log_lik_observations <- log(dexp(x = sample_666,
+                                   rate = theta_expon))
+  return(-sum(log_lik_observations))
+}
+
+# do the MLE with optim
+expon_ml <- optim(0.001, neg_log_likelihood_expon, hessian = TRUE)
+c(expon_ml$par, exp_samples$est_rate[666]) # check estimate
+```
+
+Get $SE\left(\hat{\lambda}_{ML}\right)$ from Hessian and see if its truly a good approximation of the standard error obtained from the simulations empirically.
+
+```{r}
+se_lambda_approx <- sqrt(solve(expon_ml$hessian))
+c(se_lambda_approx[1,1], se_lambda_empir)
+```
+
+Difference is practically $0$ until 5 digits!
+
+This way, we can get confidence intervals for $\lambda$. For example, on a 97% level.
+
+```{r}
+c(expon_ml$par - se_lambda_approx[1,1]*qnorm(1-0.03/2),
+  expon_ml$par + se_lambda_approx[1,1]*qnorm(1-0.03/2))
+```
+
+Cramér-Rao inequality: $$SE\left(\hat{\theta}\right) \geq \sqrt{I^{-1}}$$
+
+MLE is functional invariant. If $\hat{\theta}$ is MLE for $\theta$, then by definition $g\left(\hat{\theta}\right)$ is MLE for $g(\theta)$.
+
+## 6. Case Study - Is Party Peference Influenced by Internet Usage Time?
+
+Load the ESS data.
+
+```{r}
+ess <- readxl::read_excel("ess_hun_2024.xlsx")
+str(ess)
+```
+
+Filter to valid internet usage time values.
+
+```{r}
+ess_small <- ess[!is.na(ess$DailyNetUse) & (ess$DailyNetUse > 0),
+                 c("idno", "DailyNetUse", "PartyPreference")]
+str(ess_small)
+```
+
+Fit MLE with `fitdistrplus`.
+
+```{r}
+library(fitdistrplus)
+fit_lnorm <- fitdist(ess_small$DailyNetUse, "lnorm", method = "mle")
+```
+
+See the details.
+
+```{r}
+summary(fit_lnorm)
+```
+
+Do the MLE grouped by political party preference.
+
+```{r}
+lnorm_byparty <- data.frame(Party=unique(ess_small$PartyPreference),
+                            meanlog = NA,
+                            se = NA)
+
+for (party in lnorm_byparty$Party) {
+  fit_temp <- fitdist(ess_small$DailyNetUse[ess_small$PartyPreference==party],
+                      "lnorm", method = "mle")
+  lnorm_byparty$meanlog[lnorm_byparty$Party==party] = fit_temp$estimate["meanlog"]
+  lnorm_byparty$se[lnorm_byparty$Party==party] = fit_temp$sd["meanlog"]
+}
+
+lnorm_byparty
+```
+
+Get CI with 95% level of confidence.
+
+```{r}
+lnorm_byparty$ci_low <- lnorm_byparty$meanlog - lnorm_byparty$se * qnorm(1-0.05/2)
+lnorm_byparty$ci_upp <- lnorm_byparty$meanlog + lnorm_byparty$se * qnorm(1-0.05/2)
+lnorm_byparty
+```
+
+Show CI result on barplot.
+
+```{r}
+ggplot(lnorm_byparty, aes(x = reorder(Party, meanlog), y=meanlog, fill = Party)) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin=ci_low, ymax=ci_upp)) +
+  coord_flip()
+```
+
+We can say that with 95% confidence that the Opposition spends more time a day on the internet than those who prefer Fidesz or whose preference is unknown.
+

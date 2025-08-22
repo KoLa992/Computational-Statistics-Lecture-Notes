@@ -27,7 +27,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 3 - <a href="Chapter03.html" target="_blank">Maximum Likelihood Estimators</a>
 
-## Chapter 4 - Properties of Estimators and Confidence Intervals
+## Chapter 4 - <a href="Chapter04.html" target="_blank">Properties of Estimators and Confidence Intervals</a>
 
 ## Chapter 5 - Basic Concepts of Hypothesis Testing
 
