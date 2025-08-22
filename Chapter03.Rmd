@@ -22,11 +22,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 1. General Principles of Maximum Likelihood (ML) Estimation
 
-If we somehow know or suspect (e.g. from a histogram) that our data has Negative Binomial Distribution, then what are the $r$ and $p$ parameter that best fit for our data. Or if our data is assumed to have Exponential distribution, then what is the $\lambda$ that best fits our observed sample data.
+So, let's imagine that we're in the same situation like in <a href="Chapter01.html" target="_blank">Chapter 1</a>: we would like to predict how a statistical variable (age, income, daily internet usage time, BMI, etc.) behaves for unobserved population data. We apply theoretical probability distributions for this purpose.<br>
+First, we check the observed histogram of the variable in question, and try to get a sense of how the empirical distribution of the variable behaves. Then, if from this histogram we we somehow know or suspect that our variable has Negative Binomial Distribution, then the next question is that what are the $r$ and $p$ parameter that best fit for our observed data. Or if our data is assumed to have Exponential distribution, then what is the $\lambda$ that best fits our observed sample data.
 
-The **method of moments** has **one** great **advantage**: its **calculations are very-very simple**! However, it **does NOT consider every observation in our sample when estimating the distribution parameters**. It only uses calculated statistical measures of our sample, its moments.
+An important notation in this chapter that the **true parameters of our variable's distribution are denoted as $\theta$. This is a collective term, and its specific meaning depends on the theoretical distribution in question.** Like in the previous examples, if we suspect our data to have a Negative Binomial distribution, then $\theta=\{r,p\}$, but if an Exponential distribution is assumed, then we simply have $\theta=\lambda$. Based on <a href="Chapter01.html" target="_blank">Chapter 1</a>, we would have $\theta=\{\mu,\sigma\}$ for normal and lognormal distributions and $\theta=\lambda$ again for the Poisson distribution.
 
-The **maximum likelihood method uses every observation our sample directly when estimating the distribution parameters**. On the other hand, its **calculations are more complex** than those of the method of moments.
+We can **never actually know the true $\theta$ if we have unobserved data for the variable**, but we can give reasonable **estimates or estimators for its value that are denoted as $\hat{\theta}$.** The $\hat{}$ symbol denotes that the values we have as the parameter values of the distribution are NOT its true values, but our "*best guess*" (more scientifically: estimators/estimates) for their values based on the observed data that we have.
+
+The **method of moments** (MM) introduced in <a href="Chapter01.html" target="_blank">Chapter 1</a> is **one way to give estimators** of true distribution parameters as we've seen. This method has **one** great **advantage**: its **calculations are very-very simple**! However, it **does NOT consider every observation in our sample when estimating the distribution parameters**. It only uses calculated statistical measures of our sample, its moments. This can heavily influence the results in some cases. We've seen for the lognormal distribution (<a href="Chapter01.html" target="_blank">Section 4.2.of Chapter 1</a>) that using the classical MM method with the 1st and 2nd moments given horrible $\hat{\theta}$ estimators and we needed to use the 1st moment and the median to give better estimates.
+
+The **maximum likelihood method uses every observation in our sample directly when estimating the distribution parameters** and avoids the problems caused by only concentrating on special properties of the distribution like moments. Maximum likelihood estimates (MLEs) have other advantages as well compared to other methods that are going to be discussed in <a href="Chapter04.html" target="_blank">Chapter 4</a>. On the other hand, its **calculations are more complex** than those of the method of moments.
 
 Now, after seeing its benefits, let's see the **general principles of the maximum likelihood method**.
 
@@ -56,19 +61,21 @@ Ok, great: we now know what to do to get maximum likelihood (ML) estimators. Let
 
 ## 2. Exponential Distribution
 
-!!!ESS Dataset description again!!!
+Let's use our examples again from the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/ess_hun_2024.xlsx" target="_blank">ess_hun_2024.xlsx</a> file that contains a dataset with the responses of 2048 Hungarian participants to 29 questions (plus an id column) from the 2024 European Social Survey (ESS2024). This is exactly the same dataset that we've used in <a href="Chapter01.html" target="_blank">Chapter 1</a>. So, if an empty value is found in any column, it means that the respondent in that row did not answer the question. The respondents in the database can be considered a **random sample** drawn **from** the entire **Hungarian population** aged 18 and over. Detailed description of the 29+1 variables in the dataset are given in <a href="Chapter01.html" target="_blank">Section 1 of Chapter 1</a>.
 
 ```{r}
 ess <- readxl::read_excel("ess_hun_2024.xlsx")
 str(ess)
 ```
 
-Alcohol consumption was our example for Exponential distribution is Chapter 1.
+If we remember, we've used the alcohol consumption on weekends (in grams) as our example for Exponential distribution in <a href="Chapter01.html" target="_blank">Section 4.1 of Chapter 1</a>. We've removed the missing values from our table back then, so let's do the same thing now.
 
 ```{r}
 ess_small <- ess[!is.na(ess$AlcoholWeekend),c("idno", "AlcoholWeekend")]
 hist(ess_small$AlcoholWeekend)
 ```
+
+We can see the long right tail of the exponential distribution on the histogram: the majority of alcohol consumption (roughly 600) are within 50 grams, but the remaining observations all exceed this value, and there are even some extreme alcoholics with weekend consumption above 200 grams, even 1 or 2 in the 600-700 grams range.
 
 The parameter to estimate for the Exponential distribution is $\lambda$. So, in the exponential case: $\theta=\lambda$.
 
@@ -87,7 +94,7 @@ neg_log_likelihood_expon <- function(theta_expon){
 neg_log_likelihood_expon(0.001)
 ```
 
-Do the **optimization with R's built-in `optim` function**. The first parameter of this function is the starting $\lambda$ value for the optimization. This value can be any arbitrary starting value, but we should respect the constraint on the Exponential parameter: $\lambda>0$. We can *ignore the possible warnings*, it just means that R encountered some bad parameter values when trying out different $\lambda$ values during the optimization. R automatically ignores these cases, they won't cause any problems.
+Do the **optimization with R's built-in `optim` function**. The first parameter of this function is the starting $\lambda$ value for the optimization. This value can be any arbitrary starting value, but we should respect the constraint on the Exponential parameter: $\lambda>0$. We can *ignore the possible warnings*, it just means that R encountered some invalid parameter values when trying out different $\lambda$ values during the optimization. R automatically ignores these cases, they won't cause any problems.
 
 ```{r warning=FALSE}
 expon_ml <- optim(0.001, neg_log_likelihood_expon)
@@ -102,7 +109,7 @@ So, our result is $\hat{\lambda}_{ML}=0.0214$. Which is the **reciprocal of the 
 1/sd(ess_small$AlcoholWeekend)
 ```
 
-As the ML method takes every observation into account when estimation a distribution parameter and just utilizes a few moments, we can finally confirm that we **need to take the reciprocal of the mean and NOT the standard deviation when estimating $\lambda$ of an exponential distribution**.
+As the ML method takes every observation into account when estimation a distribution parameter and not just utilizes a few moments, we can finally confirm that we **need to take the reciprocal of the mean and NOT the standard deviation when estimating $\lambda$ of an exponential distribution** despite thae fact that theoretically $E(Y)=D(Y)=\lambda$ for a $Y \sim Exp(\lambda)$ distribution.
 
 ### 2.1. Analitical Solution for the Exponential Distribution
 
@@ -128,7 +135,7 @@ So we arrived to the same conclusion as in the previous section: **the maximum l
 
 ## 3. Normal Distribution
 
-!!!ESS BMI variable!!!
+In <a href="Chapter01.html" target="_blank">Section 2 of Chapter 1</a>, we've calculated the Body Mass Index (BMI) values of the respondents in $kg/m^2$ and used this variable as an example for the normal distribution. We omitted missing values in this variable as well in <a href="Chapter01.html" target="_blank">Chapter 1</a>, so let's do the same here too.
 
 ```{r}
 ess$BMI <- ess$Weight/(ess$Height/100)^2
@@ -136,9 +143,11 @@ ess_small <- ess[!is.na(ess$BMI),c("idno", "BMI")]
 hist(ess_small$BMI)
 ```
 
+The histogram nicely shows the bell curve of the normal density function: most people in this dataset have a BMI around 27, and around this mode of 27, we have smaller and larger BMIs with proportionally decreasing frequencies. Extremely small and large values have only a few observations.
+
 Parameters to estimate for the normal distribution are $\mu$ and $\sigma$, so in this case: $\theta=(\mu,\sigma)$
 
-Write the negative log-likelihood function for our sample in case of the normal distribution as a custom R function. The input parameter `theta_norm` is treated as a `vector`.
+Let's write the negative log-likelihood function for our sample in case of the normal distribution as a custom R function. The input parameter `theta_norm` is treated as a `vector` since it contains two parameters: $\mu,\sigma$.
 
 ```{r}
 # function definition
@@ -153,7 +162,7 @@ neg_log_likelihood_norm <- function(theta_norm){
 neg_log_likelihood_norm(c(250, 250))
 ```
 
-Do the optimization. We can *ignore the warnings* like before.
+Do the optimization with `optim` like for the Exponential distribution. The first parameter of `optim` here are the starting $\mu$ and $\sigma$ values for the optimization given in `vector` format. These values can be any arbitrary starting values We can *ignore the warnings* like before.
 
 ```{r warning=FALSE}
 norm_ml <- optim(c(250, 250), neg_log_likelihood_norm)
@@ -175,7 +184,7 @@ So, this is **NOT the corrected sample standard deviation**.
 sd(ess_small$BMI)
 ```
 
-!!!Interesting!!!
+This is a rather interesting result. We should take note of it now, and the implications are to be discussed in <a href="Chapter04.html" target="_blank">Chapter 4</a>.
 
 ### 3.1. Analitical Solution for the Normal Distribution
 
@@ -212,16 +221,24 @@ Multiplying both sides by $2\sigma^4$, we get: $$n \times \sigma^2=\sum_{i=1}^n{
 
 Solving for $\sigma^2$: $$\sigma^2=\frac{\sum_{i=1}^n{(y_i-\mu)^2}}{n}$$
 
-So, we've arrived at the same conclusion as in *Section 3*: the maximum likelihood estimation for the variance of a Normal distribution is the **uncorrected sample standard deviation**, where we divide by $n$ and NOT by $n-1$.
+So, we've arrived at the same conclusion as in *Section 3* with the numerical solution: the maximum likelihood estimation for the variance of a Normal distribution is the **uncorrected sample standard deviation**, where we divide by $n$ and NOT by $n-1$.
 
 ## 4. Negative Binomial Distribution
 
-!!!Neg Binomial Carinsurance data!!!
+We've used the *CarInsurance_NumberOfClaims_v2* sheet of the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/insurance_examples.xlsx" target="_blank">insurance_examples.xlsx</a> file as an example for the Negative Binomial distribution in <a href="Chapter01.html" target="_blank">Section 5.4 of Chapter 1</a>. Here, we have $n=400$ observation of insured cars and the `NumClaims` variable contains the number of accidents (or claims) reported in a year. In <a href="Chapter01.html" target="_blank">Chapter 1</a>, we discussed that here we have young drivers who are quite risky, so their claim number is Poisson with a quite high $\lambda_1$ average claim number (Remember that if $Y \sim P(\lambda_1)$, then $E(Y)=\lambda_1$). Then we have middle-aged drivers with experience, so their claim number also follows a Poisson distribution, but with the lowest $\lambda_2$ average claim number. For elderly drivers the claim number still has a Poisson distribution but with a $\lambda_3$ average claim number that is in between $\lambda_1$ and $\lambda_2$ as elderly drivers are riskier for their slower reflexes but it is compensated with their experience. So, if we have these 3 driver groups and we are examining all 3 combined in a variable containing the number of claims without knowing who belongs to which group, then this combined variable follows a Negative Binomial distribution.
 
 ```{r}
 num_claims <- readxl::read_excel("insurance_examples.xlsx", sheet = "CarInsurance_NumberOfClaims_v2")
 str(num_claims)
 ```
+
+We can confirm that a discrete variable follows a Negative Binomial distribution by checking whether its variance is bigger than its mean.
+
+```{r}
+sd(num_claims$NumClaims)^2 > mean(num_claims$NumClaims)
+```
+
+Great, we again have that $s^2>\bar{y}$, so we can go ahead with fitting a Negative Binomial distribution. :)
 
 The parameters to estimate for the Binomial distribution are $r$ and $p$, so in this case: $\theta=(r,p)$
 
@@ -251,29 +268,36 @@ nbinom_ml$val # minimized negative log-likelihood of the sample
 
 So, our results are $\hat{r}_{ML}=1.7$ and $\hat{p}_{ML}=0.52$.
 
-### 5. Compare Different Distributions Fitted on the Same Data - Information Criterions
+## 5. Compare Different Distributions Fitted on the Same Data - Information Criterions
 
-!!!Daily Net Usage Time!!!
+In <a href="Chapter01.html" target="_blank">Section 4.2 of Chapter 1</a>, we used the daily internet usage time in minutes variable in the ESS data frame as an example for a lognormal distribution. We removed all missing values just like for the alcohol consumption and BMI, so let's do that here as well.
 
 ```{r}
-mean(is.na(ess$DailyNetUse))
 ess_small <- ess[!is.na(ess$DailyNetUse),c("idno", "DailyNetUse")]
+```
+
+Furthermore, let's remove the $0$ values as well from the variable as a proper lognormal distribution can only take positive values. It only means ommitting $6$ out of $1397$ observations, so it's not a big loss.
+
+```{r}
+sum(ess_small$DailyNetUse == 0)
 ess_small <- ess_small[ess_small$DailyNetUse > 0,]
 hist(ess_small$DailyNetUse)
 ```
 
-Fit the lognormal distribution with ML
+Based on the histogram, we discussed in <a href="Chapter01.html" target="_blank">Section 4.2 of Chapter 1</a> that the shape we can see here looks like the lognormal density function: because we have a long right tail here as well just like in the case of alcohol consumption, but the most frequent bin is not the first one (like it was on the same histogram for alcohol consumption), but the second one: the 100-200 minutes a day bin. The first bin of 0-100 minutes is only the second most frequent one.
 
-Parameters to estimate for the lognormal distribution are $\mu$ and $\sigma$, so in this case: $\theta=(\mu,\sigma)$
+Okay, so let's fit the lognormal distribution with maximum likelihood and hoperfully it won't produce the same bad fit like the MM when using the 1st and 2nd moments.
 
-Write the negative log-likelihood function for our sample in case of the normal distribution as a custom R function. The input parameter `theta_lnorm` is treated as a `vector`.
+Parameters to estimate for the lognormal distribution are $\mu$ and $\sigma$ on the log-scale, so in this case: $\theta=(\mu,\sigma)$
+
+Let's write the negative log-likelihood function for our sample in case of the lognormal distribution as a custom R function. The input parameter `theta_lnorm` is treated as a `vector` just like for the normal distribution in Section 3.
 
 ```{r}
 # function definition
 neg_log_likelihood_lnorm <- function(theta_lnorm){
   log_lik_observations <- log(dlnorm(x = ess_small$DailyNetUse,
-                                    meanlog = theta_lnorm[1],
-                                    sdlog = theta_lnorm[2])) # log-probability of every observations occurring under the current parameters
+                                     meanlog = theta_lnorm[1],
+                                     sdlog = theta_lnorm[2])) # log-probability of every observations occurring under the current parameters
   return(-sum(log_lik_observations))
 }
 
@@ -289,7 +313,22 @@ lnorm_ml$par # optimal parameter values
 lnorm_ml$val # minimized negative log-likelihood of the sample
 ```
 
-Fit exponential with ML.
+We can check on a histogram with `ggplot` that our fitted lognormal density function with maximum likelihood parameters fits on the observed histogram and does not suffer like our solution with clasical MM.
+
+```{r}
+library(ggplot2)
+ggplot(data = ess_small, mapping = aes(x=DailyNetUse)) + geom_histogram(aes(y = after_stat(density))) +
+  stat_function(fun = dlnorm, 
+                args = list(meanlog = lnorm_ml$par[1], sdlog = lnorm_ml$par[2]),
+                col = 'blue',
+                linewidth = 1)
+```
+
+Great, now we can see that the estimation based on the ML method fits well on the observed histogram for the first try since it utilizes every observation in the observed sample when estimating the $\mu,\sigma$ parameters of the lognormal distribution.
+
+However, we can also **try fitting an exponential distribution** on the observed daily net usage time as well. In this case we **assume** that the decrease in frequencies in the first few bins is just sampling error and the **long right tail of the observed distribution is described better for unobserved data by the Exponential distribution**. Then, we'll try to find an **objective statistical measure to decide whether the exponential or the lognormal distribution describes the long right tail of our distribution better**.
+
+So, let's fit exponential with MLE with its one and only $\theta=\lambda$ parameter.In the following code, everything works the same as in Section 2. We just switch the variable in the first parameter of the `dexp`function. If we were more civilized people, we would have wrote our `neg_log_likelihood_expon` function to take the observed sample data in `vector` format as an input parameter, but this <a href="https://www.reddit.com/media?url=https%3A%2F%2Fpreview.redd.it%2Fabsolutely-barbaric-v0-w3y1u19lfnqc1.png%3Fwidth%3D640%26crop%3Dsmart%26auto%3Dwebp%26s%3D6bf749538e0ea75c93f799686d985e263ea5403c" target="_blank">absolutely barbaric</a> solution will serve our purposes just fine as well.
 
 ```{r}
 # function definition
@@ -303,7 +342,7 @@ neg_log_likelihood_expon <- function(theta_expon){
 neg_log_likelihood_expon(0.001)
 ```
 
-Do the **optimization with R's built-in `optim` function**. The first parameter of this function is the starting $\lambda$ value for the optimization. This value can be any arbitrary starting value, but we should respect the constraint on the Exponential parameter: $\lambda>0$. We can *ignore the possible warnings*, it just means that R encountered some bad parameter values when trying out different $\lambda$ values during the optimization. R automatically ignores these cases, they won't cause any problems.
+Do the **optimization with R's built-in `optim` function**. Exactly like before for every distribution.
 
 ```{r warning=FALSE}
 expon_ml <- optim(0.001, neg_log_likelihood_expon)
@@ -311,12 +350,12 @@ expon_ml$par # optimal parameter value
 expon_ml$val # minimized negative log-likelihood of the sample
 ```
 
-Compare the **normal and exponential distributions with the histogram of the daily net usage time data**. Graphically and logically, its obvious that the exponential is a better fit because of the long right tail.<br>
-We apply the `ggplot` package here: we add two `stat_function` layers to the `geom_histogram`: one for the Normal (*red*) and another for the Exponential (*blue*) distribution.
+Great, we have that for the daily net usage time data, a $\hat{\lambda}_{ML}=0.0054$ is best if an exponential distribution is assumed according to the maximum likelihood method.
+
+Now, let's compare the **lognormal and exponential distributions with the histogram of the daily net usage time data**. Graphically and logically, its obvious that the lognormal is a better fit because of the decrease of frequencies in the first few bins and the shraper decreease in frequencies for the outlier values in the right tail of the distribution.<br>
+We apply the `ggplot` package here: we add two `stat_function` layers to the `geom_histogram`: one for the Lognormal (*blue*) and another for the Exponential (*red*) density functions.
 
 ```{r}
-library(ggplot2)
-
 ggplot(data = ess_small, mapping = aes(x=DailyNetUse)) + geom_histogram(aes(y = after_stat(density))) +
   stat_function(fun = dlnorm, 
                 args = list(meanlog = lnorm_ml$par[1], sdlog = lnorm_ml$par[2]),
@@ -329,15 +368,15 @@ ggplot(data = ess_small, mapping = aes(x=DailyNetUse)) + geom_histogram(aes(y = 
   
 ```
 
-We can see this result form the results of the maximum likelihood estimation as well. It can be concluded that **the Exponential distribution fits better on the observed data by having smaller minimized negative log-likelihood value**, i.e.: smaller "*error*" at the end of the optimization process. Or we can say that **the distribution with higher maximized log-likelihood has a greater probability to generate our observed data in an IID sampling** of $58$ observations.
+We can see that the lognormal is a better fit on the observed histogram than the exponential form the results of the maximum likelihood estimation as well. It can be concluded that **the Lognormal distribution fits better on the observed data by having smaller minimized negative log-likelihood value**, i.e.: smaller "*error*" at the end of the optimization process. Or we can say that **the distribution with higher maximized log-likelihood has a greater probability to generate our observed data in an IID sampling** of $1391$ observations.
 
 ```{r}
 expon_ml$value > lnorm_ml$value
 ```
 
-However, it is NOT always enough to say that if one distribution has a better maximized log-likelihood value, it is a better fit for the data. we need to **control for the fact that the normal distribution is more flexible as it has two parameters instead of one**. So, what we need to consider is a phenomenon called **overfitting**. Overfitting means that **a distribution only fits our data better because it has more parameters, so its density/mass function is more flexible** and more of its properties can be customized. Remember from <a href="Chapter03.html" target="_blank">Chapter 3</a>: the expected value determines the maximum point of the Normal density function and the standard deviation determines its peakedness. While for the Exponential distribution, we only have $\lambda$ and it only influences its peakedness.  This means that **a distribution with more parameters has more chances to fit on the noise in the observed histogram and NOT on its main tendencies**. This is problematic, as we want to use the fitted distribution for predicting the statistical properties (e.g. percentiles) of unobserved data. And it **causes uncomfortable moments if we predict the noise of the data, not its main tendencies**. This phenomenon is called **overfitting** and we need to **control for this when selecting the best fitting distribution** for our data.
+However, it is NOT always enough to say that if one distribution has a better maximized log-likelihood value, it is a better fit for the data. We need to **control for the fact that the lognormal distribution is more flexible as it has two parameters instead of one**. So, what we need to consider is a phenomenon called **overfitting**. Overfitting means that **a distribution only fits our data better because it has more parameters, so its density/mass function is more flexible** and more of its properties can be customized. Remember from <a href="Chapter01.html" target="_blank">Chapter 1</a>: the parameter $\mu$ determines the maximum point of the lognormal density function and the $\sigma$ parameter determines its kurtosis and the sharpness of its long right tail. While for the Exponential distribution, we only have $\lambda$ and it only influences its kurtosis  This means that **a distribution with more parameters has more chances to fit on the noise in the observed histogram and NOT on its main tendencies**. This is problematic, as we want to use the fitted distribution for predicting the statistical properties (e.g. percentiles) of unobserved data. And it **causes uncomfortable situations if we predict the noise of the data, not its main tendencies**. This phenomenon is called **overfitting** and we need to **control for this when selecting the best fitting distribution** for our data. So right now, we need to **make sure that the lognormal is not a better fit than the exponential just because it has more parameters**.
 
-Our **tools for controlling overfitting are the Information Criterion** ($IC$s). All the $IC$s are **based on the negative log-likelihood, they always needs to be minimized**. So, the smaller $IC$ shows a better distribution fit. However, every $IC$ **applies a penalty on the negative log-likelihood that is dependent on the number of estimated parameters** ($p$). The specific $IC$s differ on **how strong this penalty should be**. The logic is that a **distribution with more parameters is more likely to have a smaller negative log-likelihood** However, if the **penalty term** of the $IC$s are **applied**, then they need to **cause more negative log-likelihood decrease in order to get preferred than a distribution with fewer parameters**. Because the distribution with more parameter is more likely to fit on the noise in the data and not on its main tendencies. So, the $IC$s **level the playing field** between distributions with different number of parameters so to speak.
+Our **tools for controlling overfitting are the Information Criterion** ($IC$s). All the $IC$s are **based on the negative log-likelihood, so they always needs to be minimized**. This means that the smaller $IC$ shows a better distribution fit. However, every $IC$ **applies a penalty on the negative log-likelihood that is dependent on the number of estimated parameters** ($p$). The specific $IC$s differ on **how strong this penalty should be**. The logic is that a **distribution with more parameters is more likely to have a smaller negative log-likelihood** However, when the **penalty term** of the $IC$s are **applied**, then they need to **cause more negative log-likelihood decrease in order to get preferred than a distribution with fewer parameters**. Because the distribution with more parameter is more likely to fit on the noise in the data and not on its main tendencies. So, the $IC$s **level the playing field** between distributions with different number of parameters so to speak.
 
 We cover two specific $IC$s now.
 
@@ -359,7 +398,7 @@ bic_exp <- 1*log(nrow(ess_small)) + 2*expon_ml$value # as the exponential distri
 bic_lnorm  <- 2*log(nrow(ess_small)) + 2*lnorm_ml$value # as the normal distribution has p=2 parameters
 ```
 
-When calculating these two values, $AIC$ and $BIC$ show that the exponential is a better fit, despite having one parameter instead of two.
+When calculating these two values, $AIC$ and $BIC$ show that the lognormal is truly a better fit, despite having two parameter instead of one.
 
 ```{r}
 aic_exp > aic_lnorm
