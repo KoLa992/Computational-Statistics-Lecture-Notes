@@ -426,6 +426,15 @@ On the other hand, at this point this is **not so suspicious** that the **maximu
 
 ## 3. Sampling Distribution of the Mean
 
+Okay, let's take a look at the sampling distribution of the mean again, just like we did in Section 1.
+
+```{r}
+ggplot(exp_samples, aes(x=sample_mean)) + geom_histogram(aes(y = after_stat(density))) +
+  geom_vline(xintercept = mu, color="red", linewidth=1)
+```
+
+We established back in Section 1 that this distribution looks just like **most beautiful normal distribution ever!**
+
 Derived from CLT: $$\bar{y} \sim N\left(\mu,\frac{\sigma}{\sqrt{n}}\right)$$
 
 Calculate theoretical SE of the mean.
