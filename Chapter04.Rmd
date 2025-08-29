@@ -426,25 +426,44 @@ On the other hand, at this point this is **not so suspicious** that the **maximu
 
 ## 3. Sampling Distribution of the Mean
 
-Okay, let's take a look at the sampling distribution of the mean again, just like we did in Section 1.
+Okay, let's take a look at the sampling distribution of the mean again, just like we did in Section 1.  See if we can describe this sampling distribution with some theoretical probability distribution!
 
 ```{r}
 ggplot(exp_samples, aes(x=sample_mean)) + geom_histogram(aes(y = after_stat(density))) +
   geom_vline(xintercept = mu, color="red", linewidth=1)
 ```
 
-We established back in Section 1 that this distribution looks just like **most beautiful normal distribution ever!**
+Well, we established back in Section 1 that this distribution looks just like **most beautiful normal distribution ever!**
 
-Derived from CLT: $$\bar{y} \sim N\left(\mu,\frac{\sigma}{\sqrt{n}}\right)$$
+If we think abou it a bit, this is **completely logical, since the Central Limit Theorem (CLT) is at work here**. If you don’t remember the CLT, go back to <a href="Chapter01.html" target="_blank">Section 2.6 in Chapter 1</a>! :)
 
-Calculate theoretical SE of the mean.
+According to the **CLT**, if a **variable arises as the sum of random effects**, then the **variable follows a normal distribution**. The **variable of $\bar{y}$ sample means perfectly fits the CLT conditions**! After all, the sample mean is obtained by summing the sample elements and dividing by the sample size. **Since the sampling method is IID, I can be sure that each sample element is a random draw, so a result of a random effect. Then, I sum them up.** Finally, I divide by $n$, but since $n$ is always the same (a constant), it doesn’t change the fundamental logic.
+
+If the **variable of sample means from many samples follows a normal distribution, then we also know its mean and standard deviation!**
+
+- Due to **unbiasedness**, we know that the mean of the sample means is the treue expected value, i.e. $\mu$.
+- The standard deviation of the sample means is simply the **standard error**, i.e. $\frac{\sigma}{\sqrt{n}}$
+
+This is exactly the result we would get if we divided the original CLT equation by $n$.
+
+The original formulation of the CLT states that for independent, identically distributed (IID) random variables $X_1,X_2,\dots,X_n$ where $\forall i$: $E(X_i) = \mu$ and $Var(X_i) = \sigma^2$, and as $n \rightarrow \infty$:$$\sum_{i=1}^n{X_i} \sim N(n \mu, \sqrt{n}\sigma)$$
+
+Dividing this by $n$ gives the following result (applying the rule that a constant factor can be factored out linearly from expected value and squared from variance): $$\frac{1}{n} \times \sum_{i=1}^n{X_i} \sim N\left(\mu, \frac{\sigma}{\sqrt{n}}\right)$$
+
+In summary, the **variable of sample means $\bar{y}$ from many samples follows the distribution**: $$\bar{y} \sim N\left(\mu,\frac{\sigma}{\sqrt{n}}\right)$$
+
+We can easily test this fit graphically using the method shown in <a href="Chapter01.html" target="_blank">Section 2.3 of Chapter 1</a>.
+
+First, I calculate theoretical SE of the mean with the formula $\sigma/\sqrt{n}$.
 
 ```{r}
 se_mean_theor <- sigma/sqrt(sample_size)
 se_mean_theor
 ```
 
-Show the sampling distribution, which is $N(100,10.54)$
+We get the familiar result from Section 2.2, saying that a specific sample mean is expected to deviate by $9.129$ from the mean of means, that is, from the true population mean of 100. As from Chapter 1, we know that in our true $Exp(0.01)$ distribution, the expected value is $\mu=1/\lambda=1/100=100$
+
+So, the specific sampling distribution in our example is $N(100,10.54)$. So, let's finally draw its density function on our sampling dsitribution histogram as a *red* curve!
 
 ```{r}
 ggplot(data = exp_samples, mapping = aes(x=sample_mean)) + geom_histogram(aes(y = after_stat(density))) +
@@ -454,7 +473,11 @@ ggplot(data = exp_samples, mapping = aes(x=sample_mean)) + geom_histogram(aes(y 
                 linewidth = 1)
 ```
 
-Get z-scores of the sample means and their distribution.
+A beautiful fit indeed! :)
+
+What's also important from this result that the sample means follow a normal distribution is that if we **get z-scores of the sample means**, we are to receive a **standard normal distribution**. So, if from every sample mean we subtract the true expected value (mean of the sampling distribution due to unbiasedness) and divide the result with the standard error (standard deviation of the sampling distribution), we have a $N(0,1)$ distribution. More formally it looks something like this: $$\frac{\bar{y}-\mu}{\frac{\sigma}{\sqrt{n}}} \sim N(0,1)$$
+
+We can easily check this graphically too by calculating the z-scores for all the 10000 samples, and plot their distribution on a histogram with the $N(0,1)$ density function added as a *red* line.
 
 ```{r}
 exp_samples$z_score <- (exp_samples$sample_mean - mu)/se_mean_theor
@@ -466,10 +489,36 @@ ggplot(data = exp_samples, mapping = aes(x=z_score)) + geom_histogram(aes(y = af
                 linewidth = 1)
 ```
 
+Nice, looks like a prefect fit again! :)
+
+We can check the mean and standard deviation of the z-scores as well. We can say that uo to 2 digits, they are $0$ and $1$ respectively as they should be. Praise the machine spirit!
+
+```{r}
+round(c(mean(exp_samples$z_score),
+        sd(exp_samples$z_score)), 2)
+```
+
+Praise the machine spirit!
 
 ## 4. Confidence Interval of the Mean
 
-Get t-scores of the sample means and their distribution.
+Now, the **benefit of knowing** what that the **sampling distribution of the means is exactly, is that it is the same always and forever, and it is not dependent on the true distribution of the data**. This knowledge can be applied to **construct so called confidence intervals** that can describe **how accurately our sample means as estimators can capture the true expected value as a population parameter**. Furthermore, due to the fact that this sampling distribution is always the same, we can **do this from one sample alone, and no need to have lots of samples from the same distribution**!
+
+More **specifically**, a **confidence interval of $[a,b]$** for a true population parameter $\theta$ with **confidence level of $1-\alpha$** (e.g. a confidence level of $95\%$ means that $\alpha=0.05$, while a level of $99\%$ means that $\alpha=0.01$) means the following: **the probability that the true $\theta$ parameter is between $a$ and $b$ is the desired $1-\alpha$**.<br>
+We can **construct an interval like this for the expected value from just one sample alone by knowing the sampling distributions of the means**.
+
+However, there is just **one major hiccup**: we know that $\bar{y} \sim N(\mu,\sigma/\sqrt{n}$...which implies that in order **to know the exact sampling distribution of the means, we need to know the true population standard deviation, $\sigma$ already!!** Which is quite impossible if the thing we are looking for right know is the true expected value and the true standard deviation is the expected deviation from it...Hmm, <a href="https://www.youtube.com/watch?v=NYvwLLxKqhM" target="_blank">f\*\*\*k</a>.
+
+So, actually **we don't have much use** for the fact that we know the distribution of the sample mean's z-scores: $$\frac{\bar{y}-\mu}{\frac{\sigma}{\sqrt{n}}} \sim N(0,1)$$
+
+**Actually, we need to know the distribution** of the fraction **where we calculate the standard error with the sample standard deviation** $s$ (it's preferable to use the unbiased version that does not underestimate in expected value) instead of calculating it with $\sigma$: $$\frac{\bar{y}-\mu}{\frac{s}{\sqrt{n}}} \sim ?$$
+
+This is where the chief quality assurance engineer of the Guiness Beer Factories, William Gosset, a.k.a. Student comes to the stage! Student proved that the **fraction above follows a t-distribution with $n-1$ degrees of freedom instead of a normal distribution**. $$\frac{\bar{y}-\mu}{\frac{s}{\sqrt{n}}} \sim t(n-1)$$
+
+If we remember from <a href="Chapter01.html" target="_blank">Section 4.3 of Chapter 1</a>, the idea of the t-distribution is that it is **flattened standard normal distribution**. The flattening means that extreme values are more likely to occur at the tails of the distribution (because the density function runs higher at these points), making our data more dispersed.<br>
+However, as we increase the degrees of freedom ($v$), we gradually "*sharpen*" the distribution back into the standard normal distribution. This makes sense because we are substituting a population standard deviation with an estimated value from a sample when calculating the standard error. This **introduces greater uncertainty and increased dispersion into the distribution, but this disappears as sample size $n$** (i.e. the degrees of freedom now) **increases as if we estimate the standard deviation from more observations, we become more confident in our estimate**.
+
+Ok, so let's calculate the so-called **t-scores** of $t=(\bar{y}-\mu)/(s/\sqrt{n})$ for all the 10000 samples and see their distribution on a histogram with the $N(0,1)$ density function added as a *red* line and the $t(n-1)$ density function as a *blue* line.
 
 ```{r}
 exp_samples$t_score <- (exp_samples$sample_mean - mu)/(exp_samples$sample_sd/sqrt(sample_size))
@@ -485,21 +534,44 @@ ggplot(data = exp_samples, mapping = aes(x=t_score)) + geom_histogram(aes(y = af
                 linewidth = 1)
 ```
 
-Confidence Interval formula for the mean: $$P\left(\bar{y}-t_{1-\frac{\alpha}{2}}^{n-1} \times \frac{s}{\sqrt{n}}< \mu <+t_{1-\frac{\alpha}{2}}^{n-1} \times \frac{s}{\sqrt{n}}\right) = 1- \alpha$$
+Great! We can see the more heavy tails (i.e. extremely low/high values have a bit larger probability to occur) of the t-distribution on the histogram, but the differences between the $N(0,1)$ and $t(n-1)$ densities is not so large since $n=120$, that is high enough for the **differences of the two densities to mostly disappear due to the large degrees of freedom of the t-distribution**.
 
-See its hit rate for 98% confidence, so $\alpha=0.02$.
+Now, let's denote the $q$-th quantile of the $t(n-1)$ distribution as $t_{q}^{n-1}$. Remember from <a href="Chapter01.html" target="_blank">Section 2.4 of Chapter 1</a> that this is the value below which $q$ percent of the distribution lies. With these quantiles we can get the range between which a given $1-\alpha$ percent of the $t(n-1)$ distribution is found. See the figure below for an illustration.
+
+<center>
+![](t_ci_1.png){width=60%}
+</center>
+
+Now, let's apply this to our t-score of $t=(\bar{y}-\mu)/(s/\sqrt{n})$. This way, we get that: $$P\left(t_{\alpha/2}^{n-1}<\frac{\bar{y}-\mu}{\frac{s}{\sqrt{n}}}<t_{1-\alpha/2}^{n-1}\right)=1-\alpha$$
+
+Due to the symmetry of the t-distribution around $0$, we actually know that $t_{\alpha/2}^{n-1}=-t_{1-\alpha/2}^{n-1}$. so, we actually have the following inequality: $$P\left(-t_{1-\alpha/2}^{n-1}<\frac{\bar{y}-\mu}{\frac{s}{\sqrt{n}}}<t_{1-\alpha/2}^{n-1}\right)=1-\alpha$$
+
+If we solve this inequality above for $\mu$ being in the middle, we **get the $1-\alpha$ confidence Interval formula for the expected value**: $$P\left(\bar{y}-t_{1-\frac{\alpha}{2}}^{n-1} \times \frac{s}{\sqrt{n}}< \mu <\bar{y}+t_{1-\frac{\alpha}{2}}^{n-1} \times \frac{s}{\sqrt{n}}\right) = 1- \alpha$$
+
+So, the result is that if we have an observed sample, and calculate its sample mean of $\bar{y}$ and its standard error as $s/\sqrt{n}$, then using the $t(n-1)$ distribution's $1-\alpha/2$-th quantile, we get an interval that **contains our true expected value ($\mu$) with a probability of $1-\alpha$, which is exactly what we were looking for**. 
+
+Let's calculate this Confidence Interval (or CI for short) for $98\%$ confidence level,, so $\alpha=0.02$, which is **our allowed probability for making an error with the CI*, i.e. it not containing the true expected value.
 
 ```{r}
 t_mult <- qt(1-0.02/2, df = sample_size-1)
 exp_samples$ci_mean_low_t <- exp_samples$sample_mean - exp_samples$sample_sd/sqrt(sample_size) * t_mult
 exp_samples$ci_mean_upp_t <- exp_samples$sample_mean + exp_samples$sample_sd/sqrt(sample_size) * t_mult
+head(exp_samples[,c("ci_mean_low_t", "ci_mean_upp_t")])
+```
+
+We can see in the first 6 samples, every confidence interval "hits" the true expected value of $\mu=100$. But how good is this hit rate exactly?
+
+```{r}
 mean((exp_samples$ci_mean_low_t <= mu) & (exp_samples$ci_mean_upp_t >= mu))
 ```
 
+It's $97.28%$. Well, theoretically this should match our confidence level of $98\%$, but this small difference is attributed to the fact that in our simulation we only examine 10000 samples instead of every possible IID sample of size 120 from our $Exp(0.01)$ distribution.
 
-In large sample sizes it simplifies to: $$P\left(\bar{y}-z_{1-\frac{\alpha}{2}} \times \frac{s}{\sqrt{n}}< \mu <+z_{1-\frac{\alpha}{2}} \times \frac{s}{\sqrt{n}}\right) = 1- \alpha$$
+In practice, we simplify this confidence interval a bit further. As for **large sample sizes, $t(n-1)$ and $N(0,1)$ distributions are roughly similar as we have discussed before**. So, the $t_{1-\alpha/2}^{n-1}$ quantile can be approximated with the same quantile from the $N(0,1)$ distribution denoted as $z_{1-\alpha/2}$.
 
-See this hit rate also for 98% confidence, so $\alpha=0.02$.
+So, in **large sample sizes, usually $n>100$, where the $t(n-1) \approx N(0,1)$ works**, we apply the following formula as the **CI for the expected value**: $$P\left(\bar{y}-z_{1-\frac{\alpha}{2}} \times \frac{s}{\sqrt{n}}< \mu <\bar{y}+z_{1-\frac{\alpha}{2}} \times \frac{s}{\sqrt{n}}\right) = 1- \alpha$$
+
+Let's see this formula's hit rate also for the $98\%$ confidence level, so $\alpha=0.02$.
 
 ```{r}
 z_mult <- qnorm(1-0.02/2)
@@ -507,6 +579,98 @@ exp_samples$ci_mean_low_z <- exp_samples$sample_mean - exp_samples$sample_sd/sqr
 exp_samples$ci_mean_upp_z <- exp_samples$sample_mean + exp_samples$sample_sd/sqrt(sample_size) * z_mult
 mean((exp_samples$ci_mean_low_z <= mu) & (exp_samples$ci_mean_upp_z >= mu))
 ```
+
+We can be calm that it's not substantially different from the one where we applied the $t(n-1)$ quantiles.
+
+"*Fun Fact*": As I referred to it earlier, the t-distribution itself was actually the creation of an English statistician named *William Gosset*. Mr. Gosset worked as the head of quality control at the *Guinness* brewery, tasked with ensuring that the quality of bottled beer could be maintained using small sample sizes. Since quality control required opening bottles to measure their ingredients, the tested beer could no longer be sold. Unfortunate.<br>
+Thus, the brewery wanted to use as few bottles as possible for quality testing. To solve this problem, Gosset developed the t-distribution, since the chemical properties of beer ingredients follow a normal distribution.
+
+However, Gosset wanted to show off his discovery to the world, so he published his findings under the pen name "Student" —hence the name *Student’s t-distribution*. :) Unfortunately, he wasn’t very strategic, because at the time, only Guinness knew how to perform reliable quality control with small samples. Mr. Gosset got caught.
+
+So, as the figure below shows, all Gosset wanted to do was optimize beer production—but in the end, he ruined the lives of everyone studying statistical estimation theory. :)
+
+<center>
+![](student.png){width=30%}
+</center>
+
+
+### 4.1. Two Important Properties of Confidence Intervals
+
+Now, we can observe that the confidence interval of the expected value can be expressed as the $\bar{y}$ sample mean $\pm$ a $\triangle$ interval that is the product of the standard error, $SE$ and a $q$ quantile of a theroetical distribution, setting the confidence level. Let's call this latter quantile as *confidence multiplier* for simplicity's sake. $\triangle$ is usually called as the **length of the confidence interval**, or just simply the **sampling error**, as it is the closest thing we get as a measure of the sampling error introduced in <a href="Chapter02.html" target="_blank">Chapter 2</a>. $$\bar{y} \pm SE \times q = \bar{y} \pm \triangle$$
+
+An **important practical advice** is that one must **be careful with the confidence level** of the confidence interval. If we look at our previous calculations, we can see that
+
+- for $95%$ confidence, $z_{1-\alpha/2}=1.96$
+- for $98%$ confidence, however, $z_{1-\alpha/2}=2.33$
+
+is the corresponding confidence multiplier.
+
+We can check this easily.
+
+```{r}
+c(qnorm(1-0.05/2),
+  qnorm(1-0.02/2))
+```
+
+Due to the relationship $\triangle = q \times SE$, it is easy to see that **increasing the confidence level increases the sampling error, meaning that the confidence interval widens**. This makes complete sense: if I **want a higher probability of capturing the true expected value, I need to "widen the net," increasing the chances of catching it**.<br>
+A $100%$ confidence level is only possible if the confidence interval spans $\pm \infty$, which, of course, is not a very useful estimate... :)
+
+It is worth testing this further on the sample of size $n=120$ created back in *Section 1*, using a `for` loop with error probabilities $\alpha = {0.2,0.1,0.05,0.01,0.001}$.<br>
+For the calculations, I will use the $666$th simulated sample.
+
+```{r}
+alpha_vector = c(0.2, 0.1, 0.05, 0.01, 0.001)
+selected_sample <- 666
+
+for (current_alpha in alpha_vector) {
+  lower <- exp_samples$sample_mean[selected_sample] -
+    (exp_samples$sample_sd[selected_sample]/sqrt(sample_size))*
+    qnorm(1-current_alpha/2)
+  upper <- exp_samples$sample_mean[selected_sample] +
+    (exp_samples$sample_sd[selected_sample]/sqrt(sample_size))*
+    qnorm(1-current_alpha/2)
+  print(paste0("Confidence: ",(1-current_alpha)*100,"% - Conf. Int.: [",
+               round(lower,2), ", ",round(upper,2),"]"))
+}
+```
+
+This phenomenon is clearly observable: as **confidence increases, the confidence interval expands, meaning the margin of error continues to grow**.
+
+- at $90%$ confidence, the estimated expected value falls somewhere between $85$ and $114$
+- at $99%$ confidence, however, it already extends between $70$ and $129$!!
+
+The way to mitigate this effect is by **increasing the sample size**! **Let’s rerun the previous `for` loop on a sample of size $n=20$ instead of $n=120$!** We compute the sample mean $\bar{y}$ using the first $20$ columns. Since the sample selection was IID, it behaves as if we had only chosen $20$ elements during sampling, rather than $120$. The standard error formula $SE=s/\sqrt{n}$ can also be easily recalculated for $n=20$.
+
+```{r}
+alpha_vector <- c(0.2, 0.1, 0.05, 0.01, 0.001)
+new_sample_size <- 20
+sample_666_size20 <- as.numeric(exp_samples[666,1:new_sample_size])
+
+for (current_alpha in alpha_vector) {
+  lower <- mean(sample_666_size20) - (sd(sample_666_size20)/sqrt(new_sample_size))*qnorm(1-current_alpha/2)
+  upper <- mean(sample_666_size20) + (sd(sample_666_size20)/sqrt(new_sample_size))*qnorm(1-current_alpha/2)
+  print(paste0("Confidence: ",(1-current_alpha)*100,"% - Conf. Int.: [",
+               round(lower,2), ", ",round(upper,2),"]"))
+}
+```
+
+Clearly, **at $99%$ confidence level, the estimated mean crossing times are**
+
+- between $49$ and $160$ minutes for $n=20$
+- and ranging from $77$ to $123$ minutes for $n=120$
+  * as we saw earlier, this estimate is more precise (with a smaller $\triangle$ margin of error), 
+
+This result is unsurprising. Since the **standard error formula** $\frac{\sigma}{\sqrt{n}}$ has the **sample size $n$ in the denominator, increasing $n$ reduces the standard error, thereby decreasing the total $\triangle$ margin of error**. As we established in  Section 2.2, the **sample mean is a consistent estimator of the true expected value**: as sample size increases, its standard error ($SE$) decreases and approaches $0$.
+
+Thus, the **chosen $1-\alpha$ confidence level depends on the sample size**:
+
+- With a larger $n$, a $99\%$ confidence level can still provide a precise interval estimate,
+- With a smaller sample size, one may need to settle for a more moderate confidence level (e.g., $90\%-95\%$)
+
+Now, we have seen that after establishing **what theoretical distribution can describe the sampling distribution of the means**, it can be **utilized to construct confidence intervals** for the expected value **from just one sample alone**.<br>
+This result does **not need any assumptions on the data, just that sample size is large** enough ($n>100$). This nice **result is specific for the mean as an estimator for expected value** and is discussed in most bachelor level courses in Inferential Statistics. On bachelor courses, sometimes the sampling distribution and confidence interval for the $\sigma$ parameter in a normal distribution is discussed, but that result is limited due to the fact it assumes that the true population distribution is $N(\mu,\sigma)$. This assumption is not so realistic with real-world socio-economic variables with long-right-tailed distributions.
+
+So, in the next Sections, we are going to discuss **how to construct confidence intervals for any parameters of any theoretical probability distributions** (e.g. $\mu,\sigma$ for lognormal distribution, or $r,p$ for negative binomial distribution) **using maximum likelihood estimators** (MLEs).
 
 ## 5. Sampling Distribution and Confidence Interval of MLEs
 
