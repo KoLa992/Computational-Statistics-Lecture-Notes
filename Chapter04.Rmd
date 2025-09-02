@@ -674,22 +674,50 @@ So, in the next Sections, we are going to discuss **how to construct confidence 
 
 ## 5. Sampling Distribution and Confidence Interval of MLEs
 
-Sampling distribution definition: $$\hat{\theta}_{ML} \sim N(\theta,\sqrt{I^{-1}})$$
+Next to the sample mean, we have constant **properties that are the same in every case** (regardless of the true population distribution) **for the sampling distribution of Maximum Likelihood Estimators** (MLEs).
 
+Specifically, we can say that **maximum likelihood estimators**, i.e. the $\hat{\theta}_{ML}$ estimators calculated from lots of samples, **follow a normal distribution** for **large enough $n$ sample sizes**. Specifically, we have that: $$\sqrt{n}\left(\hat{\theta}_{ML} - \theta \right) \sim N\left(0,\sqrt{I^{-1}}\right)$$
 
-Get the empirical standard error for $\hat{\lambda}_{ML}$ from the simulations.
+We'll discuss what exactly is this $I^{-1}$ expression that is the standard deviation of this sampling distribution (this is the standard error of MLEs basically) in just a bit. But first, let's think through what this $N\left(0,\sqrt{I^{-1}}\right)$ sampling distribution means the following for MLEs if we "*divide*" the expression above by $\sqrt{n}$:
+
+1. The $\hat{\theta}_{ML}$ estimators are **asymptotically unbiased** as the $E(\hat{\theta}_{ML})-\theta$ difference is practically $0$ up to the order of $1/\sqrt{n}$. Meaning that if sample size $n$ is large enough, the bias is $1/\sqrt{n} \approx 0$.
+2. The $\hat{\theta}_{ML}$ estimators are **consistent** as their standard error is $SE\left(\hat{\theta}_{ML}\right)=I^{-1}/\sqrt{n}$. In this formula what's important is that we have $\sqrt{n}$ in the denominator, just like in the standard error of the sample mean. So if the $n$ sample size increases, the standard error decreases, so  a specific $\hat{\theta}_{ML}$ estimator from a random sample gets closer and closer to $E(\hat{\theta}_{ML})$, which is very close to the true population $\theta$ since $n$ grows.
+
+Based on these two considerations, in practice, for large $n$ sample sizes we treat the sampling distribution of MLEs as the following: $$\hat{\theta}_{ML} \to N\left(\theta,\sqrt{I^{-1}/n}\right)$$
+
+Here the $\to$ sign expresses that this $N\left(\theta,\sqrt{I^{-1}/n}\right)$ sampling distribution only works for large $n$ sample sizes, so in cases when $n \to \infty$.
+
+Now, let's examine what is this $I^{-1}$ that is in the standard error formula for MLEs: $$SE\left(\hat{\theta}_{ML}\right)=I^{-1}/\sqrt{n}$$
+
+The $I$ here is the so-called **Fisher information** of the estimator, which is nothing else than the **second derivative of the log-likelihood function**. So, using the $l(\theta)=\sum_{i=1}^{n}{\ln(f(y_i,\theta)})$ notation from <a href="Chapter03.html" target="_blank">Chapter 3</a>, we have the following definition for $I$: $$I=\frac{\partial^2 l(\theta)}{\partial^2 \theta}$$
+
+If we have **more than one $\theta$ parameter to estimate**, then the log-likelihood function becomes a multivariate function like $l(\theta_1,\theta_2,...,\theta_p)$, if we have a distribution with $p$ parameters. In this case the **2nd derivative becomes a $p \times p$ matrix** as we take the partial second derivatives $\partial^2 l(\theta) / (\partial \theta_i \partial \theta_j)$ for every $i,j$ combination. This matrix is the **Hessian matrix** of the log-likelihood function. So, in general terms Fisher information is called the **Fisher information matrix, and it is nothing else than the Hessian of the log-likelihood function of the observed sample**. Of course, this Hessian is evaluated at the $\hat{\theta}_{ML}$ values, where the first partial derivatives of the log-likelihood are all equal to $0$, just like we saw in  <a href="Chapter03.html" target="_blank">Chapter 3</a>.
+
+So, the **standard error of any maximum likelihood estimator** is given as the reciprocal of the log-likelihood function's 2nd derivative (or in case of more parameters the inverse of the log-likelihood function's Hessian) divided by sample size ($n$) and the whole thing is under the square root. For this reason we **introduce the following expression for simplicity's sake and we'll call it as the log-likelihood Hessian for SIMPLICITY's sake**: $$\mathcal{I}=\frac{I}{n}$$
+
+> This notation is important, because this $\mathcal{I}$ is the value that can be obtained by the `hessian = TRUE` parameter setting in > the `optim` function!
+
+Hence, the **standard error of any MLE** can be calculated in R simply as: $$SE\left(\hat{\theta}_{ML}\right)=\sqrt{\mathcal{I}^{-1}}$$
+
+Now, let's **check that this $\sqrt{\mathcal{I}^{-1}}$ formula works** on the good old $666$th sample of our simulations! In this case our MLE is for the Exponential distribution's $\lambda$ parameter. That is $\hat{\lambda}_{ML}=1/\bar{y}$.
+
+First, we get the empirical standard error for $\hat{\lambda}_{ML}$ from all the 10000 simulated IID samples. In this calculation we ignore the bias since $n=120$ is a large enough sample size, so the bias is negligable: $Bs_{ML}=1/\sqrt{n}=1/\sqrt{120}=0.09$.<br>
+So, we calculate **the empirical standard error** as $$SE\left(\hat{\lambda}_{ML}\right)=\sqrt{E\left(\left(\hat{\theta}-\theta\right)^2\right)}$$
+
+As before, empirically we calculate the expected values ($E(.)$) as means in R.
 
 ```{r}
-exp_samples$est_rate <- 1/exp_samples$sample_mean
-se_lambda_empir <- sqrt(mean((exp_samples$est_rate - rate)^2))
+se_lambda_empir <- sqrt(mean((exp_samples$sample_rate - rate)^2))
 se_lambda_empir
 ```
 
-See for the 666th sample that the $\sqrt{I^{-1}}$ approximation works.
+So, we can say that we expect a specific sample's $\hat{\lambda}_{ML}$ to differ from the true population's $\lambda$ by $\pm 0.00093$.
 
-Get the $\hat{\lambda}_{ML}$ numerically with Hessian matrix included.
+Now, let's see for the $666$th sample that the $\sqrt{I^{-1}}$ approximation works for this MLE standard error.
 
-```{r}
+First, we get the $\hat{\lambda}_{ML}$ numerically like in <a href="Chapter03.html" target="_blank">Chapter 3</a>. But now, we include the Hessian in the results of the `optim` function. As discussed, this gives our $\mathcal{I}$, evaluated at the $\hat{\lambda}_{ML}$ value.
+
+```{r warning=FALSE}
 sample_666 <- as.numeric(t(exp_samples[666,1:sample_size]))
 
 # function definition
@@ -701,28 +729,58 @@ neg_log_likelihood_expon <- function(theta_expon){
 
 # do the MLE with optim
 expon_ml <- optim(0.001, neg_log_likelihood_expon, hessian = TRUE)
-c(expon_ml$par, exp_samples$est_rate[666]) # check estimate
+c(expon_ml$par, exp_samples$sample_rate[666]) # check estimate
 ```
 
-Get $SE\left(\hat{\lambda}_{ML}\right)$ from Hessian and see if its truly a good approximation of the standard error obtained from the simulations empirically.
+Great, the numerical MLE provided the same result as the $1/\bar{y}$ solution, with only some minor rounding errors.
+
+Now, we get the $SE\left(\hat{\lambda}_{ML}\right)$ from Hessian $\mathcal{I}$ with the $\sqrt{\mathcal{I}^{-1}}$ formula, and see if its truly a good approximation of the standard error obtained from the simulations empirically.<br>
+We need to notice that the `optim` result contains the Hessian in matrix format, no matter that it is simply a number now as the exponential distribution has only 1 parameter. It will be represented in R's memory as a $1 \times 1$ matrix. This means that in R we need to take its inverse with the `solve` function to get $\mathcal{I}^{-1}$. This also means that we need to **select the inversion result in R as the element of the 1st row in the 1st column** in a matrix.
 
 ```{r}
-se_lambda_approx <- sqrt(solve(expon_ml$hessian))
-c(se_lambda_approx[1,1], se_lambda_empir)
+se_lambda_approx <- sqrt(solve(expon_ml$hessian)[1,1])
+c(se_lambda_approx, se_lambda_empir)
 ```
 
-Difference is practically $0$ until 5 digits!
+Difference is practically $0$ until 4 digits! Praise the machine spirit, our approximation formula works! This is important, as this formula can be used to **calculate the standard error of any MLE from just one sample alone, if the sample size is large** ($n>100$). Just like for the sample mean!
 
-This way, we can get confidence intervals for $\lambda$. For example, on a 97% level.
+Now, if we consider that the **sampling distribution of MLEs is a normal distribution for large sample sizes**, then this way
+
+> We can get confidence intervals for $\lambda$ form just one sample exactly the same way as we did for the sample mean!
+
+So, using the fact that $\hat{\theta}_{ML} \to N\left(\theta,\sqrt{\mathcal{I}^{-1}}\right)$, and following the same principles we used in the case of the sample mean and expected value in Section 4, we can calculate **the $1-\alpha$ confidence interval for any $\hat{\theta}_{ML}$ from just one observed sample** (provided it's size is large enough) with the following formula: $$\hat{\theta}_{ML} \pm \mathcal{I}^{-1} \times z_{1-\alpha/2}$$
+
+Where of course, $z_{1-\alpha/2}$ is the $1-\alpha/2$-th quantile of the $N(0,1)$ distribution.
+
+Now, let's see this in action for a $97\%$ confidence interval for the Exponential distribution's $\lambda$ based on the $666$th sample! Since the confidence level is $97\%$, our $\alpha=0.03$.
 
 ```{r}
-c(expon_ml$par - se_lambda_approx[1,1]*qnorm(1-0.03/2),
-  expon_ml$par + se_lambda_approx[1,1]*qnorm(1-0.03/2))
+c(expon_ml$par - se_lambda_approx*qnorm(1-0.03/2),
+  expon_ml$par + se_lambda_approx*qnorm(1-0.03/2))
 ```
 
-Cramér-Rao inequality: $$SE\left(\hat{\theta}\right) \geq \sqrt{I^{-1}}$$
+So, the result states that based on the $666$th sample, we can say with a confidence of $97\%$ that our Exponential distribution's true $\lambda$ is somewhere between $0.008$ and $0.012$.<br>
+This is a "good guess" as we know that in our simulations $\lambda=0.01$.
 
-MLE is functional invariant. If $\hat{\theta}$ is MLE for $\theta$, then by definition $g\left(\hat{\theta}\right)$ is MLE for $g(\theta)$.
+This result is not a big surprise as in the case of the Exponential distribution, $\lambda$ is just the reciprocal of the expected value.
+
+> However, the true importance of this result is that for any parameter of any distribution, we can get a confidence interval like this if the estimator for the parameter is a maximum likelihood estimetor (MLE)!!
+
+> Furthermore, these confidence intervals have the same propeties as the one for the expected value discussed in Section 4.1. That is if $\alpha$ decreases, it gets wider (more confidence = bigger "net" analogy), but if sample size increases, then the length of the confidence intervals decreases duw to lower standard error.
+
+Also, it is an important property of MLEs that they reach the so-called **Cramér–Rao bound**. The Cramér–Rao bound says that for any asymptotically unbiased estimator $\hat{\theta}$, the reciprocal of the Fisher information is a lower bound on its (estimation) variance. So, since $SE(\hat{\theta})=\sqrt{Var(\hat{\theta})}$, it also means that: $$SE\left(\hat{\theta}\right) \geq \sqrt{\mathcal{I}^{-1}}$$
+
+And since we just saw that $SE\left(\hat{\theta}_{ML}\right)=\sqrt{\mathcal{I}^{-1}}$, there **cannot be any other asymptotically unbiased estimator that has lower standard error than maximum likelihood estimators**. This means that the method of moments (MM) estimators of distribution parameters are worse or at best on the same SE level than MLEs. We saw the shortcomings of MM estimators in <a href="Chapter01.html" target="_blank">Section 4.2 of Chapter 1</a> in the case of the lognormal distribution.
+
+This Cramér–Rao bound means that **among the asymptotically unbiased estimators, MLEs are always efficient**, that is You **cannot find any alternative estimators** for the population parameters in question **that have lower $MSE=Bs^2+SE^2$ values** than MLEs! This is due to the fact that
+
+1. They are asymptotically unbiased, so $Bs \approx 0$ for large sample sizes.
+2. And their $SE$ the theoretical minimum of $\sqrt{\mathcal{I}^{-1}}$.
+
+However, it is not impossible to find valid alternative truly *biased* estimators with lower standard errors than $\sqrt{\mathcal{I}^{-1}}$, resulting in smaller $MSE$ than that of MLEs. But this is usually a very hard task, so **in practice MLEs are preferred** due to this nice property that **they are always efficient among the asymptotically unbiased estimators**, and **due to their normal sampling distributions**, it is easy to **get confidence intervals** for them from just one sample alone. This latter property is something that MM estimators do NOT have for example!
+
+Furthermore, **MLEs are functional invariant**. If $\hat{\theta}$ is MLE for $\theta$, then by definition $g\left(\hat{\theta}\right)$ is MLE for $g(\theta)$.<br>
+We already saw **an example for this as for the Exponential distribution, where $g(x)=1/x$.** Since we know that if $Y \sim Exp(\lambda)$, then $E(Y)=1/\lambda$. And we know that the reciprocal of the sample mean $\bar{y}$ is MLE for $\lambda$: $\hat{\lambda}_{ML}=1/\bar{y}$. And due to the fact that MLEs are functional invariant, we also know that $\bar{y}$ is MLE for the true expected value $E(Y)$ in the case of the Exponential distributions.
 
 ## 6. Covariance of Estimators
 

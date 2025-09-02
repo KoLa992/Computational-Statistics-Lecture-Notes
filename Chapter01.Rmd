@@ -970,6 +970,8 @@ So the list of distributions I recommend to check according to these 4 points ar
   * <a href="https://search.r-project.org/CRAN/refmans/EnvStats/html/Pareto.html" target="_blank">Pareto</a>
   * <a href="https://search.r-project.org/CRAN/refmans/ExtDist/html/Weibull.html" target="_blank">Weibull</a>
   * <a href="https://search.r-project.org/CRAN/refmans/ExtDist/html/Gamma.html" target="_blank">Gamma</a>
+  * <a href="https://stat.ethz.ch/R-manual/R-devel/library/stats/html/Chisquare.html" target="_blank">Chi-Squared</a>
+  * <a href="https://stat.ethz.ch/R-manual/R-devel/library/stats/html/Fdist.html" target="_blank">F</a>
 - Symmetrical distributions with heavy tails
   * <a href="https://search.r-project.org/CRAN/refmans/VGAM/html/laplaceUC.html" target="_blank">Laplace</a>
   * <a href="https://search.r-project.org/CRAN/refmans/distributional/html/dist_cauchy.html" target="_blank">Cauchy</a>
