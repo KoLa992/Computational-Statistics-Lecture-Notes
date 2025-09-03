@@ -31,12 +31,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 5 - Basic Concepts of Hypothesis Testing
 
-## Chapter 6 - Multiple Linear Regression and Confounding
+## Chapter 6 - Confidence Intervals with Jackknife and Bootstrap
 
-## Chapter 7 - Designing Experiments and Correction For Multiple Comparisons
+## Chapter 7 - Multiple Linear Regression and Confounding
 
-## Chapter 8 - Generalized Linear Models
+## Chapter 8 - Designing Experiments and Correction For Multiple Comparisons
 
-## Chapter 9 - Confidence Intervals with Jackknife and Bootstrap
-
-## Chapter 10 - Bayesian Inference
+## Chapter 9 - Generalized Linear Models

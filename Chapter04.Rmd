@@ -784,24 +784,109 @@ We already saw **an example for this as for the Exponential distribution, where 
 
 ## 6. Covariance of Estimators
 
-TODO
+Ok, now let's see how this standard error approximation with the Hessian a.k.a Fisher Information works for MLEs when we have a **theoretical distribution with more than one parameters**!
+
+The most straightforward example for this case would be a simple $N(\mu,\sigma)$ distribution as it has two parameters. So, let's go ahead and simulate an IID sample of say $n=180$ from a $N(60,20)$ distribution.
+
+```{r}
+n <- 180
+mu <- 60
+sigma <- 20
+
+set.seed(1992)
+just_a_normal_sample <- rnorm(n = n, mean = mu, sd = sigma)
+hist(just_a_normal_sample)
+```
+
+Great, the observed histogram looks "bell curvish" enough. :)
+
+Now, let's do the MLE for $\theta=\{\mu,\sigma\}$ numerically just like in <a href="Chapter03.html" target="_blank">Section 3 of Chapter 3</a>. We only add the `hessian = TRUE` parameter setting in `optim`.
+
+```{r warning=FALSE}
+# negative log-likelihood function definition
+neg_log_likelihood_norm <- function(theta_norm){
+  log_lik_observations <- log(dnorm(x = just_a_normal_sample,
+                                    mean = theta_norm[1],
+                                    sd = theta_norm[2]))
+  return(-sum(log_lik_observations))
+}
+
+# numerical MLE
+norm_ml <- optim(c(250, 250), neg_log_likelihood_norm, hessian = TRUE)
+c(norm_ml$par) # see the estimators
+```
+
+Great, so our MLEs are the following: $\hat{\mu}_{ML}=59.31$ and $\hat{\sigma}_{ML}=18.65$. So, the MLEs expressed in **vector format** are: $$\hat{\theta}_{ML}=\{59.31,18.65\}$$
+
+Let's see that Hessian a.k.a **Fisher Information** now! As now with the normal distribution, we have $p=2$ parameters to estimate, we expect the Hessian to be a $2 \times 2$ matrix.
+
+```{r}
+norm_ml$hessian
+```
+
+And we are correct, this Hessian truly is a $2 \times 2$ matrix. Furthermore, this matrix is *symmetric* as well. This is because the second derivatives of the log-likelihood function look like this: $$\mathcal{I}=\begin{bmatrix}
+    \frac{\partial^2l(\mu,\sigma)}{\partial^2\mu}       & \frac{\partial^2l(\mu,\sigma)}{\partial\mu\partial\sigma}  \\
+    \frac{\partial^2l(\mu,\sigma)}{\partial\sigma\partial\mu}       & \frac{\partial^2l(\mu,\sigma)}{\partial^2\sigma}
+\end{bmatrix}$$
+
+And of course, $\frac{\partial^2l(\mu,\sigma)}{\partial\mu\partial\sigma}=\frac{\partial^2l(\mu,\sigma)}{\partial\sigma\partial\mu}$, so the Hessian = Fisher Information matrix is always symmetric!
+
+Now, let's apply the $Var(\hat{\theta}_{ML})=\mathcal{I}^{-1}$ formula from the previous chapter! What we'll get is the **variance-covariance matrix of the maximum likelihood estimators**.
+
+```{r}
+varcov_ml <- solve(norm_ml$hessian)
+varcov_ml
+```
+
+So, why is this result is called the variance-covariance matrix of our MLEs? Because in the **main diagonal**, we have the **squared standard errors** a.k.a the variances of our estimators. We can easily check this as the sample mean is MLE for the true expected value $\mu$ in a normal distribution (see <a href="Chapter03.html" target="_blank">Section 3.1 of Chapter 3</a>), and we know from the CLT that $SE(\bar{y})=\sigma/\sqrt{n}$, so $Var(\bar{y})=\sigma^2/n$. And this variance is approximated from the sample as $s^2/n$. This approximation should match with the first row of the first column in our variance-covariance matrix as that should be variance of the first parameter for our $N(\mu,\sigma)$ distribution.
+
+```{r}
+c(sd(just_a_normal_sample)^2/n,
+  varcov_ml[1,1])
+```
+
+Great, despite some very minor rounding errors, they are the same! :)
+
+With the same logic, the 2nd row of the 2nd column is the variance of the second parameter for our $N(\mu,\sigma)$ distribution $Var(\hat{\sigma}_{ML})=0.966$.
+
+And that $-0.0002906$ in the off-diagonal of our matrix is the **estimation covariance for the estimators of $\mu$ and $\sigma$**. This can be **interpreted as any other covariance**. So, what's important here is the sign of the covariance that is **negative**. This means that if **we examine lots of samples, then if the estimator for expected value** ($\hat{\mu}_{ML}$) **is higher, then we can expect the estimator for standard deviation** ($\hat{\sigma}_{ML}$) **to be lower**. So the **two estimators have an opposite-directional relationship** if we examine it through lots of samples.<br>
+However, since the **covariance is very close to $0$, this relationship is probably weak**. But we cannot know for certain as the absolute value of covariance is influenced by the unit of measurement of the data, so there are no clear boundaries here on when we can call a relationship weak/moderate/strong. But this is easy to fix, if we **convert covariance to correlation, as correlation is within the range of $\pm1$**, so relationship strength is determined by the $0.3$ and $0.7$ cut-off points as revised in <a href="Prelude02.html" target="_blank">Section 5 of Prelude 2</a>. From our bachelor studies hopefully we know that correlation of two variables $X$ and $Y$ is derived from their covariance by dividing it with the product of the two variable's standard deviations: $$cor(X,Y)=\frac{cov(X,Y)}{\sigma_X\sigma_Y}$$
+
+Let's apply it on the variance-covariance matrix of our two estimators and produce their correlation! Remember that the standard deviation of the estimators is actually their standard errors, so the $\sigma$ values in the correlation formula are square roots of the variance-covariance matrix's main diagonal elements.
+
+```{r}
+varcov_ml[2,1]/(sqrt(varcov_ml[1,1])*sqrt(varcov_ml[2,2]))
+```
+
+There, we have that $cor(\hat{\mu}_{ML},\hat{\sigma}_{ML})=-0.000213$. The absolute value of this correlation is way below $0.3$, so we can safely say that the correlation of the two estimators is weak. In fact, it's so close to $0$ that can say that the **two parameters can be independently estimated from each other**.
+
+The **covariance of two estimators** is not so important in this example as it is practically $0$, but it is **going to be important when we cover the maximum likelihood estimation for the parameters of more complex models. Like multivariate regression and generalized linear models** covered in <a href="Chapter07.html" target="_blank">Chapter 7</a> and <a href="Chapter09.html" target="_blank">Chapter 9</a>.
 
 ## 7. Case Study - Is Party Peference Influenced by Internet Usage Time?
 
-Load the ESS data.
+Now, let's apply our knowledge on the sampling distribution and confidence interval of maximum likelihood estimators (MLEs) in practice!
+
+We'll apply MLE confidence intervals to answer the following question based on the 2024 European Social Survey data: *Is Party Peference Influenced by Internet Usage Time?*
+
+Let' get to it: load the ESS dataset into an R data frame!
 
 ```{r}
 ess <- readxl::read_excel("ess_hun_2024.xlsx")
 str(ess)
 ```
 
-Filter to valid internet usage time values.
+Ok, looks like we have all the necessary variables covered in <a href="Chapter01.html" target="_blank">Chapter 1</a> and all the $2048$ observations.
+
+As a next step, we filter to valid internet usage time values. These are the ones that are not missing and positive. Discarding the $0$ values has two reasons discussed in <a href="Chapter04.html" target="_blank">Section 5 of Chapter 3</a>: on the one hand, there is only $6$ of them, so they don't bother much, and we've established that a lognormal distribution is what best describes the population behavior of the net usage time variable, and that can only take positive values.<br>
+In this new, filtered data frame, we preserve the `PartyPreference` column as well, next to the `DailyNetUse` column so we can investigate the net usage time distribution broken down to political party preferences.
 
 ```{r}
 ess_small <- ess[!is.na(ess$DailyNetUse) & (ess$DailyNetUse > 0),
                  c("idno", "DailyNetUse", "PartyPreference")]
 str(ess_small)
 ```
+
+Great, looks like we'll work with $n=1391$ observations! Now, to continue, we need to phrase our research question "*Is Party Peference Influenced by Internet Usage Time?*" a bit more explicitly.
 
 Fit MLE with `fitdistrplus`.
 
@@ -818,7 +903,7 @@ summary(fit_lnorm)
 
 Do the MLE grouped by political party preference.
 
-```{r}
+```{r warning=FALSE, results='hide'}
 lnorm_byparty <- data.frame(Party=unique(ess_small$PartyPreference),
                             meanlog = NA,
                             se = NA)
