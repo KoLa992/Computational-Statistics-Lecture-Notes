@@ -862,11 +862,11 @@ There, we have that $cor(\hat{\mu}_{ML},\hat{\sigma}_{ML})=-0.000213$. The absol
 
 The **covariance of two estimators** is not so important in this example as it is practically $0$, but it is **going to be important when we cover the maximum likelihood estimation for the parameters of more complex models. Like multivariate regression and generalized linear models** covered in <a href="Chapter07.html" target="_blank">Chapter 7</a> and <a href="Chapter09.html" target="_blank">Chapter 9</a>.
 
-## 7. Case Study - Is Party Peference Influenced by Internet Usage Time?
+## 7. Case Study - Is Party Preference Influenced by Internet Usage Time?
 
 Now, let's apply our knowledge on the sampling distribution and confidence interval of maximum likelihood estimators (MLEs) in practice!
 
-We'll apply MLE confidence intervals to answer the following question based on the 2024 European Social Survey data: *Is Party Peference Influenced by Internet Usage Time?*
+We'll apply MLE confidence intervals to answer the following question based on the 2024 European Social Survey data: *Is Party Preference Influenced by Internet Usage Time?*
 
 Let' get to it: load the ESS dataset into an R data frame!
 
@@ -886,54 +886,103 @@ ess_small <- ess[!is.na(ess$DailyNetUse) & (ess$DailyNetUse > 0),
 str(ess_small)
 ```
 
-Great, looks like we'll work with $n=1391$ observations! Now, to continue, we need to phrase our research question "*Is Party Peference Influenced by Internet Usage Time?*" a bit more explicitly.
+Great, looks like we'll work with $n=1391$ observations! Now, to continue, we need to phrase our research question "*Is Party Preference Influenced by Internet Usage Time?*" a bit more explicitly. In fact, we are interested in whether the net usage time is generally higher/lower for supporters of certain political parties in the whole Hungarian population. So, we want to know if the **location** (or in other words central tendency) **of the net usage time distribution is higher/lower for supporters of certain political parties**. We can consider 3 measures of location for this: mean, mode and median. **Due to the long right tail** of the net usage time distribution we saw in <a href="Chapter01.html" target="_blank">Section 4.2 of Chapter 1</a>, the **median would be the most appropriate measure of location to examine** based on <a href="Prelude03.html" target="_blank">Section 5 of Prelude 3</a>.<br>
+However, we are in a bit of a pickle as we only know confidence interval formula for one measure of location: the mean. This is problematic as the mean is the worst choice for distributions with a long right tail due to its sensitivity to outliers. But **if we use the median, looks like we have no confidence interval**, so we cannot account for the sampling error, hence **we have no way to describe the behavior of median for unobserved data**, we only see the observed sample!<br>
+On the other hand, we also know from <a href="Chapter01.html" target="_blank">Section 4.2 of Chapter 1</a> that the **net usage time in the population can be described with a lognormal distribution**, $LN(\mu,\sigma)$. And we also know from this chapter that in a $LN(\mu,\sigma)$ distribution, $Me = \exp(\mu)$. So, basically the **median of the $LN(\mu,\sigma)$ distribution is represented by its $\mu$ parameter**! And we've just learnt that if we **give an MLE for $\mu$, then we can also calculate the confidence-interval for it**! So, let's do just that! :) 
 
-Fit MLE with `fitdistrplus`.
+First, we get familiar with the `fitdistrplus` R package that has a nice built-in function called `fitdist` for fitting theoretical distributions on observed sample data. The function can estimate the parameters of the theoretical distributions both with method of moments (MM) or with maximum likelihood (MLE).
+
+let's install and load the package to our R environment.
+
+```{r eval=FALSE}
+install.packages("fitdistrplus")
+library(fitdistrplus) # possible warnings can be ignored
+```
+```{r echo=FALSE}
+library(fitdistrplus)
+```
+
+The `fitdist` function in the package has 3 parameters.
+
+- First parameter of the function is the observed data in `vector` format (so select columns in your data frame with the `$` sign).
+- Second parameter is the name of the distribution we want to fit on the data in `character` format. Use the **distribution name that R uses in the `d`, `p` and `q` prefixed functions**! Like `norm` for the Normal distribution and `exp` for the Exponeential distribution and so on.
+- Third parameter is the method to use for distribution fitting. The `mle` code is for the maximum likelihood estimation, while the `mm` code is for method of moments.
+
+Let's try this function by fitting a lognormal distribution on all the $n=1391$ observed net usage times.
 
 ```{r}
-library(fitdistrplus)
 fit_lnorm <- fitdist(ess_small$DailyNetUse, "lnorm", method = "mle")
 ```
 
-See the details.
+We can see from the results that we have $\hat{\mu}_{ML}=4.986$ and $\hat{\sigma}_{ML}=0.706$. We can check that these are the same values that we got as MLEs back in <a href="Chapter03.html" target="_blank">Section 5 of Chapter 3</a>.
+
+This function is nice as we can **get the standard errors and even the correlations for the MLEs** by running the `summary` function on the R object storing the results from the `fitdist` function.
 
 ```{r}
 summary(fit_lnorm)
 ```
 
-Do the MLE grouped by political party preference.
+From this output, we can see that $SE\left(\hat{\mu}_{ML}\right)=0.0189$ and $SE\left(\hat{\sigma}_{ML}\right)=0.0134$. If we observe the output more closely, we can notice that even the two information criterion, $AIC$ and $BIC$ are provided! And from the correlation matrix of the estimates, we can see that the two parameters of this lognormal distribution can be estimated almost independently (close to $0$ correlation in the off-diagonal). Just like the parameters of the normal distribution as seen in Section 6.
+
+The standard errors provided in the R object storing the results from the `fitdist` function can be used to construct confidence intervals for the MLEs as we saw it back in Section 5.<br>
+The results from `fitdist` are stored as a `list` in R, and the `estimate` element contains the specific MLEs and the `sd` element contains their standard errors. Both of these elements are a `vector` and the values for specific parameters can be selected from them by indexing them with the name of the parameter in R. So, for lognormal distribution in R, we need to use the term `meanlog` for $\mu$ and `sdlog` for $\sigma$.<br>
+This way, we can easily get a say a $96\%$ confidence interval for $\mu$ ($\alpha=0.04$). The $z_{1-\alpha/2}$ quantile can be safely used in the confidence interval formula as the sample size is large enough: $n=1391$.
+
+```{r}
+c(fit_lnorm$estimate["meanlog"] - fit_lnorm$sd["meanlog"] * qnorm(1-0.04/2),
+  fit_lnorm$estimate["meanlog"] + fit_lnorm$sd["meanlog"] * qnorm(1-0.04/2))
+```
+
+Based on these results we can say with a $96\%$ probability that the $\mu$ parameter of the net usage time lognormal distribution can be between $4.95$ and $5.02$ in the unobserved Hungarian population.
+
+Furthermore, if we apply an `exp` function on the results, we get a confidence interval for the median of net usage times (since we discussed that for a lognormal distribution: $Me=\exp(\mu)$), and say that the median daily net usage time in the unobserved Hungarian population is between $141$ and $152$ minutes with $96\%$ certainty.
+
+```{r}
+exp(c(fit_lnorm$estimate["meanlog"] - fit_lnorm$sd["meanlog"] * qnorm(1-0.04/2),
+      fit_lnorm$estimate["meanlog"] + fit_lnorm$sd["meanlog"] * qnorm(1-0.04/2)))
+```
+
+Now the, only thing left to answer our original question is do this confidence interval calculation separately for each party in the `PartyPreference`. This is quite easy to do: just filter the data frame to supporters of each party and run `fitdist` on this subset of net usage data, and save the results to a new data frame with as many rows as parties in the `PartyPreference` variable.<br>
+To avoid copy-paste, a `for` loop is quite practical to apply here. :)
 
 ```{r warning=FALSE, results='hide'}
 lnorm_byparty <- data.frame(Party=unique(ess_small$PartyPreference),
+                            sample_size = NA,
                             meanlog = NA,
                             se = NA)
 
 for (party in lnorm_byparty$Party) {
+  lnorm_byparty$sample_size[lnorm_byparty$Party==party] = sum(ess_small$PartyPreference==party)
   fit_temp <- fitdist(ess_small$DailyNetUse[ess_small$PartyPreference==party],
                       "lnorm", method = "mle")
   lnorm_byparty$meanlog[lnorm_byparty$Party==party] = fit_temp$estimate["meanlog"]
   lnorm_byparty$se[lnorm_byparty$Party==party] = fit_temp$sd["meanlog"]
 }
+```
 
+Great, looks like we have the data frame, we need. Let's see it!
+
+```{r}
 lnorm_byparty
 ```
 
-Get CI with 95% level of confidence.
+From these results, it looks like that generally supporters of other parties have the longest daily net usage times, but this group also has the largest standard error, due to their small sample size (remember that MLEs are consistent: if sample size increases, standard error goes down). It also looks like that Fidesz supporters have the lowest median net usage time, but still it also has a not negligible standard error. So, these conclusions are only true in the observed sample, and NOT for the whole unobserved Hungarian population! To get conclusions for the whole Hungarian population, we need to get the confidence intervals for the median net usage times. Due to the relatively smaller sample sizes ($n_{\max}=890$), let's use a confidence level of $95\%$, so $\alpha=0.05$.
 
 ```{r}
-lnorm_byparty$ci_low <- lnorm_byparty$meanlog - lnorm_byparty$se * qnorm(1-0.05/2)
-lnorm_byparty$ci_upp <- lnorm_byparty$meanlog + lnorm_byparty$se * qnorm(1-0.05/2)
+lnorm_byparty$median <- exp(lnorm_byparty$meanlog)
+lnorm_byparty$ci_low <- exp(lnorm_byparty$meanlog - lnorm_byparty$se * qnorm(1-0.05/2))
+lnorm_byparty$ci_upp <- exp(lnorm_byparty$meanlog + lnorm_byparty$se * qnorm(1-0.05/2))
 lnorm_byparty
 ```
 
-Show CI result on barplot.
+Now, we have a lot of confidence interval overlaps. These cases mean that we cannot say that one median is higher than the other in the observed population. Let's take the example of Fidesz and the Far Right. In the sample the median net usage time for the Far Right supporters is higher than that of Fidesz supporters ($152>139$). But in the unobserved population it can very well happen that Fidesz supporters have a median time of $151$ minutes and the Far Right supporters ha a median of only $124$ minutes with a $95\%$ probability. This is mainly due to the fact that we have so few Far Right supporters in the observed sample, that we cannot say much from their behavior in the unobserved population.<br>
+The **only thing we can say with a $95\%$ confidence is that the Opposition supporters spend more median time a day on the internet than those who prefer Fidesz or whose preference is unknown**. These are the only two cases where the confidence intervals do NOT overlap, so these are the differences that remain in the unobserved population as well with $95\%$ confidence. In other words, only **these differences are statistically significant** on a confidence level of $95\%$.
+
+We can also show the confidence intervals as error bars on a barplot in `ggplot` to visually communicate the results discussed above.
 
 ```{r}
-ggplot(lnorm_byparty, aes(x = reorder(Party, meanlog), y=meanlog, fill = Party)) +
+ggplot(lnorm_byparty, aes(x = reorder(Party, meanlog), y=exp(meanlog), fill = Party)) +
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin=ci_low, ymax=ci_upp)) +
   coord_flip()
 ```
-
-We can say that with 95% confidence that the Opposition spends more time a day on the internet than those who prefer Fidesz or whose preference is unknown.
-

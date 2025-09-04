@@ -29,7 +29,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 4 - <a href="Chapter04.html" target="_blank">Properties of Estimators and Confidence Intervals</a>
 
-## Chapter 5 - Basic Concepts of Hypothesis Testing
+## Chapter 5 - <a href="Chapter05.html" target="_blank">Basic Concepts of Hypothesis Testing</a>
 
 ## Chapter 6 - Confidence Intervals with Jackknife and Bootstrap
 
