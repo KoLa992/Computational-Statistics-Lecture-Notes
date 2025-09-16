@@ -405,4 +405,164 @@ TODO
 
 ## 7. Generalised Likelihood Ratio Tests (GLRTs)
 
-TODO
+Load ESS 2024 data to R data frame.
+
+```{r}
+ess <- readxl::read_excel("ess_hun_2024.xlsx")
+head(ess)
+```
+
+Calculate BMI.
+
+```{r}
+ess$BMI <- ess$Weight/(ess$Height/100)^2
+head(ess$BMI)
+```
+
+Let's assume that $BMI \sim N(\mu,\sigma)$, omit the missing values and check our normality assumption on a histogram.
+
+```{r}
+ess_small <- ess[!is.na(ess$BMI),c("idno", "BMI")]
+hist(ess_small$BMI)
+```
+
+
+Our hypothesis is that $\mu=25$. So we have that
+
+- $H_0: \mu = 25$
+- $H_1: \mu \neq 25$
+
+According to the likelihood ratio test statistic we have that $$-2[l(25,\sigma)-l(\mu,\sigma)]$$
+
+So, let's calculate $l(25,\sigma)$ with `optim`.
+
+```{r warning=FALSE}
+# function definition
+neg_log_likelihood_norm_H0 <- function(sd_norm){
+  log_lik_observations <- log(dnorm(x = ess_small$BMI,
+                                    mean = 25,
+                                    sd = sd_norm)) # log-probability of every observations occurring under the current parameters
+  return(-sum(log_lik_observations))
+}
+
+norm_ml_H0 <- optim(20, neg_log_likelihood_norm_H0)
+log_likelihood_H0 <- -norm_ml_H0$val
+log_likelihood_H0
+```
+
+And now go for $l(\mu,\sigma)$ the same way, the difference is that $\mu$ is not restricted to $25$.
+
+```{r warning=FALSE}
+# function definition
+neg_log_likelihood_norm_H1 <- function(theta_norm){
+  log_lik_observations <- log(dnorm(x = ess_small$BMI,
+                                    mean = theta_norm[1],
+                                    sd = theta_norm[2])) # log-probability of every observations occurring under the current parameters
+  return(-sum(log_lik_observations))
+}
+
+norm_ml_H1 <- optim(c(20,20), neg_log_likelihood_norm_H1)
+log_likelihood_H1 <- -norm_ml_H1$val
+log_likelihood_H1
+```
+
+And the likelihood ratio (LR) test statistic is simply calculated as a difference times -2 at this point.
+
+```{r}
+test_stat_LR <- -2*(log_likelihood_H0 - log_likelihood_H1)
+test_stat_LR
+```
+
+In case of a true $H_0$, this LR test statistic follows a $\chi^2(1)$ distribution (for many samples) as the number of restrictions in $H_0$ is only $1$ as we only gave a restriction for the $\mu$ parameter of the normal distribution. So, we can get the p-value from the $\chi^2(1)$ distribution in a right-tailed way.
+
+```{r}
+p_val_LR <- 1 - pchisq(test_stat_LR, df = 1)
+p_val_LR
+```
+
+This is a hard $H_0$ reject on every common $\alpha$s.
+
+Let's see the same with a t-test.
+
+```{r}
+t.test(ess_small$BMI, mu = 25, alternative = "two.sided")
+```
+
+Let's see the $\mu=26.1$ statement.
+
+First with the LR test.
+
+```{r warning=FALSE}
+neg_log_likelihood_norm_H0 <- function(sd_norm){
+  log_lik_observations <- log(dnorm(x = ess_small$BMI,
+                                    mean = 26.1,
+                                    sd = sd_norm)) # log-probability of every observations occurring under the current parameters
+  return(-sum(log_lik_observations))
+}
+
+norm_ml_H0 <- optim(20, neg_log_likelihood_norm_H0)
+log_likelihood_H0 <- -norm_ml_H0$val
+
+test_stat_LR <- -2*(log_likelihood_H0 - log_likelihood_H1)
+p_val_LR <- 1 - pchisq(test_stat_LR, df = 1)
+p_val_LR
+```
+
+And the same for the t-test.
+
+```{r}
+t.test(ess_small$BMI, mu = 26.1, alternative = "two.sided")
+```
+
+Wow, same p-value! As $t(\infty)=N(0,1)$ and by the definition $\chi^2(k)=\sum_{i=1}^k{N(0,1)}$, so for $k=1$ we have that $$t(\infty)=N(0,1)=\chi^2(1)$$
+
+So no surprise that the two p-values are the same as $5.9\%$. Since the degrees of freedom in this case is always $1$ as the t-test is for just $1$ parameter, the $\mu$, we can state that the **t-test for the expected value is a likelihood ratio test as well**!
+
+Next to these special cases, we can construct LR test to decide if an $Exp(\lambda)$ or a $LN(\mu,\sigma)$ is a better fit on the daily net usage time variable of the ESS 2024 data. Our hypotheses here are the following.
+
+- $H_0: Time \sim Exp(\lambda)$
+- $H_1: Time \sim LN(\mu,\sigma)$
+
+Note that the simpler distribution (that has fewer parameters) has to be in $H_0$ as that is the restricted solution.
+
+Filter to the valid Net Usage Time values.
+
+```{r}
+ess_small <- ess[!is.na(ess$DailyNetUse),c("idno", "DailyNetUse")]
+ess_small <- ess_small[ess_small$DailyNetUse > 0,]
+hist(ess_small$DailyNetUse)
+```
+
+To construct the LR test statistic by doing MLE for the two distributions, then subtract the maximized $l(\mu,\sigma)$ from the maximized $l(\lambda)$, and multiply the result by -2.
+
+```{r warning=FALSE}
+neg_log_likelihood_lnorm <- function(theta_lnorm){
+  log_lik_observations <- log(dlnorm(x = ess_small$DailyNetUse,
+                                     meanlog = theta_lnorm[1],
+                                     sdlog = theta_lnorm[2]))
+  return(-sum(log_lik_observations))
+}
+
+lnorm_ml <- optim(c(2,2), neg_log_likelihood_lnorm)
+log_likelihood_H1 <- -lnorm_ml$val
+
+neg_log_likelihood_expon <- function(theta_expon){
+  log_lik_observations <- log(dexp(x = ess_small$DailyNetUse,
+                                   rate = theta_expon))
+  return(-sum(log_lik_observations))
+}
+
+expon_ml <- optim(0.001, neg_log_likelihood_expon)
+log_likelihood_H0 <- -expon_ml$val
+
+test_stat_LR <- -2*(log_likelihood_H0 - log_likelihood_H1)
+test_stat_LR
+```
+
+And p-value is again coming from a $\chi^2(1)$ distribution in a right-tailed way as the number of restriction is again $1$, as the simpler (restricted) exponential distribution has $1$ less parameter than the lognormal distribution.
+
+```{r}
+1 - pchisq(test_stat_LR, df = 1)
+```
+
+That's a hard $H_0$ reject on every common significance levels. So, the unrestricted lognormal distribution is a better fit on the data whe considering the whole population according to our LR test.
