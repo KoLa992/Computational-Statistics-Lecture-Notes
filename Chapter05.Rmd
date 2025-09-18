@@ -33,7 +33,7 @@ n <- 120
 rate <- 0.01
 
 set.seed(1992)
-sample_from_exp <- rexp(n = 120, rate = rate)
+sample_from_exp <- rexp(n = n, rate = rate)
 hist(sample_from_exp)
 ```
 
@@ -368,7 +368,7 @@ Both p-values are around $0.3\%$, so there really is no noticeable difference be
 
 ## 4. Relationship of Type I & II Errors with Sample Size
 
-TODO
+Our p-values always decrease with increasing sample size. Due to technical null hypothesis stating equality and to the fact that our estimators are consistent.
 
 ```{r}
 p_values <- sapply(seq(10,120, by = 5), function(x) t.test(sample_from_exp[1:x], mu = 60, alternative = "greater")$p.value)
@@ -377,6 +377,39 @@ df_pvals <- data.frame(sample_size = seq(10,120, by = 5),
 
 ggplot(df_pvals, aes(x=sample_size, y=p_val)) + geom_line(linewidth=1)
 ```
+
+That means that Type I error rates are increasing as sample size increases and Type II error rates are decreasing with a fixed $\alpha$ level.
+
+```{r}
+sample_size_list <- c(50,200,500,1000,2000,5000,10000)
+
+exp_samples_big <- replicate(replication_number, rexp(n = max(sample_size_list), rate = rate))
+exp_samples_big <- as.data.frame(t(exp_samples_big))
+
+alpha <- 0.05
+type1_list <- c()
+type2_list <- c()
+
+for (current_size in sample_size_list) {
+  p_values_H0true <- sapply(1:nrow(exp_samples_big),
+                            function(x) t.test(exp_samples_big[x, 1:current_size], mu = mu_0_true, alternative = "less")$p.value)
+  p_values_H0false <- sapply(1:nrow(exp_samples_big),
+                            function(x) t.test(exp_samples_big[x, 1:current_size], mu = mu_0_false, alternative = "greater")$p.value)
+  type1_list <- c(type1_list,
+                  mean(p_values_H0true<alpha)) # empirical probability of Type I error
+  type2_list <- c(type2_list,
+                  mean(p_values_H0false>=alpha)) # empirical probability of Type II error
+}
+
+error_rate_df <- data.frame("sample_size"=sample_size_list,
+                            "Type1" = type1_list,
+                            "Type2" = type2_list)
+
+ggplot(error_rate_df, aes(x=sample_size)) +
+  geom_line(aes(y=Type1, color="Type I Rate"), linewidth=1) +
+  geom_line(aes(y=Type2, color="Type II Rate"), linewidth=1)
+```
+
 
 
 ## 5. Other Important Parametric Tests
