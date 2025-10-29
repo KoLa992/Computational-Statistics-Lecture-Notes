@@ -1057,7 +1057,47 @@ The p-value is $47.3\%$, which is higher than even the highest significance leve
 
 ### 7.2. Kolmogorov-Smirnov Goodness-of-Fit Tests
 
-TODO
+An **alternative** for the $\chi^2$ test **if our numeric variable $Y$ has continuous distribution** is the **Kolmogorov-Smirnov test**. Here, you don't need to bin your continuous variable before applying the test, like we did with the $\chi^2$ test, as this test applies the continuous distributions' **cumulative distribution function** $F(x)$ directly. If You need a reminder on cumulative distribution functions, see <a href="Chapter01.html" target="_blank">Section 2.2 of Chapter 1</a>.
+
+The $H_0$ and $H_1$ of the test are the same as for the $\chi^2$ test:
+
+- $H_0$ states that our observed variable $Y$ follows the specified continuous distribution in the unobserved population
+- $H_1$ stat that our observed variable $Y$ has a significantly different distribution than the one stated in $H_0$
+
+So, in general if we want to see if our observed variable $Y$ follows a specific continuous distribution (normal, exponential, etc.), we need to take the fitted probability distribution's **theoretical cumulative distribution function $F(x)$** and we **compare** it with the **cumulative relative frequencies of the observed sample denoted as $F_n(x)$**. So, $F_n(x)$ is simply defined as follows: $$F_n(x)=\frac{\text{number of observations} \leq x}{n}$$
+
+According to the Kolmogorov-Smirnov (**KS**) test statistic we compare $F(x)$ and $F_n(x)$ at their largest possible difference (in the *supreme* point of their absolute differences along the possible $x$ values the variable $Y$ can take): $$D_n=\sup_{x}{|F(x)-F_n(x)|}$$
+
+This is illustrated on the following plot. The red line is $F(x)$, the blue line is $F_n(x)$, and the **black arrow is the KS statistic ic** itself.
+
+<center>
+![](KS_Example.png){width=40%}
+</center>
+
+The **p-value** is derived from the <a href="https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test#Kolmogorov_distribution" target="_blank">Kolmogorov distribution</a> in a right tailed way (since the best case of the test statistic for $H_0$ is $D_n=0$ of course, and we need to decrease the p-value if $D_n>0$). This is a special distribution developed just for this test alone, and due to the providence of the machine spirit, it is implemented in base R, so we don't really burden ourselves with its density function and other stuff. You can see it on the link before if You want. :)
+
+So now that we know how the KS test works, let's see it in action and examine with this test as well whether the BMI values in the Hungarian ESS sample follow a normal distribution. So we have the following hypotheses.
+
+- $H_0:$ The true population distribution is **normal**
+- $H_1:$ The true population distribution is **NOT normal**
+
+To obtain the test statistic and p-value, we need to apply the `ks.test` function in base R. The first parameter of the function is the observed numerical variable and the second is the R code for the theoretical cumulative distribution function ($F(x)$) of the distribution assumed in $H_0$. So, we need the `p` prefixed function of the normal distribution here. Thankfully the function is smart enough to estimate the parameters of the fitted distribution (so $\mu$ and $\sigma$ in this case) in the background via maximum likelihood method.
+
+```{r warning=FALSE}
+ess_small <- ess[!is.na(ess$BMI),c("idno", "BMI")]
+ks.test(ess_small$BMI, "pnorm")
+```
+
+Our p-value is smaller than $2.2 \times 10^{-16}$, so this is a rejection of $H_0$ on every common significance levels. :( So, in this case the test says that the **BMI distribution is significantly different from the normal distribution even on $\alpha=1\%$.**<br>
+This is a bit of a contradiction with the results of the $\chi^2$ test where on $\alpha=1\%$, the normality $H_0$ couldn't be rejected.<br>
+The reason behind this contradiction is the fact that **the Kolmogorov-Smirnov test is even more in favor of $H_1$ than the $\chi^2$ test**. In the $\chi^2$ test, we examine the differences of observed and theoretical distribution in more then one points, in $k$ points to be exact. However, the KS test examines this difference in one point alone, where the theoretical and observed distribution shows the largest amount of difference. So, there is not even a minimal level of control on the other parts of the distribution that we have in the  $\chi^2$ test. This causes **more Type I errors in the KS test**, especially in large sample sizes. So, I **advise using $\chi^2$ test even for continuous distributions**. The extra work with forming the bins based on quantiles usually worth it as we can compare the obserevd and theoretical distributions in more than 1 point this way. Simulation studies show that a $\chi^2$ test with deciles or quintiles as bins have more power (i.e. less Type II errors) than the KS test as well.
+
+Now, we have several legends surrounding the name of the  Kolmogorov-Smirnov test. The official version is that it is named after Soviet mathematicians Andrey Kolmogorov and Nikolai Smirnov, who developed it in the 1930s at their comfy stay in Hotel Gulag.<br>
+However, the other version is that Andrey Kolmogorov got so drunk on *Smirnov vodka* that he came up with this test that has such an unfavorable Type I error rate compared to the $\chi^2$ test. What is the truth, we'll never know. :)
+
+<center>
+![](ks_meme.png){width=30%}
+</center>
 
 ### 7.3. $\chi^2$ Test of Homogeneity
 
@@ -1065,8 +1105,8 @@ Let’s examine the statement that, in the entire Hungarian population, **males 
 
 We describe this base assumption using the following null and alternative hypothesis pair:
 
-- $H_0:$ The two groups (males and females) have **identical distributions** in the population
-- $H_1:$ The two groups (males and females) have **different distributions** in the population
+- $H_0:$ The two groups (males and females) have **identical BMI distributions** in the population
+- $H_1:$ The two groups (males and females) have **different BMI distributions** in the population
 
 To compute this, we first need to bin the BMI values according to some quantiles. Let's use the deciles here. First, we calculate the empirical deciles of BMI for the entire sample.
 
@@ -1176,4 +1216,27 @@ We see that the result does not change meaningfully: our p-value is $1.643e-15$,
 
 ### 7.4. Kolmogorov-Smirnov Test of Homogeneity
 
-TODO
+The Kolmogorov–Smirnov (KS) test may also be used to test whether two underlying continuous probability distributions differ significantly. So, it has a version that mirrors the $\chi^2$ test of homogeneity for continuous numerical $Y$ variables specifically. This version is also called as the **two-sample KS test** since we are comparing the distribution of the variable $Y$ along two groups $A$ and $B$, and the two groups are treated as two independent samples in this case. Meaning that the groups mustn't overlap: if someone is in group $A$, they cannot be in group $B$ as well. The hypotheses of this test is the same as for the $\chi^2$ test of homogeneity.
+
+- $H_0:$ The two groups ($A$ and $B$) have **identical distributions** for the variable $Y$ in the population
+- $H_1:$ The two groups ($A$ and $B$) have **different distributions** for the variable $Y$ in the population
+
+For the test statistic we just need the **cumulative relative frequencies of the two groups** $F_A(x)$ and $F_B(x)$. Both are defined the same way as $F_n(x)$ in Section 7.2. And by the KS logic, the test statistic is the supremum of differences between the two groups' cumulative relative frequencies along the possible $x$ values the variable $Y$ can take. $$D_n=\sup_{x}{|F_A(x)-F_B(x)|}$$
+
+The p-value is derived from the same <a href="https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test#Kolmogorov_distribution" target="_blank">Kolmogorov distribution</a> in a right tailed way as it was for the one-sample case in Section 7.2.
+
+Now that we know how the KS test of homogeneity works, let's apply it to test **if males and females have a significantly different BMI distributions** in the unobserved population. So, the two hypotheses are the same as in the $\chi^2$ test of homogeneity.
+
+- $H_0:$ The two groups (males and females) have **identical BMI distributions** in the population
+- $H_1:$ The two groups (males and females) have **different BMI distributions** in the population
+
+The test statistic and p-value are obtained with the same `ks.test` function as before, but it is now used with the same `~` signed way as the `oneway.test` in Section 6.2. So, we need the following syntax: `numerical variable ~ variable that defines the two groups`. And in the `data` parameter we give the name of the data frame where these two variables live.
+
+```{r warning=FALSE}
+ess_small <- ess[!is.na(ess$BMI),c("idno", "BMI", "Sex")]
+ks.test(BMI~Sex, data = ess_small)
+```
+
+In our case, the p-value is $1.101e-10$, which is smaller than even the lowest typical significance level of $1\%$.
+So **in the population** (i.e., outside of our sample), **the BMI distribution of males and females can be considered DIFFERENT**.<br>
+This comes as no surprise, since we rejected this same $H_0$ with the $\chi^2$ test too. And **even in this two-sample case, the KS test has the same drawback compared to the $\chi^2$ test as it had in the one-sample (or goodness-of-fit) case**. Namely, **the Kolmogorov-Smirnov test is even more in favor of $H_1$ than the $\chi^2$ test**. In the $\chi^2$ test, we examine the differences of the two groups' distribution in more then one points, in $k$ points to be exact. However, the KS test examines this difference in one point alone, where the two groups' distribution shows the largest amount of difference. So, there is not even a minimal level of control on the other parts of the distribution that we have in the  $\chi^2$ test. This causes **more Type I errors in the KS test**, especially in large sample sizes. So, I **advise using $\chi^2$ test even for continuous distributions in this case as well for the same reasons described in Section 7.2**.
