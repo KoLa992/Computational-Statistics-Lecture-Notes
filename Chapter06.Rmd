@@ -1,0 +1,378 @@
+---
+title: "Confidence Intervals with Bootstrap and Jackknife"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. General Concept of Bootstrap Estimation
+
+So far, dealing with confidence intervals has been relatively easy so to speak, because in the case of **maximum likelihood estimators**, we could calculate the length of the confidence interval ($\triangle$) using the standard error ($SE$) multiplied by the confidence multiplier ($k$): $$\triangle=SE \times k$$  
+
+This formula worked because we could **provide a simple formula for the standard error of a maximum likelihood estimator** ($SE\left(\hat{\theta}_{ML}\right)=\sqrt{\mathcal{I}^{-1}}$ where $\mathcal{I}$ is the Hessian of the optimized log-likelihood function) and **calculate $k$ from the standard normal distribution**.  
+
+BUT, **what happens when these tools are NOT available?** This can happen when **the estimator of a statistical parameter cannot be obtained through maximum likelihood estimation (MLE) directly**. Some examples for this are:  
+
+1. The **estimator is not a maximum likelihood estimator**.
+  * For example, we cannot obtain confidence interval for the bias **corrected standard deviation** as this is NOT a MLE
+2. There is **no reasonable distribution to assume based on the observed histogram**. So we cannot say based on the histogram of the observed variable  follows a lognormal, exponential, negative binomial, etc. distribution.
+  * This is problematic since in this case, we **don't have a density function to use when constructing the likelihood function**.
+3. We can estimate parameters of our data distribution via maximum likelihood, but the statistical **parameter in question is too complicated to calculate from the maximum likelihood estimators**.
+  * For example, in <a href="Chapter04.html" target="_blank">Section 7 of Chapter 4</a>, we could easily provide a confidence interval for the median of the lognormal distribution as we simply needed to apply an $exp$ transformation on the MLE confidence interval of the $\mu$ parameter. However, getting a **confidence interval for the median of a <a href="https://en.wikipedia.org/wiki/Beta_distribution" target="_blank">Beta(a, b)</a> distribution** would be more complicated at is needed to be expressed from the confidence intervals of both the MLEs for $a$ and $b$ with a rather complicated formula: $Me=[a-1/3]/[a+b-2/3]$
+
+In such cases, **Bootstrap Estimation helps us**! Let’s see **the general principle of this method through the standard error of the mean**.  
+
+The standard error of the mean is obtained from a sample by taking the sample’s corrected standard deviation, $s$, and dividing it by the square root of the sample size ($n$): $$SE(\bar{y})=\frac{s}{\sqrt{n}}$$  
+
+Let’s calculate the standard error of the mean daily internet usage time from the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/ess_hun_2024.xlsx" target="_blank">ess_hun_2024.xlsx</a> dataset (`DailyNetUse` column)! Just remember that the `DailyNetUse` variable contained some missing values, so we should not consider them when determining $n$!
+
+```{r}
+ess <- readxl::read_excel("ess_hun_2024.xlsx")
+ess_small <- ess[!is.na(ess$DailyNetUse),c("idno", "DailyNetUse")]
+
+n <- nrow(ess_small) # this way we do not consider the empty rows
+
+corr_std <- sd(ess_small$DailyNetUse)
+
+SE_formula <- corr_std / sqrt(n)
+SE_formula
+```
+
+Great, the expected deviation of the sample mean from the true population mean daily internet usage time is $\pm3.57$ minutes!  
+
+**How does this result come out using the Bootstrap method?**  
+
+The **basic idea of Bootstrap estimation comes from the standard error definition**, which we discussed in <a href="Chapter04.html" target="_blank">Section 2.2 of Chapter 4</a>. We **take a very large number** (e.g., 1000 or 10000) **of replicated samples** (with replacement = IID), **calculate the mean for each sample, and the standard deviation of these sample means is the standard error and the distribution of these sample means is the sampling distribution**.<br>  
+The problem with this approach is that **in practice, we only have one single sample and do not know the full population or its true distribution, so we cannot take many IID samples from it**.<br>  
+Well, the **Bootstrap method says that we can SIMULATE this standard error and sampling distribution even from a single sample!**  
+
+If **we have a sample of size $n$, we take a very large number (e.g., 10000) of replicated sub-samples of size $n$!** Due to the **IID (with replacement) principle, the composition of these $n$-sized sub-samples will change randomly, and these random variations precisely follow the tendencies of the sampling error!!**<br>  
+After that, all we need to do is **calculate the sample mean for each sub-sample, compute the simple uncorrected standard deviation of these means, and this gives us $SE$ and the histogram of these sample means gives us the sampling distribution!!**
+
+This idea is nicely illustrated in the following figure.
+
+<center>
+![](BootstrapPrinciple.png){width=50%}
+</center>
+
+Now let’s see this in practice! **Let’s compute the standard error of the mean using the Bootstrap method!**  
+
+First, **we take 1000 IID samples from the `DailyNetUse` variable and store them in a data frame, where the 1000 rows represent different samples, and the $n$ columns contain the $n$ sample elements for each sampling iteration**.<br>  
+Essentially, we follow the same solutions in R as in <a href="Chapter02.html" target="_blank">Section 4.1 of Chapter 2</a>.
+
+First, **let’s generate 10000 sub-samples of size $n=1397$ (the original $n$ sample size for internet usage times) using the `replicate` function** and store the transposed (so that the subsamples are strored in the rows) result in a new data frame.
+
+Of course, **we should expect an increased runtime** here! :)
+
+```{r warning = FALSE}
+set.seed(1992)
+bootstrap_samples <- replicate(10000, sample(ess_small$DailyNetUse, size=n, replace = TRUE))
+bootstrap_samples <- as.data.frame(t(bootstrap_samples))
+
+rownames(bootstrap_samples) <- paste0("Sample",1:10000)
+colnames(bootstrap_samples) <- paste0("Element",1:n)
+
+head(bootstrap_samples)
+```
+
+Now we have our $10000$ bootstrap sub-samples. Let’s compute **the sample mean for each sub-sample** with the help of the `apply` function just like in <a href="Chapter04.html" target="_blank">Chapter 4</a>.<br>  
+**Be careful** to always restrict statistical calculations to the first $n=1397$ columns as new columns will be added dynamically!
+
+```{r}
+bootstrap_samples$means <- apply(bootstrap_samples[,1:n], 1, mean)
+head(bootstrap_samples[,(n-1):ncol(bootstrap_samples)]) # look at the last 3 columns
+```
+
+The **standard error is then simply the uncorrected standard deviation of these sub-sample means!**  
+
+```{r}
+uncorr_sd <- function(x) {
+  return(sqrt(mean((x-mean(x))^2)))
+}
+
+SE_bootstrap <- uncorr_sd(bootstrap_samples$means)
+SE_bootstrap
+```
+
+Et voilà! Apart from some rounding error, this is approximately the same as the version obtained using $\frac{s}{\sqrt{n}}$! :)
+
+```{r}
+c(SE_formula, SE_bootstrap)
+```
+
+Obviously, **if we take more sub-samples, the approximation becomes more accurate**. This is formally called **increasing the number of Bootstrap replications**. :) That is, the **number of replications refers to the number of sub-samples**.  
+
+BUT, **what was the point of calculating this $SE$ in such a complicated way instead of using the formula?**  
+Well, **in the case of the mean, ABSOLUTELY NOTHING!**<br>  
+However, using this **Bootstrap principle, we can compute the standard error of the median daily internet usage time WITHOUT assuming that the internet usage times follow a lognormal distribution**. We've seen with the Q-Q Plots in <a href="Chapter01.html" target="_blank">Section 4.2 of Chapter 1</a> that the lognormal distribution is a "*good enough*" fit on the internet usage time distributions, but the $\chi^2$ goodness-of-fit test in <a href="Chapter05.html" target="_blank">Section 7.1 of Chapter 5</a> concluded that the lognormal distribution is significantly different from the observed daily internet usage time distribution on all common significance levels. So, it is a good enough fit, but has its issues. So, it would be good if we could get a $SE$ on the median without assuming this lognormal distribution, and the Bootstrap method can do just that! :)
+
+```{r}
+sample_median <- median(ess_small$DailyNetUse)
+sample_median
+
+bootstrap_samples$medians <- apply(bootstrap_samples[,1:n], 1, median)
+SE_median <- uncorr_sd(bootstrap_samples$medians)
+SE_median
+```
+
+Thus, we know that in the observed sample of size $n=1397$, the median daily internet usage time is **150 minutes**, and from the **standard error, we can determine that this value is expected to differ from the true median daily internet usage time of the entire Hungarian population by $\pm 4.47$ minutes**.  
+
+From here, it is just one more step to construct a **confidence interval for the median** with a confidence level of $1-\alpha$ using the Bootstrap method!
+
+## 2. Bootstrap Confidence Interval for the Median
+
+To determine the confidence interval of the median with confidence level $1-\alpha$ based on the $10000$ bootstrap samples, we simply need to **take the $\alpha/2$ and $1-\alpha/2$ percentiles of the 10000 median values calculated from the sub-samples**!<br>
+After all, the $1-\alpha$ confidence interval should indicate the range within which the true population median falls with $1-\alpha$ probability. For example, in the **case of the mean, we determined this by taking the middle $1-\alpha$ percentage of the distribution of many sample means, specifically of the $N\left(\mu, \frac{\sigma}{\sqrt{n}}\right)$ distribution!!**<br>
+With **Bootstrap** sampling, we aimed to **simulate the distribution of many sample medians**, so we should **take the middle $1-\alpha$ percentage of these simulated medians**! This is given by the $\alpha/2$ and $1-\alpha/2$ percentiles of the sub-sample median values.
+
+Let's examine the result for the $95\%$ confidence interval of the median internet usage time! In R, we can apply the `quantile` function on the `medians` column of our simulated data frame.<br> 
+Since $1-\alpha=95\%=0.95$, we have $\alpha=0.05=5\%$ in this case.
+
+```{r}
+alpha <- 0.05
+quantile(bootstrap_samples$medians, probs = c(alpha/2, 1-alpha/2))
+```
+
+Thus, the **median daily internet usage time in the entire Hungarian population is between $138$ and $150$ minutes** with $95\%$ probability.
+
+From the result, we can see that the confidence interval for the median is **NOT symmetric around the sample median (which was also $150$ minutes, just like the upper bound here), unlike the confidence interval for the maximum likelihood estimators, which were always symmetric around the specific maximum likelihood estimate**!
+
+This is due to the fact that the **distribution of sample medians is not a nice, symmetric normal distribution like that of sample means or maximum likelihood estimators from large sample sizes**. This becomes immediately apparent when looking at the histograms of simulated sample means and medians.
+
+```{r}
+hist(bootstrap_samples$means)
+hist(bootstrap_samples$medians)
+```
+
+And indeed: in the case of medians, the simulated sampling distribution is highly concentrated around $150$ with a bit of a left-tail, whereas in the case of the mean, we obtain our well-known, beautifully normal distribution! :)
+
+By the way, we can also check that **for the mean, the $95\%$ confidence interval calculated using the bootstrap method gives the same result (with minor rounding errors) as the confidence interval calculated using the standard normal confidence multiplier**. Since in this case $n=1397$ is a large sample, it doesn't matter whether we use the normal distribution multiplier or the t-distribution multiplier.
+
+```{r}
+c(mean(ess_small$DailyNetUse) - SE_formula * qnorm(1-alpha/2),
+  mean(ess_small$DailyNetUse) + SE_formula * qnorm(1-alpha/2)) # Mean CI with classic formula
+
+quantile(bootstrap_samples$means, probs = c(alpha/2, 1-alpha/2)) # Boostrap version
+```
+
+Indeed, there is only a minimal difference between the two results, which can be further reduced by increasing the number of Bootstrap sub-samples, i.e., increasing the replication number.
+
+Fortunately, **Bootstrap confidence intervals** do not always have to be computed in such a laborious manner in R as we just did by generating a separate data frame with the `replicate` function for the sub-samples. Instead, **the `boot` package provides a built-in function named very creatively as `boot`.** An additional advantage of this function is that **its runtime performance is much better than our manually constructed solution**. This is because multiple developers have optimized the entire code behind it over several months.
+
+Let's install and include the package to our R environment.
+
+```{r eval=FALSE}
+install.packages("boot")
+library(boot)
+```
+
+```{r echo=FALSE}
+library(boot)
+```
+
+The `boot` function within this package works with the following parameters:
+
+1. We provide the **dataset in `vector` format, from which the bootstrap sub-samples** should be **generated**.
+2. We specify the **statistical parameter for which we want** to compute **the confidence interval** in R.
+  * Here, we need to define a separate special function that calculates the statistical parameter we want on a bootstrap sub-sample. This function must be have as follows. The two input parameters are the observed data in vector format and the vector of indices that are selected into the current sub-sample. The function should return the value of the statistical measure calculated on the input data vector filtered by the indices that are selected in the sub-sample provided in the second parameter.
+3. The **number of replications** can be adjusted via the `R` parameter, but since the function defaults to generating $10000$ samples, it is **generally not necessary to manually modify this parameter**. The $10000$ replications are usually sufficient. :)
+
+Let's see the function in action for the $95\%$ confidence interval of the median daily internet usage time!
+
+```{r}
+bootMedian <- function(data, indices) median(data[indices])
+
+set.seed(1992)
+boot_result <- boot(ess_small$DailyNetUse, bootMedian, R=10000)
+boot_result
+```
+
+E voilá! We have the previously seen standard error of around $4.4$ minutes! :)
+
+The bootstrap confidence intervals of any level can be obtained by applying the `boot.ci` function on the results coming from the `boot` function. In the `type` parameter, we specify that the system should **determine the confidence interval using percentiles**, just as we manually did. And here we have the $138-150$ minute confidence interval.
+
+```{r}
+boot.ci(boot_result, conf = 0.95, type = "perc")
+```
+
+## 3. Bootstrap Confidence Interval for the Bias Corrected Standard Deviation
+
+In Bachelor level Statistics courses, a **confidence interval formula for the bias corrected standard deviation** (which is not a maximum likelihood estimator!) is covered **in the special case** when the variable in question follows a **normal distribution**.
+
+This closed-form formula for the confidence interval of the standard deviation with confidence level $1-\alpha$ looks quite simple: $$P\left(\sqrt{\frac{(n-1)s^2}{\chi^2_{\alpha/2}(n-1)}}< \sigma <\sqrt{\frac{(n-1)s^2}{\chi^2_{1-\alpha/2}(n-1)}}\right) = 1 - \alpha$$
+
+In this formula, the only unknown term is $\chi^2(n-1)$. This is present because the corrected sample variance follows a $\chi^2$ distribution with $n-1$ degrees of freedom, just as the sample mean follows a $t$-distribution with $n-1$ degrees of freedom when the population standard deviation is not known in advance.<br>
+The $\chi^2(k)$ distribution is a **distribution with a long right tail**. The **degree of this skewness is controlled by the degrees of freedom** ($k$): the **higher the degrees of freedom, the less skewed the distribution**.
+<br>
+
+<center>
+![](chisqrdist.jpg){width=50%}
+</center>
+
+<br>
+The values $\chi^2_{\alpha/2}(n-1)$ and $\chi^2_{1-\alpha/2}(n-1)$ are the **quantile functions corresponding to the probabilities $\alpha/2$ and $1-\alpha/2$** for a $\chi^2$ distribution with $n-1$ degrees of freedom (sample size minus one). Computing these values in R is very straightforward since there is a built-in function for this, logically named `qchisq`, following the naming conventions of functions for the normal, exponential, and $t$-distributions. The first parameter of this function is the known cumulative probability, and the second is the degrees of freedom, just like in `qt`.
+
+The confidence interval is then computed by taking the sample size minus one times the corrected sample variance $(n-1)s^2$ and dividing it by $\chi^2_{1-\alpha/2}(n-1)$ for the lower bound and by $\chi^2_{\alpha/2}(n-1)$ for the upper bound, then taking the square root of the entire fraction.
+
+Let’s apply this method to **determine the $97\%$ confidence interval for the standard deviation of daily internet usage times**!<br>
+From a technical perspective, remember that $\chi^2_{\alpha/2}(n-1)$ gives the smaller inverse value, so it should be used in the denominator of the upper bound (to increase the result), while $\chi^2_{1-\alpha/2}(n-1)$ gives a higher inverse value, so it should be used in the denominator of the lower bound (to decrease the result).
+
+```{r}
+s <- sd(ess_small$DailyNetUse) # get corrected sample standard deviation
+s
+
+# Get the confidence interval
+n <- nrow(ess_small)
+alpha <- 1-0.97
+
+chisq_low <- qchisq(alpha/2, df = (n-1))
+chisq_upp <- qchisq(1-alpha/2, df = (n-1))
+
+common_numerator = (n-1)*(s^2)
+
+c(sqrt(common_numerator/chisq_upp), sqrt(common_numerator/chisq_low))
+```
+
+Thus, in the observed sample, the standard deviation of daily internet usage times is $133.4$ minutes, and **for the entire Hungarian population, it is likely between $128.1$ and $139.1$ minutes with $97\%$ probability**.
+
+It is worth noting that the **confidence interval is NOT symmetric around the sample standard deviation $s$, like the confidence interval for the mean was symmetric around the sample mean**! The sample standard deviation ($s$) is somewhat closer to the lower bound of the confidence interval than to the upper bound! This occurs **because the $\chi^2$ distribution has a long right tail**, meaning that it assumes smaller values are more typical in the distribution of sample variances, so it **places the observed sample standard deviation ($s$) "towards the bottom" of the confidence interval**.
+
+This is all well and good, but **this $\chi^2$-based confidence interval formula assumes that the variable from which the sample was taken** (i.e., daily internet usage times) **follows a normal distribution in the population!!!** However, **this assumption does NOT hold, as a quick histogram** (and our memories from the previous chapters :)) **reveals!**
+
+```{r}
+hist(ess_small$DailyNetUse)
+```
+
+This time distribution has a steep **long right tail**. Therefore, in **no scenario** will this variable becomes a **nicely symmetric normal distribution** in the population!
+
+Thus, the **confidence interval formula for the standard deviation does not provide realistic results for the true population standard deviation because the underlying assumption of normality is NOT met!**<br>
+What can be done? We should **apply the Bootstrap estimation method, as it does not require any strict assumptions**. The only requirement is that the original population sampling should be IID, but as we discussed in <a href="Chapter01.html" target="_blank">Section 1 of Chapter 1</a>, this assumption holds for the ESS2024 sample.
+
+So, let’s perform Bootstrap estimation for the standard deviation of daily internet usage times with $97\%$ confidence level! With the built-in function from the `boot` package, we can easily accomplish this, just as we did for the median.
+
+```{r}
+boot_sd <- function(data, indices) sd(data[indices])
+
+set.seed(1992)
+boot_sd_result <- boot(ess_small$DailyNetUse, boot_sd, R = 10000)
+boot.ci(boot_sd_result, conf = 0.97, type = "perc")
+```
+
+Based on this, the **standard deviation of daily internet usage times in the entire Hungarian population is likely between $123.0$ and $144.3$ minutes with $97\%$ probability**. This is significantly different from the $\chi^2$-based confidence interval of $128.1$ to $139.1$ minutes, but the **Bootstrap version is more realistic because it does NOT assume that internet usage times follow a normal distribution in the population**!
+
+So, Bootstrap estimation is quite powerful. For example, it **allows interval estimation for the mean even in cases of small samples** ($n\leq 30$), **when the sampled variable does NOT follow a normal distribution in the population and the true population standard deviation is UNKNOWN**."
+
+<center>
+![](BootstrapMeme.png){width=35%}
+</center>
+
+## 4. Parametric Bootstrap
+
+Now, the version of the Bootstrap method **covered in Sections 1-3** is called the **Nonparametric Bootstrap**, where random sub-samples of the same size as the original data are taken from the data with replacement.
+
+This nonparametric approach **can be problematic is small sample sizes with statistical parameters that are more complicated to calculate than a simple mean**. The reason for that is for small sample sizes the bootstrap sub-samples are as small in size as the original sample data, so the **random variability among the sub-samples**, that represents the sampling error, **won't be as large as it should be**, since there is no room for it due to the small sizes. And this causes an **underestimation of the standard error** as the standard deviation among the bootstrap estimates of the parameter in question won't be as large. This is because the bootstrap sub-samples with small sizes look very similar to each other as there is not enough room for the sampling with replacement to truly create random variation (i.e. the sampling error) among them. So, the bootstrap estimates of the parameter in question (the value of the parameter calculated from the bootstrap sub-samples) will look very similar to each other, hence their small standard deviation, which is an underestimation of the standard error.<br>
+This **underestimation of standard error can be mitigated if the parameter in question is not robust to outliers like the mean**. As in these kind of statistical parameters the value can change substantially if only one observation in the sub-sample changes, so this can compensate for the bootstrap estimates being too similar in small sample sizes, as we do not need to change so much in each bootstrap sub-sample for the estimate of the parameter from it to change. So, **for the mean the nonparametric bootstrap can work rather nicely in small samples as well, but things become problematic for robust statistical measures like quantiles** for example.
+
+To tackle this **underestimation of standard errors**, we can apply **Parametric Bootstrap**. Parametric Bootstrapping **assumes that the data comes from a known probability distribution** with unknown parameters. For example the data may come from a Poisson, Negative Binomial for discrete, or Normal, Exponential for continuous variables. We **estimate the parameters** from the observed data that we have with maximum likelihood or method of moments and then We **use the fitted distribution to simulate (in an IID way of course) the bootstrap samples** with the same size as the original data.<br>
+With this, we lose the advantage of the original Nonparametric Bootstrap that we don't need to assume anything on the true population distribution of our variable, but with this, we can introduce more variability in the simulated bootstrap sub-samples, therefore solving the underestimation of standard errors. Of course, this **only makes sense if we want a confidence interval for a statistical parameter that cannot be easily calculated from the maximum likelihood confidence intervals of the estimated distribution parameters**. Although, the maximum likelihood standard error formula and sampling distribution is also not very reliable in small samples, according to <a href="Chapter04.html" target="_blank">Section 5 of Chapter 4</a>. An example is given in Section 1: the median of a $Beta(a,b)$ distribution.
+
+Let's see the following situation. Let's assume we are sitting in an insurance company that insures the property damage of very luxurious villas for gas plumbers in Hungary. Since there are not so many villas that are appropriate for the needs of the most talented gas plumbers (like a *stable for zebras*), the company only insures $n=20$ villas.<br>
+The names and the number of property damages reported last year for these insured villas are given in the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/Hatvanpuszta.xlsx" target="_blank">Hatvanpuszta.xlsx</a> file. Let's load it to an R data frame.
+
+```{r}
+villas <- readxl::read_excel("Hatvanpuszta.xlsx")
+head(villas) # see the first 6 rows
+```
+
+Great, we have the number of damages reported for each of hour $n=20$ villas starting with the best one (Hatvanpuszta). Let's assume that the insurance company wants to know the **value which is only exceeded by the yearly number of damages 1% of the times**. In other words, they want to know the **99th percentile (P99)** of the `DamageNumber` variable: the **value below which villas have 99% of damage numbers and only 1% of damage numbers are above it**.
+
+It's quite easy to calculate with the `quantile` function of R, so let's do it.
+
+```{r}
+quantile(villas$DamageNumber, probs = 0.99)
+```
+
+It's $P99 = 6.43$, so we have only 1% chance of finding a villa with a larger damage number in a year than 6 (number of damages can take only integers, so it is a discrete variable). Let's see if the distribution of the yearly damage numbers confirm this. Since the `DamageNumber` variable is discrete a combination of `table` and `barplot` is needed, we don't need the bins of a histogram here.
+
+```{r}
+barplot(table(villas$DamageNumber))
+```
+
+Ok, we can see that most villas did not have any damages last year, 5 had only one damage, 3 had two damages and 2 four and 1 villa experienced some vandalism from nasty protesters as it had damage seven times last year! So, we can see that this P99 of $6.43$ is largely due to the fact that we had this 1 villa with 7 damages last year. But probably **if the company had more villas insured we could see some with even higher number of damages, as we know that protesters can be very aggressive ever since Ákos Hadházy is leading them**. So, because of this, the chief risk officer if the insurance company would like to see **how this P99 behaves in the case of the unobserved villas** (i.e. villas not insured by the company).<br>
+To answer this, the easiest option is to get a confidence interval of the P99. Let's calculate one with the Nonparametric Bootstrap with $97\%$ level of confidence!
+
+```{r}
+P99_boot <- function(data, indices) quantile(data[indices], prob=0.99)
+
+set.seed(1992)
+boot_P99_result <- boot(villas$DamageNumber, P99_boot, R = 10000)
+boot.ci(boot_P99_result, conf = 0.97, type = "perc")
+```
+
+Ok, well **P99 can be anywhere between $2$ and $7$ with $97\%$ of confidence**. We can see that this result is heavily influenced by the fact that we had this 1 villa with 7 damages last year and the **observed data cannot imagine more damages a year than 7**. However, this **maximum of 7 can very well be due to the fact that the company only insures 20 villas and it was just lucky that they did not insure a villa with more than 7 damages last year**. This can be the case even if the villas are representatively selected from the whole population of villas. Just due to the limited number of observations (i.e. sample size) it can happen that we do not observe the highest number of damages, so the upper confidence interval of P99 is underestimated. So, we'll try **Parametric Bootstrap to correct** for that.
+
+To apply parametric bootstrapping, we need to **assume a theoretical distribution for the number of damages in the unobserved villa population**. Since the number of damages is a discrete variable, we need to check the relationship between the observed mean and variance and decide the distribution (Binomial, Poisson, Negative Binomial) based on that.
+
+```{r}
+c(mean(villas$DamageNumber), sd(villas$DamageNumber)^2)
+```
+
+Since variance is way larger than the mean, the **negative binomial distribution seems like a good assumption**. As a reminder see <a href="Chapter01.html" target="_blank">Section 5.4 of Chapter 1</a> as a reminder.
+
+Negative Binomial distribution has 2 parameters to estimate from the data, $r$ and $p$. These are called in R as `size` and `prob`. Using that we can do the maximum likelihood estimation for $r,p$ in R just like we did in <a href="Chapter03.html" target="_blank">Section 4 of Chapter 3</a>.
+
+```{r warning=FALSE}
+neg_log_likelihood_nbinom <- function(theta_nbinom){
+  log_lik_observations <- log(dnbinom(x = villas$DamageNumber,
+                                     size = theta_nbinom[1],
+                                     prob = theta_nbinom[2]))
+  return(-sum(log_lik_observations))
+}
+
+nbinom_mle <- optim(c(8, 0.1), neg_log_likelihood_nbinom)
+nbinom_mle$par # the estimated parameter values
+```
+
+Once we know that our theoretical distribution is $NB(0.84, 0.39)$, we can do Parametric Bootstrap by creating $10000$ bootstrap sub-samples of size $20$ (the original sample size). The difference compared to the nonparametric case is that now we generate the bootstrap sub-samples from the $NB(0.84, 0.39)$ distribution itself with the help of `rnbinom`, and NOT from the observed data with `sample`.
+
+Once we have a data frame containing the $10000$ bootstrap sub-samples in the rows, we can calculate P99 for every sub-sample as a new column in this data frame with the help of `apply`.<br>
+For the $97\%$ confidence interval, we just need to take the middle $97\%$ of these simulated P99 values, so we need to find the $1.5\%$ and $98.5\%$ percentiles of these values with the help of the `quantile` function.
+
+```{r}
+set.seed(1992)
+bootstrap_samples <- replicate(10000, rnbinom(n=length(villas),
+                                              size = nbinom_mle$par[1],
+                                              prob = nbinom_mle$par[2]))
+bootstrap_samples <- as.data.frame(t(bootstrap_samples))
+
+bootstrap_samples$P99 <- apply(bootstrap_samples[,1:length(villas)], 1,
+                               function(x) quantile(x, prob=0.99))
+
+alpha <- 1-0.97
+quantile(bootstrap_samples$P99, probs = c(alpha/2, 1-alpha/2))
+```
+
+Great, we have that the $97\%$ confidence interval for this P99 is between $2$ and $11.67$. So, the upper bound is way larger than the observed maximum of 7. This means that based on our negative binomial distribution, **with $97\%$ confidence, we can very well imagine that the damage number above which only $1\%$ of villas have more damages is $11$**. Now, this high damage number is something that is more believable for Ákos Hadházy and his band of Grand Theft Auto players. :)
+
+<center>
+![](gta_hatvanpuszta.jpg){width=25%}
+</center>
+
+## 5. The Jackknife Method
+
+TODO
