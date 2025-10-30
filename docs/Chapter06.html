@@ -3435,7 +3435,30 @@ Grand Theft Auto players. :)</p>
 </div>
 <div id="the-jackknife-method" class="section level2">
 <h2>5. The Jackknife Method</h2>
-<p>TODO</p>
+<p>Okay, so at this point we have a solution to handle Bootstrap even in
+the small sample size cases as well by assuming the population
+distribution of the observed data. What else is left to do?<br> Well,
+the <strong>issue with Bootstrap confidence intervals that they are
+computationally expensive</strong>. To get accurate estimates, you often
+need tens of thousands of bootstrap sub-samples and You need to
+calculate your statistical parameters on every sub-sample. This can be
+computationally expensive, especially <strong>when working with large
+data sets and with parameters that are complicated to calculate</strong>
+(e.g. coefficients of a multivariate regression model that we’ll soon
+see in <a href="Chapter07.html" target="_blank">Chapter 7</a>). Think
+about it, running a complex calculation on large data that takes 2
+seconds on 10000 bootstrap sub-samples will take 20000 seconds that is
+more than 5 and a half hours! Parallel processing on expensive CPUs can
+help reduce this to 1-2 hours but that is still a lot! So, if your
+computer’s fan starts sounding like a jet engine, you might be pushing
+the bootstrap too hard!</p>
+<p>A nice <strong>alternative when Bootstrap is too expensive
+computationally is the Jackknife method</strong>. It follows the
+<strong>leave-one-out</strong> approach to simulate the sampling
+distribution of a statistical parameter. This means that we want to
+<strong>to calculate what we would get as our examined statistical
+parameter if if an observation were replaced by a new one and we do this
+with every observation we have</strong>.</p>
 </div>
 
 
