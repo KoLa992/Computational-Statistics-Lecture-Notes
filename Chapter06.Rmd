@@ -367,7 +367,7 @@ alpha <- 1-0.97
 quantile(bootstrap_samples$P99, probs = c(alpha/2, 1-alpha/2))
 ```
 
-Great, we have that the $97\%$ confidence interval for this P99 is between $2$ and $11.67$. So, the upper bound is way larger than the observed maximum of 7. This means that based on our negative binomial distribution, **with $97\%$ confidence, we can very well imagine that the damage number above which only $1\%$ of villas have more damages is $11$**. Now, this high damage number is something that is more believable for Ákos Hadházy and his band of Grand Theft Auto players. :)
+Great, we have that the $97\%$ confidence interval for this P99 is between $0$ and $8.91 \approx 9$. So, the upper bound is definitely larger than the observed maximum of 7. This means that based on our negative binomial distribution, **with $97\%$ confidence, we can very well imagine that the damage number above which only $1\%$ of villas have more damages is $11$**. Now, this high damage number is something that is more believable for Ákos Hadházy and his band of Grand Theft Auto players. :)
 
 <center>
 ![](gta_hatvanpuszta.jpg){width=25%}
