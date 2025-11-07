@@ -29,11 +29,11 @@ This formula worked because we could **provide a simple formula for the standard
 BUT, **what happens when these tools are NOT available?** This can happen when **the estimator of a statistical parameter cannot be obtained through maximum likelihood estimation (MLE) directly**. Some examples for this are:  
 
 1. The **estimator is not a maximum likelihood estimator**.
-  * For example, we cannot obtain confidence interval for the bias **corrected standard deviation** as this is NOT a MLE
+    * For example, we cannot obtain confidence interval for the bias **corrected standard deviation** as this is NOT a MLE
 2. There is **no reasonable distribution to assume based on the observed histogram**. So we cannot say based on the histogram of the observed variable  follows a lognormal, exponential, negative binomial, etc. distribution.
-  * This is problematic since in this case, we **don't have a density function to use when constructing the likelihood function**.
+    * This is problematic since in this case, we **don't have a density function to use when constructing the likelihood function**.
 3. We can estimate parameters of our data distribution via maximum likelihood, but the statistical **parameter in question is too complicated to calculate from the maximum likelihood estimators**.
-  * For example, in <a href="Chapter04.html" target="_blank">Section 7 of Chapter 4</a>, we could easily provide a confidence interval for the median of the lognormal distribution as we simply needed to apply an $exp$ transformation on the MLE confidence interval of the $\mu$ parameter. However, getting a **confidence interval for the median of a <a href="https://en.wikipedia.org/wiki/Beta_distribution" target="_blank">Beta(a, b)</a> distribution** would be more complicated at is needed to be expressed from the confidence intervals of both the MLEs for $a$ and $b$ with a rather complicated formula: $Me=[a-1/3]/[a+b-2/3]$
+    * For example, in <a href="Chapter04.html" target="_blank">Section 7 of Chapter 4</a>, we could easily provide a confidence interval for the median of the lognormal distribution as we simply needed to apply an $exp$ transformation on the MLE confidence interval of the $\mu$ parameter. However, getting a **confidence interval for the median of a <a href="https://en.wikipedia.org/wiki/Beta_distribution" target="_blank">Beta(a, b)</a> distribution** would be more complicated at is needed to be expressed from the confidence intervals of both the MLEs for $a$ and $b$ with a rather complicated formula: $Me=[a-1/3]/[a+b-2/3]$
 
 In such cases, **Bootstrap Estimation helps us**! Let’s see **the general principle of this method through the standard error of the mean**.  
 
@@ -378,4 +378,101 @@ Great, we have that the $97\%$ confidence interval for this P99 is between $0$ a
 Okay, so at this point we have a solution to handle Bootstrap even in the small sample size cases as well by assuming the population distribution of the observed data. What else is left to do?<br>
 Well, the **issue with Bootstrap confidence intervals that they are computationally expensive**. To get accurate estimates, you often need tens of thousands of bootstrap sub-samples and You need to calculate your statistical parameters on every sub-sample. This can be computationally expensive, especially **when working with large data sets and with parameters that are complicated to calculate** (e.g. coefficients of a multivariate regression model that we'll soon see in <a href="Chapter07.html" target="_blank">Chapter 7</a>). Think about it, running a complex calculation on large data that takes 2 seconds on 10000 bootstrap sub-samples will take 20000 seconds that is more than 5 and a half hours! Parallel processing on expensive CPUs can help reduce this to 1-2 hours but that is still a lot! So, if your computer’s fan starts sounding like a jet engine, you might be pushing the bootstrap too hard!
 
-A nice **alternative when Bootstrap is too expensive computationally is the Jackknife method**. It follows the **leave-one-out** approach to simulate the sampling distribution of a statistical parameter. This means that we want to **to calculate what we would get as our examined statistical parameter if if an observation were replaced by a new one and we do this with every observation we have**.
+A nice **alternative when Bootstrap is too expensive computationally is the Jackknife method**. It follows the **leave-one-out** approach to simulate the sampling distribution of a statistical parameter. This means that we want to **to calculate what we would get as our estimated statistical parameter if an observation were replaced by a new one and we do this with every observation we have**.
+
+Let's see this principle in action to get a $97\%$ confidence interval for the *bias corrected standard deviation of daily internet usage times* based on the ESS dataset! Thankfully, we already have the sufficiently filtered data frame as `ess_small` from Section 1.
+
+Now, as a **first step**, let's **calculate the corrected standard deviations when exactly one observation is dropped from the data**, and **loop this calculation with every observation that we have**. This way, we'll have sample size number of estimated **partial standard deviations**, i.e. standard deviations in case when one observation is dropped from the data.
+
+```{r}
+sample_size <- nrow(ess_small)
+partial_sd <- rep(NA, sample_size) # an empty vector with sample size number of elements to store the partial sd values
+
+for (i in 1:sample_size) {
+  partial_sd[i] <- sd(ess_small$DailyNetUse[-i])
+}
+
+hist(partial_sd)
+```
+
+Great, we have the $n=1397$ partial standard deviations, and they look quite similar to each other  around the value of $133$ as the standard deviation does not really change if we leave out 1 observation, only if that 1 observation is a bit of an outlier, in that case it decreases. Hence the left-tailed distribution of these partials. However, these partial standard deviations are **just standard deviations when we leave out 1 observation, not when that 1 observation is replaced with a random other observation!** To correct for this behavior we need to **introduce so-called PSEUDOVALUES**.
+
+The partial estimates for the standard deviation estimates are all based on samples of size $n-1$ and not $n$.<br>
+Hence, they are slightly biased versions of the full-sample standard deviation, because removing a point changes the sample size and the estimator’s distribution. The **pseudovalues rescale and recenter the partials around the standard deviation calculated from the full sample to approximated what the standard deviation would be for a full sample of size $n$ if observation $i$ were replaced by a new one**.<br>
+And the **jackknife estimate of the standard deviation is the mean of these pseudovalues**.
+
+```{r}
+full_sample_sd <- sd(ess_small$DailyNetUse)
+pseudos <- (sample_size * full_sample_sd) - ((sample_size-1) * partial_sd)
+jack_sd <- mean(pseudos)
+jack_sd
+```
+
+Now, since the jackknife estimate of the bias corrected standard deviation is just a mean, we can get the **jackknife confidence interval** of $97\%$ with the general (i.e. confidence multiplier coming from t-distribution) **confidence interval formula for the mean** (introduced in <a href="Chapter04.html" target="_blank">Section 4 of Chapter 4</a>) applied on the mean of the pseudovalues. So, **in the standard error formula of $s/\sqrt{n}$, we need the standard deviation of the pseudovalues as $s$!**
+
+```{r}
+jack_se <- sd(pseudos)/sqrt(sample_size)
+alpha <- 1-0.97
+length_of_CI <- qt(1-alpha/2, df=sample_size-1) * jack_se
+
+c(jack_sd - length_of_CI,
+  jack_sd + length_of_CI)
+```
+
+So, the **standard deviation of daily internet usage times in the entire Hungarian population is likely between $122.7$ and $144.2$ minutes with $97\%$ probability**. This is almost exactly the **same as the nonparametric bootstrap confidence interval** we had in Section 3.<br>
+So, **with the jackknife, we could achieve the results of a bootstrap confidence interval with way less computation** (only $n=1397$ standard deviations were calculated and NOT 10000) and **without any randomness**.
+
+Now, let's organize our **jackknife** calculations **as a custom R function**! We need to replace the `ess_small$DailyNetUse` with a general input `data` parameter and the `sd` function with a general input statistical function called `statistic`, and the confidence level should be set as a third input called as `conf` for example.
+
+The output should be a list with 4 elements:
+
+- `est` = jackknife estimate of the examined statistical parameter, i.e. the mean of the pseudovalues
+- `se` = jackknife standard error of the jackknife estimate
+- `ci` = jackknife confidence interval calculated with the confidence interval formula for the mean
+- `pseudos` = vector of the $n$ pseudovalues
+- `partials` = vector of the $n$ leave-one-out partial estimates of the examined statistical parameter
+
+Let's **write this custom function**, and use it to reproduce our $97\%$ jackknife confidence interval for the bias corrected standard deviation!
+
+```{r}
+jknife <- function(data, statistic, conf=0.95) {
+  sample_size <- length(data) # data is assumed to be a vector, i.e. column of a data frame
+  partials <- rep(NA, sample_size)
+  
+  for (i in 1:sample_size) {
+    partials[i] <- statistic(data[-i])
+  }
+  
+  full_sample_stat <- statistic(ess_small$DailyNetUse)
+  pseudos <- (sample_size * full_sample_stat) - ((sample_size-1) * partials)
+  jack_estimate <- mean(pseudos)
+  
+  jack_se <- sd(pseudos)/sqrt(sample_size)
+  alpha <- 1-conf
+  length_of_CI <- qt(1-alpha/2, df=sample_size-1) * jack_se
+  
+  CI <- c(jack_estimate - length_of_CI,
+          jack_estimate + length_of_CI)
+  
+  return(list(est=jack_estimate,
+              se=jack_se,
+              ci=CI,
+              pseudos=pseudos,
+              partials=partials))
+}
+
+jack_result_sd <- jknife(ess_small$DailyNetUse, sd, 0.97) # testing the custom function
+jack_result_sd$ci # see the confidence interval from the returned list
+```
+
+Great, we have the same $97\%$ confidence interval for the corrected standard deviation as before!
+
+Now, let's use this new `jknife` of ours to show the **limitation of the jackknife compared to bootstrap**: it is **extremely poor for robust statistical parameters like the median** and other quantiles.<br>
+This is perfectly understandable as **robust parameters are NOT sensitive to outliers, so leaving out one observation does not change their values**. So, we'll have the same partial estimates, which means the pseudovalues are also the same, so they do not have any variance to calculate confidence interval from. So, the jackknife confidence interval for the median will have the same lower and upper boundaries as the median calculated from all observations.
+
+```{r}
+jack_result_median <- jknife(ess_small$DailyNetUse, median, 0.97) # testing the custom function
+jack_result_median$ci
+```
+
+Hmm, <a href="https://www.youtube.com/watch?v=NYvwLLxKqhM" target="_blank">f\*\*\*k</a>. The confidence interval bounds are truly the same. So, there is a limit to jackknifing, and in cases like these we need that extra computational power and randomness that the bootstrap provides to obtain reliable confidence intervals!
