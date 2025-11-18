@@ -1,0 +1,598 @@
+---
+title: "Multiple Linear Regression and Confounding"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. COVID-19 Mortality Rates of Hungarian Districts
+
+The <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/COVID_Deaths_Hungary.csv" target="_blank">COVID_Deaths_Hungary.csv</a> file is a data table that stores data on 5 variables (columns) for 102 Hungarian districts (those where hospitals had average or below-average capacity utilization in 2019 according to [NEAK data](http://www.neak.gov.hu/data/cms1026624/Korhazi_agyszamkimutatas_2019.pdf)):
+
+- **District**: Name of the district
+- **DeathsCOVID**: COVID-19 mortality rate: the ratio of deaths to infected persons (%) as of 2021-03-04. Source: [atlatszo.hu](https://bit.ly/COVID-adatok)
+- **Nurses**: Number of general practice nurses per 10000 inhabitants (2019) Source: HCSO
+- **Unemp**: Number of registered unemployed persons per 10000 inhabitants (2019) Source: HCSO
+- **WomenOlder65**: Percentage of women aged 65 and older within the residential population (2019) Source: HCSO
+
+Let's read the file! Luckily, it is a well-behaved *csv* file, and can be read simply with the `read.csv` function:
+
+```{r}
+COVID <- read.csv("COVID_Deaths_Hungary.csv")
+str(COVID)
+```
+
+We can see that all the columns listed in the description are present. At most, R slightly complains about the Hungarian, accented district names. But otherwise, we have all four `num`-type columns, and the **District** column can remain of `character` data type, since it serves as an identifier for the districts; each name appears only once in the table, and naturally, this variable will not be subjected to statistical analysis. :)
+
+It is a natural idea to try to analyze how the COVID mortality rate in the examined districts depends on the other three variables (number of nurses, number of unemployed per 10,000, and proportion of women aged over 65) using **simple bivariate regressions**.
+
+Our first logical assumption would be that the more nurses there are relative to the population in a district, the lower the COVID mortality rate should be, as more nurses can provide better care. Let’s test our theory: let's perform a regression where the dependent variable ($Y$) is **DeathsCOVID**, and the independent variable ($X$) is **Nurses**:
+
+```{r}
+simple_model <- lm(DeathsCOVID ~ Nurses, data = COVID)
+summary(simple_model)
+```
+
+At first glance, the result of the `lm` function shows nice things:
+
+- The number of nurses explains about 18% of the variation in COVID mortality across the districts ($R^2=17.6%$), which can be considered a moderate explanatory power since $10% < R^2 < 50%$.
+- This explanatory power seems not to collapse to 0 even in districts not included in our sample, as the F-test p-value is $1.12\times10^{-5}$, meaning that the null hypothesis $H_0: R^2=0$ can be rejected at all usual significance levels.
+- According to the *residual standard deviation*, the COVID mortality rate estimated by our model differs from the actual data by an average of $\pm1.22$ *percentage points*.
+
+The model seems pretty decent indeed—until we look at the regression equation: $PredictedDeathsCOVID=0.38 \times Nurses+2.02$. **Oh no!** The model's **slope is positive**!! Specifically, if the number of nurses in a district increases by 1 per 10,000 inhabitants, then the COVID mortality rate is expected to **increase** by 0.36 percentage points! Based on this, it would seem that it is "better" to have fewer nurses because then COVID mortality would decrease in the district. Our stomachs just can't digest this result!
+
+The strange result is due to a phenomenon called **confounding**!
+
+Let’s check out the correlation matrix of all the numeric variables in the **COVID** `data frame`:
+
+```{r}
+library(corrplot)
+CorrMatrix <- cor(COVID[,2:5]) # based on str, columns 2-5 are the numeric variables
+corrplot(CorrMatrix, method="number")
+```
+
+From the correlations, it is evident that the **DeathsCOVID** variable has a unidirectional and moderately strong relationship with the other three variables. This makes sense for **Unemployment** and **WomenOlder65** variables, since COVID is primarily deadly among those over 65, and where multiple comorbidities are already present. Where unemployment is high, the general health status is typically worse: alcoholism, cardiovascular problems are frequent in high-unemployment districts (see e.g. [this study](https://reader.elsevier.com/reader/sd/pii/S0927537120300609?token=E1AD2E1805FB5308BC40754433D867BE2D6F2FEC1EECA824AFAFC2F37BF35723550C07B43E62BE53CD9F6822494FF445&originRegion=eu-west-1&originCreation=20211005092903)).<br>
+BUT, **Nurses** is also moderately and unidirectionally correlated with **Unemp** and **WomenOlder65**! Thus, it is likely that in districts with a high number of nurses per 10,000 inhabitants, **COVID mortality is high simply because these districts also have a higher proportion of unemployed people and elderly women**! In other words, the population’s health status in these districts is already worse!<br>
+Now, this phenomenon is called **confounding**: when **a variable** correlates with another only because it **transmits the effects of one or more other variables beyond its own effect**.
+
+Thus, the task is clear: figure out how **Nurses** alone affects **DeathsCOVID** after removing the effects of **Unemp** and **WomenOlder65** (i.e., after filtering out/cleaning the *confounding* effect)!<br>
+The tool for this task is **multivariate linear regression**! This is simply an extension of the simple $\hat{Y}=\beta_1 X + \beta_0$ bivariate regression by inserting any number $k$ of explanatory variables into the equation, each with its own $\beta$ coefficient: $$\hat{Y}=\beta_1 X_1 + \beta_2 X_2 + ... + \beta_k X_k + \beta_0$$
+ 
+Based on the above equation, **multiple linear regression** can also be interpreted as a statistical model that seeks to predict COVID mortality rates using **simultaneously the number of nurses, unemployment rate, and proportion of women aged 65 and over**!
+
+## 2. OLS Estimation of Multivariate Linear Regression
+
+Our great luck is that in multiple linear regression, the OLS-based method for determining the $\beta_j$ coefficients works rather nicely.<br>
+That is, we choose the $\beta_j$ values so that the error of our predictions for the COVID mortality rates ($Y$) is minimized. We continue to measure the estimation error with the so-called SSE (Sum of Squared Errors) indicator: $$SSE = \sum_{i=1}^n(y_i-\hat{y_i})^2$$
+
+In the case of the squared error, the **machine is not blindly searching for the $\beta$ coefficients**! The solution to the OLS problem (i.e., the $\beta$ values that yield the smallest $SSE$) can be expressed with a fixed formula!
+
+The formula $SSE=\sum_{i=1}^n(y_i-\hat{y_i})^2=\sum_{i}(y_i-\sum_{j}\beta_jx_j)^2$ can also be expressed in matrix form. If we introduce the $X$ matrix, whose first column consists of all ones (because of the intercept), and the remaining columns contain the $X_j$ variables, then $SSE$ can be written as: $SSE=||y-X\beta||^2$.
+If we differentiate this matrix-expressed function with respect to $\beta$, and set the derivatives equal to zero, we can derive the fixed formula for the vector of $\beta$ coefficients calculated using the OLS method: $$\beta=(X^TX)^{-1}X^Ty$$
+
+It is not so important for us exactly how this beautiful matrix formula comes out. From a practical point of view, the key takeaway is that even in the case of multiple regression, we do not need the `optim` function for a minimization problem (what we use for minimizing the negative log-likelihoods during maximum likelihood estimations), because the solution is given by a fixed matrix formula.<br>
+This is why **OLS regression is still widely used today: the $\beta$ coefficients can be given by a fixed formula even in the multivariate case**!
+
+Thus, the coefficients of our model using three explanatory variables can also be estimated using the OLS method via R's `lm` function.
+
+```{r}
+multivar_model <- lm(DeathsCOVID ~ Nurses + Unemp + WomenOlder65, data = COVID) # note that predictors are separated by a + sign after a ~ sign
+summary(multivar_model)
+```
+
+Let’s see what we observe from the `summary` output:
+
+- Since the OLS-based estimation remains, meaning the model error is still measured by $SSE$, we can continue to calculate $R^2$ using the formula $R^2=1-\frac{SSE}{SST}$. Its interpretation slightly changes: it now tells us **what percentage of the variance in the response variable is explained by the set of explanatory/predictor variables**. Be cautious: because of this interpretation, $R^2$ can NO LONGER be calculated as the square of a correlation, since *correlation only describes the relationship between two variables*, not more than two. Thus, in this situation, we can say that the number of nurses, the proportion of women over 65, and the unemployment rate **together** explain $34%$ of the variation in COVID mortality rates across districts. This is a noticeable improvement in explanatory power compared to the two-variable model, where we only examined the effect of **Nurses**.
+- The p-value of the Global F-test is still very low, $6.42 \times 10^{-9}$, so unsurprisingly, we can say that at any conventional $\alpha$ level, we can reject the $H_0$ that $R^2$ collapses to 0 outside the sample.
+What is interesting to observe here are the degrees of freedom used to calculate the p-value for the F-distribution.
+Now, since we have $k=3$ explanatory/predictor variables, it means that in the regression we had to estimate $p=4$ parameters (the $\beta_j$ coefficients including the intercept). Thus, the first degree of freedom of the F-distribution is $p-1=3=k$, and the second is $n-p=102-4=98=n-k-1$.
+- Furthermore, the hypotheses of the F-test can also be stated as: $H_0: \beta_j=0 \forall j$, that is, all $\beta$ coefficients can be considered zero in the world outside the sample, meaning none of the explanatory/predictor variables have an effect on $Y$. And $H_1: \exists j:\beta_j \neq 0$, meaning there is at least one $\beta$ that is not zero outside the sample, and the associated $X_j$ has an effect on $Y$.
+- Based on the residual standard error, the COVID mortality rate predicted by the three-variable model is expected to deviate by about $\pm 1.1$ percentage points from the actual mortality rate.
+What is interesting here is that the denominator for the residual standard error involves $n-p=98$, since $s_e=\sqrt{\frac{SSE}{n-p}}$.
+
+From the `Coefficients` table, we can again write down the estimated model equation:$$PredictDeathsCOVID=0.04 \times Nurses + 0.003 \times Unemp + 0.27 \times WomenOlder65 - 0.15$$
+
+The equation might seem odd in that the coefficient of **Nurses** is still positive, although it is now only $0.04$, compared to the $0.36$ slope in the two-variable model.<br>
+To fully understand what this $0.04$ means and how we can measure the importance of an explanatory variable ($X_j$) in the predictions of our regression model, we need to dig a little deeper into what the $\beta_j$ coefficients actually represent in multiple regression.
+
+## 3. Marginal Effect of Predictors
+
+As I wrote in Section 2, OLS regression is still widely used today because the $\beta_j$ coefficients can be specified with a fixed formula. But this is only one reason for the model’s popularity. The other reason is that the $\beta_j$ coefficients can be interpreted as the **marginal effect** of the corresponding $X_j$ explanatory/predictor variables.
+
+The marginal effect of an $X_j$ explanatory variable is the effect that it exerts **alone and directly** on the outcome variable $Y$. In OLS regression, this marginal effect for the $X_j$ explanatory variable is exactly the $\beta_j$ coefficient.
+
+Based on this, a general interpretation of a $\beta_j$ is the following: **If the value of the explanatory variable corresponding to the given beta increases by one unit while holding the values of the other explanatory variables constant, then the value of the outcome variable is expected to change by the amount of the beta**.
+
+This interpretation has **three essential elements**:
+
+1. All changes are understood in the **own unit of measurement** of the outcome and explanatory variables being examined.
+2. We assume that the values of the explanatory variables not currently under examination do not change. This isolates the direct effect of $X_j$ on $Y$. This is the **ceteris paribus** principle.
+3. The $\beta_j$ shows only the **expected change** in $Y$! The change would be exactly $\beta_j$ only if $R^2=100%$.
+
+If this interpretation holds generally, then the **Nurses** variable’s $+0.04$ $\beta$ coefficient in our multiple regression has already been cleared of the confounding effects of unemployment and the population over 65, since the $0.04$ shows the expected change in COVID mortality *without* changes in these other variables, following a +1 unit increase in **Nurses**.
+
+Based on this, let's interpret the $\beta_j$ values in our current model:
+
+```{r}
+summary(multivar_model)
+```
+
+- $\beta_1=0.04$: If the number of nurses per 10,000 inhabitants in a district increases by 1, while unemployment and the proportion of women over 65 remain unchanged, then the district’s COVID mortality rate is expected to rise by 0.04 percentage points. This still doesn't seem favorable, but we’ll get to the bottom of it shortly.
+- $\beta_2=0.003$: If the number of job seekers in a district increases by 10,000 (i.e., the number of job seekers per 10,000 inhabitants rises by 1) while the number of nurses and the proportion of women over 65 remain unchanged, then the COVID mortality rate is expected to rise by 0.003 percentage points. More colloquially: If between two districts with identical numbers of nurses and identical proportions of women over 65, one district has 10,000 more unemployed people, then a COVID-infected individual there has a 0.003 percentage point higher chance of dying.
+- $\beta_3=0.27$: If the proportion of women over 65 in a district rises by 1 percentage point while the number of nurses and the unemployment rate remain unchanged, then the district’s COVID mortality rate is expected to rise by 0.27 percentage points. Again more colloquially: If between two districts with identical numbers of nurses and unemployment rates, one has a 1 percentage point higher share of women over 65, then a COVID-infected individual there has a 0.27 percentage point higher chance of dying.
+
+Of course, we also have an **intercept $\beta_0$, which officially shows the expected value of $\hat{Y}$ when all explanatory/predictor variables ($X_j$) are set to 0**.<br>
+In our case, this means that the COVID mortality rate in a district with 0 nurses, no women over 65, and full employment would be $-0.15%$ according to the model. Clearly, this interpretation is not meaningful here, since a place where $\forall X_j=0$ does not exist in this domain. If anyone finds such an *all-zero* district, they should run, because zombies are coming :) (negative mortality rate :))
+
+### 3.1. Partial Correlation
+
+Now the question arises: How do we decide which explanatory variable is more important in predicting $Y$? How do we determine which $X_j$ has a stronger, **direct influence** on $Y$? This is particularly pressing for the **Nurses** variable: its coefficient implies a positive marginal effect, which seems illogical, just like in the two-variable regression. But the question remains: How important or decisive is this effect for predicting $Y$, i.e., the COVID mortality rate?
+
+The intuitive answer would be that the $X_j$ whose $\beta_j$ has the largest absolute value is the most important explanatory variable. **The problem is that betas depend on measurement units!** So even if I see that the beta for the number of nurses per 10,000 people (0.04) is larger than the beta for the number of job seekers per 10,000 people (0.003), this doesn’t tell me much! Since the magnitude of the two variables differs greatly. See the differences in their averages.
+
+```{r}
+mean(COVID$Nurses)
+mean(COVID$Unemp)
+```
+
+Comparing $\beta_j$ coefficients across such different averages would be unfair, since *+1 unit* is relatively more significant among nurses than among unemployed people.
+
+And elasticity has the problem that its value depends on the baseline values of the explanatory variables.
+
+We could turn to correlation to answer the question (because correlation always lies between $\pm 1$): the explanatory variable that is more highly correlated (in absolute value) with the outcome variable would be more important. Reminder: let’s look at the correlations between our explanatory variables and the outcome variable:
+
+```{r}
+cor(COVID$DeathsCOVID, COVID$Nurses)
+cor(COVID$DeathsCOVID, COVID$Unemp)
+```
+
+Based on this, unemployment appears more important, but not by much: the correlations with COVID mortality rates are moderate (between 0.3 and 0.7 in absolute value) for both explanatory variables.
+
+However, the problem is that **correlation measures both direct and indirect effects of explanatory variables on COVID mortality**! It does not isolate the direct effect like the multivariate regression $\beta_j$'s do! So, **confounding is still at play here**: the number of nurses could be positively correlated with COVID mortality just because higher unemployment is associated with a higher number of nurses, and higher unemployment increased COVID mortality, even though the number of nurses itself may have no independent effect. Or the reverse could be true: unemployment may have no independent effect, but it exerts an indirect effect through the number of nurses.<br>
+The key is that **based on simple correlation alone, we cannot decide this**.
+
+Thus, we usually prefer partial correlations between explanatory variables and the outcome variable instead of simple correlations. Partial correlation is like simple correlation: it shows the strength and direction of the relationship between two variables on a [-1; +1] scale but **cleans it from the effects of other variables**.
+
+In R, we can compute it using the `ppcor` package:
+
+```{r eval=FALSE}
+install.packages("ppcor")
+library(ppcor) # Ignore the Warnings as usual! :)
+```
+```{r echo=FALSE}
+library(ppcor)
+```
+
+```{r}
+pcor(COVID[,2:5]) # columns 2-5 contain variables in our regression
+```
+
+We are interested in the first column of the `estimate` list element. Thus, unemployment has a +0.383 partial correlation with COVID mortality after controlling for the effects of the number of nurses and the proportion of women over 65. In contrast, the *number of nurses has only a very weak partial correlation with COVID mortality, with an absolute value below 0.05 (0.047) after controlling for unemployment and the proportion of women over 65*.
+
+Thus, **when examining the direct effects of our explanatory variables on COVID mortality on a unified [-1, +1] scale, it is clear that unemployment** (and, by the way, also the proportion of women over 65 with its 0.29 partial correlation) **has a "moderate" direct effect on increasing COVID mortality, while the number of nurses has only a weak effect**!
+
+The difference between correlation and partial correlation is well illustrated by the following figure.
+
+<center>
+![](ParcKorr.png){width=50%}
+</center>
+
+The key is that simple correlation measures both *direct and indirect* effects of **Nurses** (blue and red arrows) on COVID mortality, while partial correlation only considers the *direct* effects (red arrows).
+
+### 3.3. Path Analysis
+
+At the end of the previous subsection, the direct and indirect effects represented by the arrows in the figure can also be expressed specifically and numerically using the regression $\beta$s.
+
+Let us take a slightly recolored version of the figure from Section 3.1.
+
+<center>
+![](Utelemzes.png){width=50%}
+</center>
+
+Here, the *red* arrow indicates the **Nurses'** direct effect on **DeathsCOVID**, while the *blue* arrow indicates the **Unemp**'s direct effect on **DeathsCOVID**. The *green* arrow shows the effect of **Nurses** on **Unemp**.
+
+The magnitudes of the direct effects on the red and blue arrows are given by the coefficients $\beta_1$ and $\beta_2$ of the regression $PredictDeathsCOVID = \beta_1 \times Nurses + \beta_2 \times Unemp + \beta_0$. So let's extract these $\beta$s into separate R objects:
+
+```{r}
+# first, get the multivariate regression with Nurses and Unemp
+twopredictor_model <- lm(DeathsCOVID ~ Nurses + Unemp, data = COVID)
+
+# get the vector of coefficients
+twopredictor_model$coefficients
+
+# save the 2nd and 3rd elements in the vectors: note that the 1st element is Beta_0!
+Beta_Nurses_COVID <- twopredictor_model$coefficients[2]
+Beta_Unemp_COVID <- twopredictor_model$coefficients[3]
+```
+
+The magnitude of the effect on the green arrow is simply given by the coefficient $\beta_1$ of the bivariate regression $PredictUnemp = \beta_1 \times Nurses + \beta_0$. Let's save this into a separate R object as well:
+
+```{r}
+# first, get the simple (bivariate regression)
+Unemp_Nurses_model <- lm(Unemp ~ Nurses, data = COVID)
+
+# get the vector of coefficients
+Unemp_Nurses_model$coefficients
+
+# save the 2nd element in the vectors: note that the 1st element is Beta_0!
+Beta_Nurses_Unemp <- Unemp_Nurses_model$coefficients[2]
+```
+
+Thus, the *direct and indirect* effects of the $Nurses \rightarrow DeathsCOVID$ relationship can be determined:
+
+```{r}
+# direct effect of nurses on COVID deaths (red arrow)
+Direct_Nurses_COVID <- Beta_Nurses_COVID
+Direct_Nurses_COVID
+
+# indirect effect of nurses on COVID deaths (green*blue arrow)
+Indirect_Nurses_COVID <- Beta_Nurses_Unemp * Beta_Unemp_COVID
+Indirect_Nurses_COVID
+```
+
+Because the **indirect** effect is simply taking the $Unemp \rightarrow DeathsCOVID$ direct effect (blue arrow) multiplied by how much **Unemp** changes per one unit increase in **Nurses** (green arrow). This is exactly what `Beta_Nurses_Unemp` gives!
+
+Thus, the **total** effect of the $Nurses \rightarrow DeathsCOVID$ relationship can be determined:
+
+```{r}
+# total effect = direct + indirect effects
+Total_Nurses_COVID <- Direct_Nurses_COVID + Indirect_Nurses_COVID
+Total_Nurses_COVID
+```
+
+And look, this value is exactly the same as the slope of the original simple bivariate regression $PredictCOVIDDeaths = \beta_1 \times Nurses + \beta_0$! :)
+
+```{r}
+simple_model$coefficients
+```
+
+Thus, by using the multivariable regression, we have successfully **cleared the confounding** effect on the **Nurses** variable from the original bivariate regression!
+
+Obviously, in a similar way, we could measure how much confounding effect is caused by the **WomenOlder65** variable on the $Nurses \rightarrow DeathsCOVID$ relationship.
+
+### 3.3. Partial t-test
+
+We can also measure the importance of explanatory variables through hypothesis testing. For any given explanatory variable $X_j$, its importance can be determined by testing the following null and alternative hypotheses:
+
+- $H_0: \beta_j=0$ ~ The effect of $X_j$ on $Y$ outside the sample is **not significant**
+- $H_1: \beta_j\neq0$ ~ The effect of $X_j$ on $Y$ outside the sample is **significant**
+
+Thus, in this hypothesis test, which we will call a **partial t-test**, the **$H_0$ states that the effect of $X_j$ on the outcome variable is just a sampling error, meaning if we observed new individuals (new districts), the measured effect would disappear, and $\beta_j$ would become zero**.
+
+For this hypothesis test, we need a test statistic and a p-value.
+
+R provides a **standard error for calculating the test statistic**. This appears in the 2nd column of the table generated by R's `summary` function:
+
+```{r}
+summary(multivar_model)
+```
+
+For example, the value $0.096$ means that the $\beta$ of **Nurses** is 0.04 in the sample, but if we ran the regression on new districts outside the observed sample, this value could fluctuate around 0.04 with an *expected* variability of $\pm 0.096$. The ratio of $\beta_j$ to its standard error ($SE_j$) gives the so-called *t-value*, which is the test statistic of the partial t-test. For the **Nurses** variable, this is 0.463.
+
+The distribution of the test statistic under $H_0$ follows a t-distribution, whose exact shape is determined by the degrees of freedom $df=n-p=n-k-1$, which was the second degree of freedom in the Global F-test.
+
+Under $H_0$, the ideal case is when $\beta_j=0$ in the sample as well, because $t=\frac{\beta_j}{SE_j}$. Due to the shape of the t-distribution, the p-value must be calculated such that deviations both above and below 0 reduce the probability of rejecting a true $H_0$:
+
+<center>
+![](pt.jpg){width=50%}
+</center>
+
+Thus, in R, the p-value is: `2*pt(-abs(0.0445217/0.0961260), df = 102-4)`$=0.6442767$. This is shown in the `Pr(>|t|)` column of the `summary` output table.
+
+By looking at the `Pr(>|t|)` column, we can conclude that unemployment and the proportion of women older than 65 have a significant impact on COVID mortality even *outside the observed districts*, since the p-value of the partial t-test is smaller than the $\alpha=1%$ significance level. That is, by rejecting $H_0$, I would be making an error with a very low probability for both explanatory variables. In the case of the **WomenOlder65** variable, this means that the moderate-weak direct effect on prices indicated by the partial correlation (+0.29) would remain even when examining new districts. Meanwhile, it is also clear that the p-value associated with the **Nurses** variable is much larger than that of **Unemployment** and **WomenOlder65**. Specifically, the p-value is $64.4%$, which is so high that it exceeds even the highest commonly used $\alpha$ level of $10%$, so I can confidently accept the null hypothesis $H_0$! Thus, the partial t-test also says that the effect of **Nurses** on COVID mortality **is not significant** outside the observed sample.
+
+In conclusion, based on our model, we can state that the **positive effect of the number of nurses on COVID mortality observed in the bivariate regression was merely apparent, and it actually mediated the increasing effects of unemployment and the proportion of women over 65 on COVID mortality, without any independent significant marginal effect**!
+
+These per-variable t-test p-values are great because they allow us to easily rank the explanatory variables in terms of importance.
+
+## 4. Predictor Importance Order based on t-tests
+
+Let's revisit he <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/BP_Flats.xlsx\" target="_blank">BP_Flats.xlsx</a> file, which is a data table that stores data for 10 variables (columns) for 1406 apartments in Budapest:
+
+- Price_MillionHUF: price of the flat in million HUF
+- Area_m2: area of the flat in square meters
+- Terrace: number of terraces in the flat
+- Rooms: number of rooms in the flat
+- HalfRooms: number of half-rooms in the flat
+- Bathrooms: number of bathrooms in the flat
+- Floor: the number of floor the flat is on
+- IsSouth: is the flat looking at the South? (1 = yes; 0 = mo)
+- IsBuda: is the flat in Buda? (1 = yes; 0 = no)
+- District: district of Budapest the flat is in (1 - 22)
+
+Read the data table from Excel into an R `data frame` the usual way!
+
+```{r}
+library(readxl)
+BP_Flats <- read_excel("BP_Flats.xlsx")
+str(BP_Flats)
+```
+
+We won't bother with data types now; we'll leave everything as numeric.
+
+Now let’s look at a model to estimate apartment prices, where all variables from the **BP_Flats** `data frame` are included as explanatory variables except for **District**:
+
+```{r}
+bigmodel <- lm(Price_MillionHUF ~ ., data = BP_Flats) # in this regression every variable is included as predictor
+
+bigmodel <- lm(Price_MillionHUF ~ .-District, data = BP_Flats) # in this regression every variable is included as predictor except for District
+
+summary(bigmodel)
+```
+
+We see that the explanatory power of the model in the sample is 81.76%, meaning that the explanatory variables in the model collectively explain about 82% of the variation in apartment prices among the observed 1405 apartments. After filtering out the effects of the other variables, the direct effect of the number of rooms is still significant at $\alpha = 5%$, but not at $\alpha = 1%$! Meanwhile, the number of half-rooms and the number of floors are not significant explanatory variables at any of the usual $\alpha$ levels in the world outside the observed sample.
+
+The importance ranking of the explanatory variables can be given by ordering the variables in ascending order of their p-values, because the smaller the p-value, the smaller the chance that it is an error to consider that $X_j$ a significant explanatory variable:
+
+```{r}
+# save the coefficients table from the summary results to a separate object
+BetaTable <- summary(bigmodel)$coefficients
+
+# order the table according to the 4th column (p-values)
+BetaTable[order(BetaTable[,4]),]
+```
+
+We can see that Area is the most important explanatory variable, while, for example, the number of rooms is the third least important explanatory variable.
+
+## 5. Relationship of Confidence Intervals and t-tests
+
+In R, you can also create confidence intervals for the coefficients (betas) of the multiple regression model at a given confidence level using the `confint` function, just as we saw in the bivariate case.<br>
+For example, **a 97% confidence interval for $\beta_j$ indicates the range within which the coefficient $\beta_j$ is likely to fall with 97% probability in the world beyond the observed apartments**.
+
+Let's look at the R computation:
+
+```{r}
+confint(bigmodel) # 95% is the default
+
+confint(bigmodel, level = 0.99) # but it can be anything like 99%
+```
+
+For example, based on the first results table, the $\beta$ of the **Area** variable would fall between 0.277 and 0.317 with 95% probability if we examined not just 1405 apartments in Budapest, but the entire population of apartments.
+
+The result also shows a relationship: **if an $X_j$ is not significant at a given $\alpha$ significance level, then the boundaries of the $1-\alpha$ confidence interval for $X_j$ will change sign**.<br>
+The best example is the case of the **Room** variable: we said its effect on prices is still just significant at the 5% level -> thus its 95% confidence interval just barely does not cross zero. However, at the 1% level, it is no longer significant, so its confidence interval does change sign.
+
+This leads us to an interesting point of view: *if an $X_j$ variable is not significant at $\alpha$, it means that at $1-\alpha$ confidence level we cannot even decide whether an increase of 1 unit in $X_j$, all else being equal, increases or decreases the dependent/outcome variable in the world beyond the sample*.
+
+In the background, what happens is that R calculates the inverse value of the t-distribution with $n-p=n-k-1$ degrees of freedom at $1-\alpha/2$ probability, just as it does in the partial t-test, and it adds and subtracts this value multiplied by the standard error for every $\beta_j$:
+
+```{r}
+BetaTable
+
+alpha <- 0.02
+p <- nrow(BetaTable)
+conf_multiplier <- qt(1-alpha/2, df = nrow(BP_Flats)-p)
+
+BetaTable[2,1] - conf_multiplier * BetaTable[2,2] # Area 98% lower bound
+BetaTable[2,1] + conf_multiplier * BetaTable[2,2] # Area 98% upper bound
+```
+
+Formally, the operation of calculating confidence intervals for $\beta_j$s can be described by the following formula:
+
+<center>
+![](BetaCI.jpg){width=50%}
+</center>
+
+## 6. Standard Regression Model Assumptions
+
+Roughly, we've now seen how OLS regression can work if everything is fine. But for the learned *partial t-test* and the *confidence intervals* based on $\beta_j$ to realistically reflect the world beyond the observed data — that is, the **population** — *three* conditions must be met:
+
+1. The OLS estimate of $\beta_j$ must be **unbiased**: the average (*expected value*) of $\beta_j$ over many samples must equal the true population value of $\beta_j$.
+2. The OLS estimate of $\beta_j$ must be **consistent**: the standard error of $\beta_j$ must approach 0 as the sample size increases; that is, if $n \rightarrow \infty$, then $SE_{\beta_j} \rightarrow 0$.
+3. The OLS estimate of $\beta_j$ must be **efficient**: there should be no alternative estimation method for $\beta_j$ with a smaller standard error than the OLS estimate.
+
+These three properties together make the OLS $\beta_j$ estimate **BLUE**: Best Linear Unbiased Estimator.
+
+However, in practice it is very difficult to truly verify these conditions on the model's $\beta_j$ coefficients, because among other things, this would require us to perform many repeated samples from our dataset or population. But we are blessed with only one single sample — we must work with what we have.<br> Thus, **6 standard assumptions** were formulated for multiple OLS regression models. If these are jointly satisfied in the model, then the coefficient estimates will satisfy the three properties discussed above, that is, they will have the **BLUE** property. These are called the **standard regression model assumptions**, or **Gauss-Markov assumptions**!
+
+Let's see what these are!
+
+1. **Large sample size** ($n>100$).
+2. **Strong exogeneity**: The error term $\epsilon_i=y_i-\hat{y_i}$ has a mean of 0 and is uncorrelated with the explanatory variables.
+3. The correct regression **functional form is linear**: you do not need to include non-linear transformations of the explanatory variables (e.g., squares or logarithms) in the equation.
+4. **No exact multicollinearity**: No explanatory variable can be approximated with an $R^2$ greater than about 95% by regressing it on the other explanatory variables.
+5. **Homoscedasticity**: The variance of the error term $\epsilon_i$ is constant across observations; the size of the error is independent of which observation we look at.
+6. **No autocorrelation**: The error term $\epsilon_i$ is not correlated with a lagged version of itself, e.g., with $\epsilon_{i-2}$.
+
+Points 1), 2), and 3) are required for unbiasedness.<br>
+Points 4), 5), and 6) are required for consistency and efficiency.
+
+However, all these **6 assumptions are unnecessary if the error term is normally distributed**. As we'll soon see, in that case the coefficients obtained via OLS are **maximum likelihood estimators as well**. In that case, by the **Cramer-Rao bound** covered in <a href="Chapter04.html" target="_blank">Section 5 of Chapter 4</a>, the $\beta_j$ coefficient **estimates obtained via maximum likelihood are automatically efficient and asymptotically unbiased**: there is no alternative estimation method for $\beta_j$ with a smaller standard error and any possible bias disappears in large sample sizes.
+
+## 7. OLS Regression as Maximum Likelihood Estimator
+
+If we assume that the $\epsilon_i = y_i - \hat{y}_i$ error term of the regression model is normally distributed, then we have the following model for every $i$-th observation ($i=1,2,...,n$): $$y_i = \beta_0 + \beta_1x_{1i} + \beta_2x_{2i} +...+ \beta_kx_{ki} + \epsilon_i \;,\; \epsilon_i \sim N(0,\sigma)$$
+
+This basically means that the target variable $Y$ is also normally distributed and the expected value for the $i$-th observation is the regression estimate $\hat{y}_i = \beta_0 + \beta_1x_{1i} + \beta_2x_{2i} +...+ \beta_kx_{ki}$ for that $i$-th observation. So we have that: $$y_i \sim N(\hat{y}_i, \sigma)$$
+
+So, what the regression equation $\beta_0 + \beta_1x_{1i} + \beta_2x_{2i} +...+ \beta_kx_{ki}$ wants to express is the **conditional expected value of the $Y$ normally distributed target variable with respect to the condition that we know the $X_j$ explanatory variable values for the $i$-th observation**: $$E(Y|X_1,X_2,...,X_k) = \hat{Y}=\beta_1 X_1 + \beta_2 X_2 + ... + \beta_k X_k + \beta_0$$
+
+However, for this conditional expected value interpretation, we have **assumed normal distribution for our target variable $Y$!!** But with this assumption we can obtain **maximum likelihood estimates for the $\beta_j$ coefficients** and the $\sigma$ standard deviation of the error (or in other words, residual) term $\epsilon_i$. As in this context we say that the expected value of the normal distribution fitted to the $y_i$ observations is not only one $\mu$ number, but something that is expressed by the $p=k+1$ $\beta_j$ regression parameters. And we are trying to **find those $\beta_j$ and $\sigma$ values that maximize our observed $y_i$ values to occur during an IID sampling of size $n$ from the $N(\beta_0 + \beta_1x_{1i} +...+ \beta_kx_{ki},\sigma)$ distribution**.<br>
+So the set of $\theta$ parameters to estimate via maximum likelihood are $\theta=\{\beta_0, \beta_1,...,\beta_k,\sigma\}$. So the log-likelihood function can be expressed by the normal density function (denoted as $f$) as the follwing by using the notations introduced in <a href="Chapter03.html" target="_blank">Section 1 of Chapter 3</a>: $$l(\theta)=\ln\prod_{i=1}^{n}{f(y_i,\theta=\{\beta_0, \beta_1,...,\beta_k,\sigma\})}=\sum_{i=1}^{n}{\ln(f(y_i,\theta=\{\beta_0, \beta_1,...,\beta_k,\sigma\})})$$
+
+It is easy to **write your custom R function to calculate negative log-likelihood for the multivariate regression model defined in Section 2**, where the $Y$ target is the COVID Mortality of the Hungarian districts and the explanatory variables are $X_1=\text{Nurses}, X_2=\text{Unemp}, X_3=\text{WomenOlder65}$. So the parameters to estimate when assuming that COVID Mortality is normally distributed are $\theta=\{\beta_0, \beta_1,\beta_2,\beta_3,\sigma\}$.
+
+```{r}
+neg_ll_regression <- function(theta_regression){
+  y_hats <- theta_regression[1] + theta_regression[2] * COVID$Nurses + theta_regression[3] * COVID$Unemp +
+    theta_regression[4] * COVID$WomenOlder65
+  return(-sum(log(dnorm(x = COVID$DeathsCOVID,
+                        mean = y_hats,
+                        sd = theta_regression[5]))))
+}
+
+# test function with arbitrary Betas and Sigma
+neg_ll_regression(c(-0.1,0.02,0.001,0.2,0.9))
+```
+
+Great, now we just need to find the $\{\beta_0, \beta_1,\beta_2,\beta_3,\sigma\}$ parameters that minimize this negative log-likelihood with `optim`. If we save the Hessian matrix, we'll have the variance-covariance matrix of the coefficient estimates as the inverse of the Hessian matrix (just like in <a href="Chapter04.html" target="_blank">Section 6 of Chapter 4</a>). On the diagonals of that we'll find the squared standard errors for the $\beta_j$s and for $\sigma$ too. These can be used to construct confidence intervals for $\beta_j$s and for $\sigma$ too by utilizing the standard normal distribution (<a href="Chapter04.html" target="_blank">Section 5 of Chapter 4</a>).
+
+```{r}
+reg_ml <- optim(c(-0.1,0.02,0.001,0.2,0.9), neg_ll_regression, hessian = TRUE)
+c(reg_ml$par) # see estimated Betas and Sigma
+```
+
+These are almost exactly the same as the OLS coefficient estimates.
+
+```{r}
+cbind(ols=multivar_model$coefficients,
+      mle=reg_ml$par[-5])
+```
+
+And the $\sigma$ is roughly the same as the standard deviation of the error (i.e. residual) term in the OLS regression.
+
+```{r}
+c(sd(multivar_model$residuals),
+  reg_ml$par[5])
+```
+
+This is no surprise, since **if $Y$ (or through this $\epsilon$) is normally distributed, the OLS and maximum likelihood estimators are equivalent**. This due to the formula of the normal density function. If we write the log-likelihood function for a normal distribution like we did in <a href="Chapter03.html" target="_blank">Section 3.1 of Chapter 3</a>, we had the following result: $$l(\mu, \sigma)=\frac{n}{2} \ln(2\pi\sigma^2)-\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^2}}$$
+
+And now we just need to **plug in the $\hat{y}_i = \beta_0 + \beta_1x_{1i} + \beta_2x_{2i} + \beta_3x_{3i}$ in place of the expected value $\mu$**: $$l(\hat{y}_i, \sigma)=\frac{n}{2} \ln(2\pi\sigma^2)-\sum_{i=1}^n{\frac{(y_i-\hat{y}_i)^2}{2\sigma^2}}$$
+
+Or if $\hat{y}_i$ is extended with its definition: $$l(\beta_0,\beta_1,\beta_2,\beta_3, \sigma)=\frac{n}{2} \ln(2\pi\sigma^2)-\sum_{i=1}^n{\frac{(y_i-(\beta_0 + \beta_1x_{1i} + \beta_2x_{2i} + \beta_3x_{3i}))^2}{2\sigma^2}}$$
+
+If we see this log-likelihood function and want to find the $\beta_0,\beta_1,\beta_2,\beta_3$ values that maximize it with a fixed $\sigma$ value, then due to the negative sign before the sum, we just need to find the minimum of the $\sum_{i=1}^n{(y_i-(\beta_0 + \beta_1x_{1i} + \beta_2x_{2i} + \beta_3x_{3i}))^2}$ part of the function. And thet is exactly the $SSE$: $$\sum_{i=1}^n{(y_i-(\beta_0 + \beta_1x_{1i} + \beta_2x_{2i} + \beta_3x_{3i}))^2}=\sum_{i=1}^n{(y_i-\hat{y}_i)^2}=\sum_{i=1}^n{\epsilon_i^2}=SSE \rightarrow \min_{\beta_0,\beta_1,\beta_2,\beta_3}$$
+
+So, we are back at the same OLS optimization problem that we've solved back in Section 2! Hence, it is no surprise that the two approaches yield roughly the same result (despite some rounding errors). So even **analytically, it can be shown that OLS regression coefficient estimates are maximum likelihood estimates when the target $Y$ (and through it $\epsilon$) is normally distributed**. So if this is the case, we **do not need to test the Gauss-Markov assumptions** of Section 6 to calculate confidence intervals and p-values as the maximum likelihood theory ensures that our **estimates are efficient and asymptotically unbiased**.
+
+### 7.1. Maximum Likelihood Standard Errors and Confidence Intervals in Regression
+
+Everything here is just like in <a href="Chapter04.html" target="_blank">Section 6 of Chapter 4</a> where we calculated standard errors for the estimated expected value and standard deviation of a normal distribution via the Hessian of the optimized log-likelihood. The only difference here is that since the $\mu$ expected value is now $\hat{y}_i = \beta_0 + \beta_1x_{1i} + \beta_2x_{2i} + \beta_3x_{3i}$, we have more estimated parameters, the $\beta_j$s next to the $\sigma$.
+
+To get the variance-cor variance matrix of the $B_j$ coefficients, we need the inverse of the Hessian of the optimized negative log-likelihood.
+
+```{r}
+varcov_reg <- solve(reg_ml$hessian[1:4,1:4])
+varcov_reg
+```
+
+On the diagonal, we have the squared standard errors for the $\beta_j$s here, so let's save these standard errors to a vector.
+
+```{r}
+se_betas <- sqrt(diag(varcov_reg))
+se_betas
+```
+
+With these we can construct our own coefficient table that is provided by `summary` for the results of the `lm` function. It's just that we now build on the large sample size properties of maximum likelihood estimators, so we use standard normal distribution ($N(0,1)$) instead of a $t(n-p)$ distribution when calculating p-values for the $H_0: \beta_j = 0$ hypotheses. As with large degrees of freedom the two distributions are the same.
+
+```{r}
+coef_table <- data.frame(coef=reg_ml$par[1:4],
+                         se = se_betas)
+rownames(coef_table) <- c("Intercept", "Nurses", "Unemp", "WomenOlder65")
+coef_table$z_value <- coef_table$coef/coef_table$se
+coef_table$p_value <- round(2*pnorm(-abs(coef_table$z_value)),5)
+coef_table
+```
+
+Great! Again, roughly the same as the OLS results!
+
+```{r}
+summary(multivar_model)
+```
+
+We can even reproduce the $F$-test using the **log-likelihood of the null model**: the regression that does not have any explanatory variables, and just tries to estimate the expected value of $Y$ only with the intercept term $\beta_0$. So we have that $Y \sim N(\beta_0,\sigma)$. At this point we can just say that let's denote $\beta_0$ as $\mu$, and we are back at the original maximum likelihood estimation of the two parameters of a normal distribution covered in <a href="Chapter03.html" target="_blank">Section 3 of Chapter 3</a>. And from that chapter we know that the maximum likelihood estimator for $\mu$ is the sample mean and for $\sigma$, it is the uncorrected standard deviation.
+
+```{r}
+ll_null <- sum(log(dnorm(x = COVID$DeathsCOVID,
+                         mean = mean(COVID$DeathsCOVID),
+                         sd = sqrt(mean((COVID$DeathsCOVID - mean(COVID$DeathsCOVID))^2)))))
+```
+
+
+And we can **test the $H_0$ that this null model is NOT significantly different from our current regression model via a Generalized Likelihood Ratio Test (GLRT)**
+
+The **log-likelihood of the current model** for the $\chi^2$ test statistic is simply just $-1$ times the optimized negative log-likelihood.
+
+```{r}
+ll_model <- -reg_ml$value
+test_stat_LR <- -2*(ll_null-ll_model)
+test_stat_LR
+```
+
+With these, we can get the p-value from a $\chi^2(3)$ distribution as the number of restrictions the simpler null model makes is $r=3$. The null model assumes that all the explanatory variables in our current model are $0$ in the true unobserved population of Hungarian districts: $H_0:\beta_1=\beta_2=\beta_3=0$.
+
+```{r}
+1 - pchisq(test_stat_LR, df = 3)
+```
+
+The p-value is smaller than every common significance levels (even than the smallest $1\%$), so we can confidently reject $H_0$ ans say that **we have at least 1 $\beta_j$ in our model that is significantly NOT $0$ in the unobserved population of Hungarian districts**.
+
+We can get **confidence intervals of any level too using the maximum likelihood principles** seen in <a href="Chapter04.html" target="_blank">Section 5 of Chapter 4</a>.<br>
+Let's see an example for $97\%$ level of confidence.
+
+```{r}
+alpha <- 1-0.97
+z_multiplier <- qnorm(1-alpha/2)
+coef_table$low=coef_table$coef - coef_table$se*z_multiplier
+coef_table$upp=coef_table$coef + coef_table$se*z_multiplier
+coef_table[,c("low", "upp")]
+```
+
+It is again roughly the same, as we'd get via the classic OLS confidence intervals.
+
+```{r}
+confint(multivar_model, level = 0.97)
+```
+
+## 8. Bootstrap for Regression Models
+
+If our $\beta_j$ regression coefficient estimates are not maximum likelihood estimates and the Gauss-Markov assumptions don't hold, then the coefficient standard errors, p-values and confidence intervals are becoming invalid and not to be used to make any inference about the significance of explanatory variable effects on the target.<br>
+In order to save at least our confidence intervals for the $\beta_j$ coefficients in an unfortunate case like this, we can apply Bootstrap simulations as introduced in <a href="Chapter06.html" target="_blank">Section 6</a>.
+
+First, we define the function that returns the coefficients of the bootstrap sub-samples for the multivariate regression model defined in Section 2.
+
+```{r}
+coef_boot <- function(data, indices) {
+  bootstrap_model <- lm(DeathsCOVID ~ Nurses + Unemp + WomenOlder65, data = data[indices,])
+  return(coef(bootstrap_model))
+}
+```
+
+Apply the function with the `boot` package to get the 10000 replicated IID bootstrap sub-samples.
+
+```{r}
+library(boot)
+boot_regression <- boot(COVID, coef_boot, R=10000)
+boot_regression
+```
+
+And let's have the $97\%$ level confidence intervals via the percentiles of the simulated coefficients.
+
+```{r}
+boot_ci <- lapply(1:length(multivar_model$coefficients),
+                  function(x) boot.ci(boot_regression,
+                                      conf = 0.97, type = "perc", index = x)$percent[4:5])
+names(boot_ci) <- names(multivar_model$coefficients)
+boot_ci
+```
+
+The results are roughly the same as the OLS and MLE $97\%$ confidence intervals.
+
+```{r}
+confint(multivar_model, level = 0.97)
+coef_table[,c("low", "upp")]
+```
+
+
+This suggests that the model assumptions (Gauss-Markov or normality of $Y$) are probably met. Based on the histogram of the COVID mortality rate, the normal distribution of this target variable seems acceptable, the right tail is very moderate. So, the results obtained via maximum likelihood using normal density are rather correct, that's why the simulated bootstrap confidence intervals are close to the ones expressed with OLS and maximum likelihood formulas.
+
+```{r}
+hist(COVID$DeathsCOVID)
+```
+

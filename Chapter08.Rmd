@@ -1,0 +1,145 @@
+---
+title: "Designing Experiments and Correction For Multiple Comparisons"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Causality, confounding and randomization
+
+There are several different purposes for which we may wish to use the methods of statistical inference.
+
+  1. For prediction. For example we build a model of patients’ probability of heart disease based on lifestyle factors such as diet and exercise, estimate the model from a representative group of subjects whose heart disease status is known, and use it to predict the status of new subjects.
+  2. To establish association between variables. For example we suspect that being educated in a single sex school may be negatively associated with length of marriage, and use statistical modelling to assess whether this putative association is real, or could just be due to chance variability in the data.
+  3. To establish causation. Often, especially in science, we want to know whether something is an actual cause of something else. Famous examples are: does smoking cause cancer? and does the MMR vaccine cause autism?
+
+The methods we have covered so far are quite sufficient for addressing 1 and 2, but the causal inference required in 3 is more difficult, and the sort of methods covered so far are not sufficient to establish causality on their own.
+
+To understand the issues, it is important to really have grasped the difference between correlation (association) and causality. An oft quoted example is the correlation between the population of storks and the birth rate, in Europe. The correlation is real, but there is obviously no causation. Rather, industrialization raised health care, living and educational standards in Europe leading to reduced birth rates, but that same industrialization led to a reduction in suitable habitat for storks. That is, the association is caused by other factors which may be causative to both variables of interest.
+
+Confusing correlation with causation is a famously good way of selling newspapers. A study from the university of Bath was reported as revealing that men who preferred women with a smaller than usual hip to waist ratio were more likely to have autistic children. The association was real, but it was the interpretation in terms of the preference being somehow causative that made the story interesting. In fact, the likely explanation of the association is that higher than average testosterone in the womb seems to be a causative factor in autism, and women with higher than average testosterone tend to have smaller than usual hip to waist ratio. For obvious reasons they also tend to have children with men who find them attractive. This explanation makes for a duller press release, of course. Again the key is a hidden variable related to the variables of direct interest.
+
+### 1.1 Confounding: some simulated examples
+
+To appreciate the effect of correlated predictors on interpretation and attempts at causal inference, it is worth looking at some simulations, where we are in complete control of the correlation structure between variables. The following code simulates two correlated predictor variables, x and h:
+
+```{r warning=FALSE}
+require(mgcv) ## supplies rmvn
+V <- matrix(c(1,.95,.95,1),2,2) ## cov matrix
+n <- 1000 ## number of data
+set.seed(7) ## just for reproducibility
+X <- rmvn(n,rep(0,2),V)
+x <- X[,1];h <- X[,2]
+```
+
+
+Now consider the case when yi = xi + ei , but we fit the model yi = β0 + β1xi + β2hi + ei
+
+```{r}
+y <- x + rnorm(n)
+summary(lm(y ~ x + h))
+summary(lm(y ~ x ))
+```
+
+Because of the high correlation between x and h it is difficult to distinguish their effects, with the result that when both are included in the model the ‘explanation’ of the response tends to get shared out between them, leading to rather variable estimates of the real effect of x. In contrast when the spurious h term is omitted from the model, the estimate of β1 is much more accurate. Actually, for most replicates of the data simulation, β2 would not have appeared to be significantly different from zero, so we would have been likely to drop the term, and arrive at the correct model using just the inferential tools already developed. 
+
+However, it is worth also looking at what would have happened if we had only observe h but not x:
+
+```{r}
+summary(lm(y ~ h))
+```
+
+The high correlation between h and x means that we find a strongly significant association between h and y, despite the fact that h played no part at all in the simulation of y! In this case x is an example of a hidden confounding variable: it is correlated with both our predictor, h, and our response y, and therefore messes up our inference about the true causal influence of h on y (which is zero in this case).
+
+Here is a second example of confounding. Now both h and x have a causal effect on y, and if we only observe x, we will overestimate its true effect (overestimate, because the correlation is positive).
+
+```{r}
+y <- x + h + rnorm(n)
+summary(lm(y ~ x ))
+```
+
+i.e. when h is hidden from us, our estimate of β1 is almost twice as large as it should be in this case.
+
+Note that this tendency of the model fitting to try and compensate for missing confounding variables, is a profound difficulty for causal inference, but a blessing for prediction. The fact that the model has adjusted for the missing confounders in this way actually improves prediction.
+
+### 1.2 Controlled experiments and randomization
+
+The gold standard for establishing causality is to analyse data from a properly designed experiment, in which we use the process of randomization to break any possible association between unmeasured confounders and the predictor whose effect we want to measure. The idea is basically to turn the systematic variation in the response caused by confounders into something that we can model as independent random variability between experimental units.
+
+An example is the most useful way to convey the idea. Suppose that we want to examine the relationship
+between exercise and fat mass in people aged 40 to 50. There are a huge number of factors contributing to people’s
+fat mass, and if we simply look at a sample of people who already exercise by different amounts it will be very
+difficult to isolate the effect of exercise separate from all the other confounders (diet, working hours, profession,
+whether they have children, drinking habits, smoking, wealth etc.). Suppose instead that we set up a study in
+which participants enrol and are then assigned to one of several ‘treatments’, consisting of exercise programs of
+differing intensity (or a control of none). Now if we assign subjects to the different treatments randomly then there
+can be no possible association between all the other variables contributing to fat mass, and the one that we are
+interested in: amount of exercise. Indeed all the variability in fat mass attributable to the confounders can now be
+treated as random variability within each treatment. Any effect of exercise that we then find is causal: the thing
+we controlled having an effect on the variable we are interested in. Of course this approach does not stop us from
+including measured covariates in the analysis model, in order to reduce the amount of variability being modelled
+as random, and thereby increase precision, but it does mean that we no longer have to worry about the effect of
+hidden confounders.
+.e. when the confounders are independent of the response we get the same estimate of βx whether or not they are
+included in the model (and its expected value is correct). Randomization ensures that this occurs.
+
+### 1.3 Instrumental variables
+
+So properly designed controlled experiments with random allocation of experimental units to treatments are the best way of establishing causal effects. However there are many cases in which experimental manipulation is impractical, unethical and/or illegal. For example, if we are interested in establishing the causative effect of alcohol consumption on heart disease, it is simply unethical to conduct a study in which we randomly allocate subjects to a heavy drinking treatment (the same goes for any treatment where we have prior cause to suspect it may be harmful). Economics is another field beset with such problems: for example it is impractical to conduct a controlled experiment to establish the causative factors controlling a company’s share price, and anything that came close would likely count as illegal market manipulation. This sort of problem is so ubiquitous in economics that it is from the field of econometrics that much of the work on causal inference from observational data comes.
+
+In this section we will look at one method: instrumental variables. The approach can be applied more widely
+than just to linear models, but the ideas are easiest to grasp in the linear model context. Let’s again use the setup
+in which X is the model matrix for the observed effects, H is the (column centred) model matrix for the hidden
+confounders and the response data are generated by,
+
+y = Xβx + Hβh + e.
+
+Since we don’t have access to H we fit y = Xβx + e, and therein lies the problem, since in reality e = Hβh + eps, which is unlikely to meet the linear model assumptions about the residual vector.
+
+Now the problem here is that the space spanned by X is not orthogonal to e, because of the interdependence of X and H. This would not be a problem if we could somehow orthogonalize X and e, for example by projecting X onto a space that is orthogonal to e. Suppose then, that we have available some instrumental variables giving rise to a (column centred) model
+matrix Z, where Z is not part of the true model for y, but is correlated with X and is independent of H (and hence
+e). We’ll assume that Z has at least as high a rank as X, and w.l.o.g. its columns are centred to have zero mean. We could then project X onto the column space of Z. That is replace X with AzX where Az = Z(ZTZ)−1ZT, and regress y on AzX. In that case
+
+Here is a simulated illustration. First simulate observed x, confounder h and instrument z, by simulating multivariate random variables with appropriate correlation structure, using x and h to simulate response y.
+
+```{r}
+V <- matrix(c(1,.7,0.9,.7,1,0,.9,0,1),3,3)
+library(mgcv); n <- 1000; set.seed(0)
+X <- rmvn(n,rep(0,3),V)
+x <- X[,1]; h <- X[,2]; z <- X[,3]
+y <- x + h + rnorm(n)*.3
+```
+
+Now fit the model naively, and then again using the instrumental variable.
+
+```{r}
+summary(lm(y ~ x)) ## naive fit
+zx <- fitted(lm(x~z-1)) ## project x onto z
+summary(lm(y ~ zx)) ## fit iv model
+```
+
+Clearly the IV model gives an estimate that is much closer to correct. The price paid is precision: the standard error is substantially larger than we would get if h had been available for inclusion in the model (and that is without correcting for the uncertainty in the regression of x on z). This approach is not the only way of using instrumental variables, and their use is not restricted to linear models, but this method is sufficient for introducing the idea. The success of such methods rests on being able to find good instrumental variables, which are independent of the potential confounders, but strongly correlated with the observed variables (weak correlation will inflate the standard errors of the estimates). 
+
+Another way of stating this is that the instrumental variables must be correlated with the response variable only via the instrument’s correlation with the observed predictor variables. Finding such variables is obviously not easy, and one might question how often such a magical combination of correlation with X but independence of H can really apply, and be knowable when the confounders are not.
+
+However the technique of ‘Mendelian randomization’, provides an application of instrumental variable use that does seem to be practical. Take the example of alcohol and heart disease. There are genetic polymorphisms that predict the propensity to consume alcohol, but are completely unrelated to any other plausible predictors of heart disease. Hence a subject’s genotype (with respect to this polymorphism) can be used as an instrumental variable. The method is called ‘Mendelian randomization’ after the genetic pioneer Gregor Mendel, and the fact that the genotype is assigned randomly by meiosis when passed from parents to offspring, thereby avoiding correlation with things that it does not actually cause.<br>
+‘Mendelian randomization’ is important in epidemiology when trying to uncover health effects of environmental exposures that can not (ethically) be manipulated experimentally, however finding appropriate polymorphisms and establishing that they are uncorrelated with any unobserved confounders is obviously challenging.
+
+## 2. Correction For Multiple Comparisons
+
+TODO
