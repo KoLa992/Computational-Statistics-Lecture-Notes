@@ -244,3 +244,60 @@ summary(lmod)
 ```
 
 Whoah! Lots of schools show significantly different means at $\alpha=5\%$ from the global mean of $0$. Even ones like we did not expect based on the box plot. E.g. School 4, 34, or 9.
+
+So, let's see exactly how many schools we have with p-values < 0.05
+
+```{r}
+pvals <- summary(lmod)$coef[,4]
+coef(lmod)[pvals < 0.05]
+```
+
+Well, 20 out of 50! Yeah, seems a lot based on the box plot. However, from this result above, it seems that there are 20 schools with p-values that suggest we can reject the null hypothesis and feel 95% confident that the mean mathematics score for this school is significantly different from the overall mean. However, we have to account for how many comparisons are being made using the same sample of data. And this is where the **Bonferroni correction** comes into play, as Bonferroni Correction is the process of accounting for familywise error.
+
+Because of the multiple comparisons (exactly $c=50$) made with the math score means among schools, adjustments must be made to either the $\alpha$ level that p-values are evaluated against, or to the p-values themselves.
+
+### 2.2. Bonferroni correction
+
+So, when should Bonferroni Correction be considered?
+
+1. for multiple comparisons problems (comparing multiple means as in ANOVA)
+2. multiple analysis problems (correlation matrices, multiple regression models run on the same target etc)
+
+Now, let's see how this Bonferroni Correction is **calculated**. As mentioned before, we can either correct the significance level $\alpha$ or the p-values themselves.
+
+**Method 1**: multiply the observed p-values by the number of comparisons being made and evaluate which p-values are below the desired  $\alpha$  after this correction.<br>
+Let's see this way of calculation, and then check how many schools have Bonferroni corrected p-values that are statistically significant at $\alpha = 5\%$
+
+```{r}
+alpha <- 0.05
+number_comparisons <- 50 # there are 50 means (1 for each school) that are compared for this ANOVA
+pvals_adjusted <- pvals * number_comparisons # multiply by the number of comparisons
+coef(lmod)[pvals_adjusted < alpha]
+```
+
+After correcting for familywise error, we see that only 8 schools have mean mathematical scores that have a statistically significant difference in means from the global mean. And these are those 8 that we'd have expected based on the box plot of Section 2.1. as well.
+
+**Method 2**: divide the desired $\alpha$ by the number of comparisons.
+
+```{r}
+alpha_adj <- alpha / number_comparisons
+coef(lmod)[pvals < alpha_adj]
+```
+
+Great, these are the same schools as before!
+
+And of course, we have a built-in function for this called `p.adjust`. As the name suggests, it corrects the p-values.
+
+```{r}
+padj <- p.adjust(pvals, method = 'bonferroni')
+coef(lmod)[padj < alpha]
+```
+
+Great, same 8 schools as with the solutions earlier! So, the rest of the schools that initially showed a significantly different mean math score from the rest at $\alpha=5\%$ were just familywise errors caused by the $c=50$ comparisons made during the partial t-test of the dummy variables in the regression model.
+
+So, this Bonferroni correction can nicely "kill" those p-values that are in the range of common significance levels of $1\%-10\%$ (where it's best to make no decision about $H_0$ according to <a href="Chapter05.html" target="_blank">Section 1 of Chapter 5</a>) if they are just a product of familywise error and $H_0$ actually couldn't be rejected in those cases at the selected $\alpha=5\%$ levels.<br>
+Finally, here's a meme to remember all that. :)
+
+<center>
+![](bonferroni_meme.png){width=35%}
+</center>
