@@ -35,6 +35,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 7 - <a href="Chapter07.html" target="_blank">Multiple Linear Regression and Confounding</a>
 
-## Chapter 8 - <a href="Chapter07.html" target="_blank">Designing Experiments and Correction For Multiple Comparisons</a>
+## Chapter 8 - <a href="Chapter08.html" target="_blank">Designing Experiments and Correction For Multiple Comparisons</a>
 
 ## Chapter 9 - Generalized Linear Models

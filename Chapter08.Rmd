@@ -36,44 +36,45 @@ Confusing correlation with causation is a famously good way of selling newspaper
 
 ### 1.1 Confounding: some simulated examples
 
-To appreciate the effect of correlated predictors on interpretation and attempts at causal inference, it is worth looking at some simulations, where we are in complete control of the correlation structure between variables. The following code simulates two correlated predictor variables, x and h:
+To appreciate the effect of correlated predictors on interpretation and attempts at causal inference, it is worth looking at some simulations, where we are in complete control of the correlation structure between variables. The following code simulates two correlated predictor variables, $x$ and $h$:
 
 ```{r warning=FALSE}
-require(mgcv) ## supplies rmvn
-V <- matrix(c(1,.95,.95,1),2,2) ## cov matrix
-n <- 1000 ## number of data
-set.seed(7) ## just for reproducibility
+require(mgcv) # supplies rmvn
+V <- matrix(c(1,0.95,0.95,1),2,2) # correl matrix
+n <- 1000 # number of data
+
+set.seed(7)
 X <- rmvn(n,rep(0,2),V)
 x <- X[,1];h <- X[,2]
 ```
 
 
-Now consider the case when yi = xi + ei , but we fit the model yi = β0 + β1xi + β2hi + ei
+Now consider the case when $y_i = 1 \times x_i + \epsilon_i$ , but we fit the model $y_i = \beta_0 + \beta_1x_i + \beta_2h_i + \epsilon_i$
 
 ```{r}
-y <- x + rnorm(n)
+y <- 1*x + rnorm(n)
 summary(lm(y ~ x + h))
 summary(lm(y ~ x ))
 ```
 
-Because of the high correlation between x and h it is difficult to distinguish their effects, with the result that when both are included in the model the ‘explanation’ of the response tends to get shared out between them, leading to rather variable estimates of the real effect of x. In contrast when the spurious h term is omitted from the model, the estimate of β1 is much more accurate. Actually, for most replicates of the data simulation, β2 would not have appeared to be significantly different from zero, so we would have been likely to drop the term, and arrive at the correct model using just the inferential tools already developed. 
+Because of the high correlation between $x$ and $h$ it is difficult to distinguish their effects, with the result that when both are included in the model the ‘explanation’ of the response tends to get shared out between them, leading to rather variable estimates of the real effect of $x$. In contrast when the spurious $h$ term is omitted from the model, the estimate of $\beta_1$ is much more accurate. Actually, for most replicates of the data simulation, $\beta_2$ would not have appeared to be significantly different from zero, so we would have been likely to drop the term, and arrive at the correct model using just the inferential tools already developed. 
 
-However, it is worth also looking at what would have happened if we had only observe h but not x:
+However, it is worth also looking at what would have happened if we had only observe $h$ but not $x$:
 
 ```{r}
 summary(lm(y ~ h))
 ```
 
-The high correlation between h and x means that we find a strongly significant association between h and y, despite the fact that h played no part at all in the simulation of y! In this case x is an example of a hidden confounding variable: it is correlated with both our predictor, h, and our response y, and therefore messes up our inference about the true causal influence of h on y (which is zero in this case).
+The high correlation between $h$ and $x$ means that we find a strongly significant association between $h$ and $y$, despite the fact that $h$ played no part at all in the simulation of $y$! In this case $x$ is an example of a hidden confounding variable: it is correlated with both our predictor, $h$, and our response $y$, and therefore messes up our inference about the true causal influence of $h$ on $y$ (which is zero in this case).
 
-Here is a second example of confounding. Now both h and x have a causal effect on y, and if we only observe x, we will overestimate its true effect (overestimate, because the correlation is positive).
+Here is a second example of confounding. Now both $h$ and $x$ have a causal effect on $y$, and if we only observe $x$, we will overestimate its true effect (overestimate, because the correlation is positive).
 
 ```{r}
 y <- x + h + rnorm(n)
 summary(lm(y ~ x ))
 ```
 
-i.e. when h is hidden from us, our estimate of β1 is almost twice as large as it should be in this case.
+i.e. when h is hidden from us, our estimate of $\beta_1$ is almost twice as large as it should be in this case.
 
 Note that this tendency of the model fitting to try and compensate for missing confounding variables, is a profound difficulty for causal inference, but a blessing for prediction. The fact that the model has adjusted for the missing confounders in this way actually improves prediction.
 
@@ -81,65 +82,165 @@ Note that this tendency of the model fitting to try and compensate for missing c
 
 The gold standard for establishing causality is to analyse data from a properly designed experiment, in which we use the process of randomization to break any possible association between unmeasured confounders and the predictor whose effect we want to measure. The idea is basically to turn the systematic variation in the response caused by confounders into something that we can model as independent random variability between experimental units.
 
-An example is the most useful way to convey the idea. Suppose that we want to examine the relationship
-between exercise and fat mass in people aged 40 to 50. There are a huge number of factors contributing to people’s
-fat mass, and if we simply look at a sample of people who already exercise by different amounts it will be very
-difficult to isolate the effect of exercise separate from all the other confounders (diet, working hours, profession,
-whether they have children, drinking habits, smoking, wealth etc.). Suppose instead that we set up a study in
-which participants enrol and are then assigned to one of several ‘treatments’, consisting of exercise programs of
-differing intensity (or a control of none). Now if we assign subjects to the different treatments randomly then there
-can be no possible association between all the other variables contributing to fat mass, and the one that we are
-interested in: amount of exercise. Indeed all the variability in fat mass attributable to the confounders can now be
-treated as random variability within each treatment. Any effect of exercise that we then find is causal: the thing
-we controlled having an effect on the variable we are interested in. Of course this approach does not stop us from
-including measured covariates in the analysis model, in order to reduce the amount of variability being modelled
-as random, and thereby increase precision, but it does mean that we no longer have to worry about the effect of
-hidden confounders.
-.e. when the confounders are independent of the response we get the same estimate of βx whether or not they are
-included in the model (and its expected value is correct). Randomization ensures that this occurs.
+An example is the most useful way to convey the idea. Suppose that we want to examine the relationship between exercise and fat mass in people aged 40 to 50. There are a huge number of factors contributing to people’s fat mass, and if we simply look at a sample of people who already exercise by different amounts it will be very difficult to isolate the effect of exercise separate from all the other confounders (diet, working hours, profession, whether they have children, drinking habits, smoking, wealth etc.). Suppose instead that we set up a study in which participants enroll and are then assigned to one of several ‘treatments’, consisting of exercise programs of differing intensity (or a control of none). Now if we assign subjects to the different treatments randomly then there can be no possible association between all the other variables contributing to fat mass, and the one that we are interested in: amount of exercise. Indeed all the variability in fat mass attributable to the confounders can now be treated as random variability within each treatment. Any effect of exercise that we then find is causal: the thing we controlled having an effect on the variable we are interested in. Of course this approach does not stop us from including measured explanatory variables (in other words: covariates) in the analysis model, in order to reduce the amount of variability being modeled as random, and thereby increase precision, but it does mean that we no longer have to worry about the effect of hidden confounders.
 
 ### 1.3 Instrumental variables
 
-So properly designed controlled experiments with random allocation of experimental units to treatments are the best way of establishing causal effects. However there are many cases in which experimental manipulation is impractical, unethical and/or illegal. For example, if we are interested in establishing the causative effect of alcohol consumption on heart disease, it is simply unethical to conduct a study in which we randomly allocate subjects to a heavy drinking treatment (the same goes for any treatment where we have prior cause to suspect it may be harmful). Economics is another field beset with such problems: for example it is impractical to conduct a controlled experiment to establish the causative factors controlling a company’s share price, and anything that came close would likely count as illegal market manipulation. This sort of problem is so ubiquitous in economics that it is from the field of econometrics that much of the work on causal inference from observational data comes.
+So properly designed controlled experiments with random allocation of experimental units to treatments are the best way of establishing causal effects. However there are many cases in which experimental manipulation is impractical, unethical and/or illegal. For example, if we are interested in establishing the causative effect of alcohol consumption on heart disease, it is simply unethical to conduct a study in which we randomly allocate subjects to a heavy drinking treatment (the same goes for any treatment where we have prior cause to suspect it may be harmful). Economics is another field beset with such problems: for example it is impractical to conduct a controlled experiment to establish the causative factors controlling a company’s share price, and anything that came close would likely count as illegal market manipulation. This sort of problem is so ubiquitous in economics that it is from the field of *econometrics* that much of the work on causal inference from observational data comes.
 
-In this section we will look at one method: instrumental variables. The approach can be applied more widely
-than just to linear models, but the ideas are easiest to grasp in the linear model context. Let’s again use the setup
-in which X is the model matrix for the observed effects, H is the (column centred) model matrix for the hidden
-confounders and the response data are generated by,
+In this section we will look at one method: **instrumental variables**. The approach can be applied more widely than just to linear regession models, but the ideas are easiest to grasp in the linear model context. Let’s again use the setup in which $x$ is the observed true expanatory variable of $y$, and $h$ is the hidden confounder that is not observed and the response data are generated by, $$y_i = \beta_xx_i + \beta_hh_i + \epsilon_i.$$
 
-y = Xβx + Hβh + e.
+Since we don’t have access to $h$ we fit $y_i = \beta_xx_i + e_i$, and therein lies the problem, since in reality $e_i = \beta_hh_i + \epsilon_i$, which is unlikely to meet the Gauss-Markov assumptions of exogenous error (residual) term (see <a href="Chapter07.html" target="_blank">Section 6 of Chapter 7</a>).
 
-Since we don’t have access to H we fit y = Xβx + e, and therein lies the problem, since in reality e = Hβh + eps, which is unlikely to meet the linear model assumptions about the residual vector.
+Now the problem here is that $x$ is correlated with $e$, because of the interdependence of $x$ and $h$. This would not be a problem if we could somehow transform $x$ such that it is independent of $e$. Suppose then, that we have available **an instrumental variable $z$, where $z$ is NOT part of the true model for $y$, but is correlated with $x$ and is INDEPENDENT of $h$ (and hence $e$)**.
 
-Now the problem here is that the space spanned by X is not orthogonal to e, because of the interdependence of X and H. This would not be a problem if we could somehow orthogonalize X and e, for example by projecting X onto a space that is orthogonal to e. Suppose then, that we have available some instrumental variables giving rise to a (column centred) model
-matrix Z, where Z is not part of the true model for y, but is correlated with X and is independent of H (and hence
-e). We’ll assume that Z has at least as high a rank as X, and w.l.o.g. its columns are centred to have zero mean. We could then project X onto the column space of Z. That is replace X with AzX where Az = Z(ZTZ)−1ZT, and regress y on AzX. In that case
-
-Here is a simulated illustration. First simulate observed x, confounder h and instrument z, by simulating multivariate random variables with appropriate correlation structure, using x and h to simulate response y.
+Here is a simulated illustration. First simulate observed $x$, confounder $h$ and instrument $z$, by simulating multivariate random variables with appropriate correlation structure, using $x$ and $h$ to simulate response $y$.
 
 ```{r}
 V <- matrix(c(1,.7,0.9,.7,1,0,.9,0,1),3,3)
-library(mgcv); n <- 1000; set.seed(0)
+n <- 1000
+
+set.seed(0)
 X <- rmvn(n,rep(0,3),V)
-x <- X[,1]; h <- X[,2]; z <- X[,3]
-y <- x + h + rnorm(n)*.3
+x <- X[,1]
+h <- X[,2]
+z <- X[,3]
+
+y <- x + h + rnorm(n, mean = 0, sd = 0.3)
 ```
 
 Now fit the model naively, and then again using the instrumental variable.
 
 ```{r}
-summary(lm(y ~ x)) ## naive fit
-zx <- fitted(lm(x~z-1)) ## project x onto z
-summary(lm(y ~ zx)) ## fit iv model
+summary(lm(y ~ x)) # naive fit
+x_from_z <- fitted(lm(x~z-1)) # project x onto z
+summary(lm(y ~ x_from_z)) # fit instrumental variable (IV) model
 ```
 
-Clearly the IV model gives an estimate that is much closer to correct. The price paid is precision: the standard error is substantially larger than we would get if h had been available for inclusion in the model (and that is without correcting for the uncertainty in the regression of x on z). This approach is not the only way of using instrumental variables, and their use is not restricted to linear models, but this method is sufficient for introducing the idea. The success of such methods rests on being able to find good instrumental variables, which are independent of the potential confounders, but strongly correlated with the observed variables (weak correlation will inflate the standard errors of the estimates). 
+Clearly the instrumental variable (IV) model gives an estimate that is much closer to correct. The price paid is precision: the standard error is substantially larger than we would get if $h$ had been available for inclusion in the model (and that is without correcting for the uncertainty in the regression of $x$ on $z$). This approach is not the only way of using instrumental variables, and their use is not restricted to linear models, but this method is sufficient for introducing the idea. The success of such methods rests on being able to find good instrumental variables, which are independent of the potential confounders, but strongly correlated with the observed variables. Also, weak correlation will inflate the standard errors of the estimates, hence the name *weak instrument*.
 
-Another way of stating this is that the instrumental variables must be correlated with the response variable only via the instrument’s correlation with the observed predictor variables. Finding such variables is obviously not easy, and one might question how often such a magical combination of correlation with X but independence of H can really apply, and be knowable when the confounders are not.
+Another way of stating this is that the instrumental variables must be correlated with the response variable only via the instrument’s correlation with the observed predictor variables. Finding such variables is obviously not easy, and one might question how often such a magical combination of correlation with $x$ but independence of $h$ can really apply, and be knowable when the confounders are not.
 
-However the technique of ‘Mendelian randomization’, provides an application of instrumental variable use that does seem to be practical. Take the example of alcohol and heart disease. There are genetic polymorphisms that predict the propensity to consume alcohol, but are completely unrelated to any other plausible predictors of heart disease. Hence a subject’s genotype (with respect to this polymorphism) can be used as an instrumental variable. The method is called ‘Mendelian randomization’ after the genetic pioneer Gregor Mendel, and the fact that the genotype is assigned randomly by meiosis when passed from parents to offspring, thereby avoiding correlation with things that it does not actually cause.<br>
+However the technique of ‘*Mendelian randomization*’, provides an application of instrumental variable use that does seem to be practical. Take the example of alcohol and heart disease. There are genetic polymorphisms that predict the propensity to consume alcohol, but are completely unrelated to any other plausible predictors of heart disease. Hence a subject’s genotype (with respect to this polymorphism) can be used as an instrumental variable. The method is called ‘Mendelian randomization’ after the genetic pioneer Gregor Mendel, and the fact that the genotype is assigned randomly by meiosis when passed from parents to offspring, thereby avoiding correlation with things that it does not actually cause.<br>
 ‘Mendelian randomization’ is important in epidemiology when trying to uncover health effects of environmental exposures that can not (ethically) be manipulated experimentally, however finding appropriate polymorphisms and establishing that they are uncorrelated with any unobserved confounders is obviously challenging.
 
 ## 2. Correction For Multiple Comparisons
 
-TODO
+**Even** if we manage to **randomly assign observations into treated and control groups**, we can have **problems** in applying the "usual" statistical tests and methods we've covered in previous chapters **if the predictor whose effect we want to measure is a nominal variable with multiple categories (groups)**.
+
+We've discussed already in <a href="Chapter05.html" target="_blank">Section 6.3. of Chapter 5</a> regarding the ANOVA test for comparing several group means that **as more statistical analyses are applied to the same data sample, the Type I error rate** (rate of erroneously rejecting the null hypothesis) **increases**. In this context, **an ANOVA test for comparing $g$ group means can be considered as applying the two-sample t-test $g$ times on our numerical variable of interest**.
+
+Specifically, we need to introduce the concept of the **familywise error rate**, which is the probability of **making at least one Type I error**.
+
+The relationship between this familywise ($FW$) error rate and the number of statistical analyses performed on a data set is given by: $$\alpha_{FW} = 1-(1-\alpha_{\text{accepted}})^c$$
+
+Where $c$ is the number of statistical tests/comparisons and $\alpha_{\text{accepted}}$ the accepted Type I error rate set by us before the data analysis is performed (e.g. $\alpha_{\text{accepted}} = 0.05$). The logic of this formula is that the probability of NOT making a Type I error in any of the $c$ tests at significance level of $\alpha_{\text{accepted}}$ is $(1-\alpha_{\text{accepted}})^c$. Therefore, the probability of making at least one Type I error across all tests (the familywise ($FW$) error rate) is $1-(1-\alpha_{\text{accepted}})^c$.
+
+Let’s visualize this relationship for $\alpha=1\%$ and $\alpha=5\%$ with $c=1,2,...,10$ comparisons made during the applied statistical test.
+
+```{r warning=FALSE}
+c <- seq(1,10)
+p_05 <- 1 - (1 - 0.05)^c
+p_01 <- 1 - (1 - 0.01)^c
+error_rates <- data.frame('c' = rep(c,2),
+                          'alpha' =rep(c('a0.05','a0.01'), each=10),
+                          'value'=c(p_05,p_01))
+
+library(ggplot2)
+ggplot(error_rates, aes(x = c, y = value, color = alpha)) +
+  geom_line() +
+  theme_classic() +
+  ggtitle('Familywise Error Rates')
+```
+
+As we can see, the error rate increases with each additional statistical test performed on a sample of data. If $c=5$ statistical tests are performed on the same sample of data and an $\alpha=0.05$ is preferred for evaluating a null hypothesis, then, this would be equivalent to a Type I error rate of $\sim 0.226$. Meaning that the chances of erroneously rejecting the null hypothesis at least once during the multiple statistical analyses performed on the same data set is $\sim 22.6\%$.
+
+See a simulated practical example with $n=30$ where we increase the number of one-sample t-test applied on a $N(0,1)$ distribution with a true $H_0$ of $\mu_0=0$ from $c=1$ to $c=50$.
+
+```{r}
+num_sim <- 1000
+sample_size <- 30
+alpha <- 0.05
+max_tests <- 10
+
+fwer <- rep(NA,max_tests)
+
+for (c in 1:max_tests) {
+
+  # For each simulation, run c tests and check if any p < alpha
+  false_positives <- replicate(num_sim, {
+    
+    # Generate c independent p-values under the true null
+    pvals <- replicate(c, {
+      data <- rnorm(sample_size, mean = 0, sd = 1)
+      t.test(data, mu = 0)$p.value
+    })
+    
+    # Return TRUE if this simulation contained at least one false rejection
+    any(pvals < alpha)
+  })
+  
+  # Estimate familywise error rate
+  fwer[c] <- mean(false_positives)
+}
+
+# Plot
+plot(1:max_tests, fwer, type="b", pch=19,
+     xlab="Number of Statistical Tests",
+     ylab="Familywise Type I Error Rate",
+     main="Inflation of Type I Error with Multiple Testing")
+abline(h = alpha, col="red", lty=2)
+lines(1:max_tests, 1 - (1 - alpha)^(1:max_tests), col="blue", lwd=2)
+legend("bottomright",
+       legend = c("Simulated FWER", "Theoretical FWER", "Alpha = 0.05"),
+       col = c("black", "blue", "red"),
+       pch = c(19, NA, NA),
+       lty = c(1,1,2),
+       lwd = c(1,2,1))
+```
+
+The behavior is as expected: As expected:
+
+- For 1 test → FWER ≈ 0.05
+- For 5 tests → FWER ≈ 0.23
+- For 10 tests → FWER ≈ 0.40
+
+And the familywise error rates approaches 1 as the number of tests grows.
+
+### 2.1. A Practical Example - Math Scores of 50 Schools
+
+Let's use a built-in dataset from the `faraway` (so let's install the package if it's not yet installed) called `jsp` (Junior School Project). It shows among other variables the Math and English test scores of $n=3236$ students collected from primary schools in inner London.
+
+```{r eval=FALSE}
+install.packages("faraway")
+data(jsp, package = 'faraway')
+str(jsp)
+```
+```{r echo=FALSE}
+data(jsp, package = 'faraway')
+head(jsp)
+```
+
+Let's examine how the school affects the Math scores. First, let's center the Math scores to have a global mean of $0$ in the observed data and then see the Math scores distribution among the $50$ different schools.
+
+```{r}
+jsp$mathcentered <- jsp$math - mean(jsp$math) #0-centered math scores
+
+#visualize the math scores
+ggplot( jsp, aes( x = school, y = mathcentered ) ) +
+  geom_boxplot() +
+  ylab( 'Centered Math Scores' ) +
+  theme( axis.text.x = element_text( angle = 90 ) ) +
+  ggtitle( 'Mathematics Test Scores for London Junior Schools' )
+```
+
+Based on the we can see that most schools have an equal typical middle 50% and median score. Only a few schools have a lower box than the others, like schools 1, 28, 40 or 50.
+
+Now, let's run a simple linear regression on the Math Scores with the school id being the only predictor variable represented by $49$ dummy variables. See how many schools have significantly different mean scores than the global mean. We do not fit an intercept (hence the `-1` at the end of the formula in `lm`), so there is no need to omit 1 dummy as a reference category.
+
+```{r}
+lmod <- lm(mathcentered ~ school - 1, data=jsp)
+summary(lmod)
+```
+
+Whoah! Lots of schools show significantly different means at $\alpha=5\%$ from the global mean of $0$. Even ones like we did not expect based on the box plot. E.g. School 4, 34, or 9.
