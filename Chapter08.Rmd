@@ -214,7 +214,7 @@ Let's use a built-in dataset from the `faraway` (so let's install the package if
 ```{r eval=FALSE}
 install.packages("faraway")
 data(jsp, package = 'faraway')
-str(jsp)
+head(jsp)
 ```
 ```{r echo=FALSE}
 data(jsp, package = 'faraway')
