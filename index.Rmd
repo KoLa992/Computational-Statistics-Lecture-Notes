@@ -37,4 +37,4 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 8 - <a href="Chapter08.html" target="_blank">Designing Experiments and Correction For Multiple Comparisons</a>
 
-## Chapter 9 - Generalized Linear Models
+## Chapter 9 - <a href="Chapter09.html" target="_blank">Generalized Linear Models</a>
