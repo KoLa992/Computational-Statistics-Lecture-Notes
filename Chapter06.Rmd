@@ -281,9 +281,79 @@ So, Bootstrap estimation is quite powerful. For example, it **allows interval es
 ![](BootstrapMeme.png){width=35%}
 </center>
 
-## 4. Parametric Bootstrap
+## 4. Bootstrap for Regression Models
 
-Now, the version of the Bootstrap method **covered in Sections 1-3** is called the **Nonparametric Bootstrap**, where random sub-samples of the same size as the original data are taken from the data with replacement.
+In case of a multiple regression model $y_i=\beta_0+\beta_1x_{1i}+...+\beta_kx_{ki}+\epsilon_i$, **if** our $\beta_j$ regression **coefficient estimates are not maximum likelihood estimates and the Gauss-Markov assumptions don't hold**, then the coefficient standard errors, p-values and confidence intervals are becoming invalid and not to be used to make any inference about the significance of explanatory variable effects on the target.<br>
+In order **to save at least our confidence intervals** for the $\beta_j$ coefficients in an unfortunate case like this, we can **apply Bootstrap** simulations.
+
+As a practical example, let's return to the COVID-19 mortality data one last time from <a href="Prelude04.html" target="_blank">Prelude 4</a>.
+
+The data file used was <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/COVID_Deaths_Hungary.csv" target="_blank">COVID_Deaths_Hungary.csv</a> that stores data on 5 variables (columns) for 102 Hungarian districts (those where hospitals had average or below-average capacity utilization in 2019 according to [NEAK data](http://www.neak.gov.hu/data/cms1026624/Korhazi_agyszamkimutatas_2019.pdf)):
+
+- **District**: Name of the district
+- **DeathsCOVID**: COVID-19 mortality rate: the ratio of deaths to infected persons (%) as of 2021-03-04. Source: [atlatszo.hu](https://bit.ly/COVID-adatok)
+- **Nurses**: Number of general practice nurses per 10000 inhabitants (2019) Source: HCSO
+- **Unemp**: Number of registered unemployed persons per 10000 inhabitants (2019) Source: HCSO
+- **WomenOlder65**: Percentage of women aged 65 and older within the residential population (2019) Source: HCSO
+
+Let's read the file! Luckily, it is a well-behaved *csv* file, and can be read simply with the `read.csv` function:
+
+```{r}
+COVID <- read.csv("COVID_Deaths_Hungary.csv")
+str(COVID)
+```
+
+Great, we still know how to read *csv* files, so congrats to ourselves! :)
+
+After we are done with celebrations, let's rerun the multiple regression model that predicts the COVID-19 mortality rate with **Nurses**, **Unemp** and **WomenOlder65** as explanatory (or predictor) variables.
+
+```{r}
+multivar_model <- lm(DeathsCOVID ~ Nurses + Unemp + WomenOlder65, data = COVID)
+summary(multivar_model)
+```
+
+Next, we define the function that returns the coefficients of the bootstrap sub-samples for the multiple regression model defined above.
+
+```{r}
+coef_boot <- function(data, indices) {
+  bootstrap_model <- lm(DeathsCOVID ~ Nurses + Unemp + WomenOlder65, data = data[indices,])
+  return(coef(bootstrap_model))
+}
+```
+
+Apply the function with the `boot` package to get the 10000 replicated IID bootstrap sub-samples.
+
+```{r}
+library(boot)
+boot_regression <- boot(COVID, coef_boot, R=10000)
+boot_regression
+```
+
+And let's have the $97\%$ level confidence intervals via the percentiles of the simulated coefficients.
+
+```{r}
+boot_ci <- lapply(1:length(multivar_model$coefficients),
+                  function(x) boot.ci(boot_regression,
+                                      conf = 0.97, type = "perc", index = x)$percent[4:5])
+names(boot_ci) <- names(multivar_model$coefficients)
+boot_ci
+```
+
+The results are roughly the same as the OLS (and MLE, see <a href="Chapter04.html" target="_blank">Section 8.1 of Chapter 4</a>) $97\%$ confidence intervals.
+
+```{r}
+confint(multivar_model, level = 0.97)
+```
+
+This suggests that the model assumptions (Gauss-Markov or normality of $Y$) are probably met. Based on the histogram of the COVID mortality rate, the normal distribution of this target variable seems acceptable, the right tail is very moderate. So, the results obtained via maximum likelihood using normal density are rather correct, that's why the simulated bootstrap confidence intervals are close to the ones expressed with OLS and maximum likelihood formulas.
+
+```{r}
+hist(COVID$DeathsCOVID)
+```
+
+## 5. Parametric Bootstrap
+
+Now, the version of the Bootstrap method **covered in Sections 1-4** is called the **Nonparametric Bootstrap**, where random sub-samples of the same size as the original data are taken from the data with replacement.
 
 This nonparametric approach **can be problematic is small sample sizes with statistical parameters that are more complicated to calculate than a simple mean**. The reason for that is for small sample sizes the bootstrap sub-samples are as small in size as the original sample data, so the **random variability among the sub-samples**, that represents the sampling error, **won't be as large as it should be**, since there is no room for it due to the small sizes. And this causes an **underestimation of the standard error** as the standard deviation among the bootstrap estimates of the parameter in question won't be as large. This is because the bootstrap sub-samples with small sizes look very similar to each other as there is not enough room for the sampling with replacement to truly create random variation (i.e. the sampling error) among them. So, the bootstrap estimates of the parameter in question (the value of the parameter calculated from the bootstrap sub-samples) will look very similar to each other, hence their small standard deviation, which is an underestimation of the standard error.<br>
 This **underestimation of standard error can be mitigated if the parameter in question is not robust to outliers like the mean**. As in these kind of statistical parameters the value can change substantially if only one observation in the sub-sample changes, so this can compensate for the bootstrap estimates being too similar in small sample sizes, as we do not need to change so much in each bootstrap sub-sample for the estimate of the parameter from it to change. So, **for the mean the nonparametric bootstrap can work rather nicely in small samples as well, but things become problematic for robust statistical measures like quantiles** for example.
@@ -332,7 +402,7 @@ To apply parametric bootstrapping, we need to **assume a theoretical distributio
 c(mean(villas$DamageNumber), sd(villas$DamageNumber)^2)
 ```
 
-Since variance is way larger than the mean, the **negative binomial distribution seems like a good assumption**. As a reminder see <a href="Chapter01.html" target="_blank">Section 5.4 of Chapter 1</a> as a reminder.
+Since variance is way larger than the mean, the **negative binomial distribution seems like a good assumption**. As a reminder see <a href="Chapter01.html" target="_blank">Section 5.4 of Chapter 1</a>.
 
 Negative Binomial distribution has 2 parameters to estimate from the data, $r$ and $p$. These are called in R as `size` and `prob`. Using that we can do the maximum likelihood estimation for $r,p$ in R just like we did in <a href="Chapter03.html" target="_blank">Section 4 of Chapter 3</a>.
 
@@ -373,7 +443,7 @@ Great, we have that the $97\%$ confidence interval for this P99 is between $0$ a
 ![](gta_hatvanpuszta.jpg){width=25%}
 </center>
 
-## 5. The Jackknife Method
+## 6. The Jackknife Method
 
 Okay, so at this point we have a solution to handle Bootstrap even in the small sample size cases as well by assuming the population distribution of the observed data. What else is left to do?<br>
 Well, the **issue with Bootstrap confidence intervals that they are computationally expensive**. To get accurate estimates, you often need tens of thousands of bootstrap sub-samples and You need to calculate your statistical parameters on every sub-sample. This can be computationally expensive, especially **when working with large data sets and with parameters that are complicated to calculate** (e.g. coefficients of a multivariate regression model that we'll soon see in <a href="Chapter07.html" target="_blank">Chapter 7</a>). Think about it, running a complex calculation on large data that takes 2 seconds on 10000 bootstrap sub-samples will take 20000 seconds that is more than 5 and a half hours! Parallel processing on expensive CPUs can help reduce this to 1-2 hours but that is still a lot! So, if your computer’s fan starts sounding like a jet engine, you might be pushing the bootstrap too hard!

@@ -21,6 +21,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Prelude 3 - <a href="Prelude03.html" target="_blank">The `tidyverse` in R and Further Descriptive Statistics</a>
 
+## Prelude 4 - <a href="Prelude04.html" target="_blank">Multiple Linear Regression and Confounding</a>
+
 ## Chapter 1 - <a href="Chapter01.html" target="_blank">Probability Distributions and Method of Moments</a>
 
 ## Chapter 2 - <a href="Chapter02.html" target="_blank">Simulations and Sampling</a>
@@ -29,12 +31,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 4 - <a href="Chapter04.html" target="_blank">Properties of Estimators and Confidence Intervals</a>
 
-## Chapter 5 - <a href="Chapter05.html" target="_blank">Basic Concepts of Hypothesis Testing</a>
+## Chapter 5 - <a href="Chapter05.html" target="_blank">Fundamentals of Hypothesis Testing and Multiple Comparisons</a>
 
 ## Chapter 6 - <a href="Chapter06.html" target="_blank">Confidence Intervals with Bootstrap and Jackknife</a>
 
-## Chapter 7 - <a href="Chapter07.html" target="_blank">Multiple Linear Regression and Confounding</a>
+## Chapter 7 - <a href="Chapter07.html" target="_blank">Designing Experiments and Instrumental Variables</a>
 
-## Chapter 8 - <a href="Chapter08.html" target="_blank">Designing Experiments and Correction For Multiple Comparisons</a>
+## Chapter 8 - <a href="Chapter08.html" target="_blank">Generalized Linear Models</a>
 
-## Chapter 9 - <a href="Chapter09.html" target="_blank">Generalized Linear Models</a>
+## Chapter 9 - Maximum Likelihood Estimaton of Differential Equations

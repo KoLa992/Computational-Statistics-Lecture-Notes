@@ -1,5 +1,5 @@
 ---
-title: "Basic Concepts of Hypothesis Testing"
+title: "Fundamentals of Hypothesis Testing and Multiple Comparisons"
 author: "László Kovács"
 date: "`r Sys.Date()`"
 output:
@@ -640,6 +640,101 @@ This lemma states that **for a given significance level**, the likelihood ratio 
 
 So, if You have several tests to calculate p-value for a specific $H_0$ + $H_1$ pair, always use the one that was constructed using LR principles as that will produce the lowest probability for Type II error with a fixed $\alpha$.
 
+### 5.4. GLRTs in Multiple Regression
+
+Now, I think it comes as no surprise that these nice **GLRTs can also apply in multiple regression models** as well. So, let's circle back again to the multivariate regression model we estimated by classic OLS in <a href="Prelude04.html" target="_blank">Section 2 of Prelude 4</a>.
+
+The data file used was <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/COVID_Deaths_Hungary.csv" target="_blank">COVID_Deaths_Hungary.csv</a> that stores data on 5 variables (columns) for 102 Hungarian districts (those where hospitals had average or below-average capacity utilization in 2019 according to [NEAK data](http://www.neak.gov.hu/data/cms1026624/Korhazi_agyszamkimutatas_2019.pdf)):
+
+- **District**: Name of the district
+- **DeathsCOVID**: COVID-19 mortality rate: the ratio of deaths to infected persons (%) as of 2021-03-04. Source: [atlatszo.hu](https://bit.ly/COVID-adatok)
+- **Nurses**: Number of general practice nurses per 10000 inhabitants (2019) Source: HCSO
+- **Unemp**: Number of registered unemployed persons per 10000 inhabitants (2019) Source: HCSO
+- **WomenOlder65**: Percentage of women aged 65 and older within the residential population (2019) Source: HCSO
+
+Let's read the file! Luckily, it is a well-behaved *csv* file, and can be read simply with the `read.csv` function:
+
+```{r}
+COVID <- read.csv("COVID_Deaths_Hungary.csv")
+str(COVID)
+```
+
+Great, we still know how to read *csv* files, so congrats to ourselves! :)
+
+After we are done with celebrations, let's rerun the multiple regression model that predicts the COVID-19 mortality rate with **Nurses**, **Unemp** and **WomenOlder65** as explanatory (or predictor) variables.
+
+```{r}
+multivar_model <- lm(DeathsCOVID ~ Nurses + Unemp + WomenOlder65, data = COVID)
+summary(multivar_model)
+```
+
+Now, let's also **reproduce the maximum likelihood estimators** of the coefficients and the residual standard deviation **under normality assumption on the residual term** as seen in <a href="Chapter04.html" target="_blank">Section 8 of Chapter 4</a>!
+
+```{r}
+# define the negative log-likelihood of the regression model
+neg_ll_regression <- function(theta_regression){
+  y_hats <- theta_regression[1] + theta_regression[2] * COVID$Nurses + theta_regression[3] * COVID$Unemp +
+    theta_regression[4] * COVID$WomenOlder65
+  return(-sum(log(dnorm(x = COVID$DeathsCOVID,
+                        mean = y_hats,
+                        sd = theta_regression[5]))))
+}
+
+# do the maximum likelihood with optim
+reg_ml <- optim(c(-0.1,0.02,0.001,0.2,0.9), neg_ll_regression, hessian = TRUE)
+
+# get the variance-covariance matrix of the coefficients
+varcov_reg <- solve(reg_ml$hessian[1:4,1:4])
+
+# get the standard errors of the coefficient estimates
+se_betas <- sqrt(diag(varcov_reg))
+se_betas
+```
+
+With these nice standard errors, we can construct our own coefficient table that is provided by `summary` for the results of the `lm` function. It's just that we now build on the large sample size properties of maximum likelihood estimators, so we use standard normal distribution ($N(0,1)$) instead of a $t(n-p)$ distribution when calculating p-values for the $H_0: \beta_j = 0$ hypotheses. As with large degrees of freedom the two distributions are the same.
+
+```{r}
+coef_table <- data.frame(coef=reg_ml$par[1:4],
+                         se = se_betas)
+rownames(coef_table) <- c("Intercept", "Nurses", "Unemp", "WomenOlder65")
+coef_table$z_value <- coef_table$coef/coef_table$se
+coef_table$p_value <- round(2*pnorm(-abs(coef_table$z_value)),5)
+coef_table
+```
+
+Great! Again, roughly the same as the OLS results as with confidence intervals in <a href="Chapter04.html" target="_blank">Section 8.1 of Chapter 4</a>.
+
+```{r}
+summary(multivar_model)
+```
+
+We can even reproduce the $F$-test using the **log-likelihood of the null model**: the regression that does not have any explanatory variables, and just tries to estimate the expected value of $Y$ only with the intercept term $\beta_0$. So we have that $Y \sim N(\beta_0,\sigma)$. At this point we can just say that let's denote $\beta_0$ as $\mu$, and we are back at the original maximum likelihood estimation of the two parameters of a normal distribution covered in <a href="Chapter03.html" target="_blank">Section 3 of Chapter 3</a>. And from that chapter we know that the maximum likelihood estimator for $\mu$ is the sample mean and for $\sigma$, it is the uncorrected standard deviation.
+
+```{r}
+ll_null <- sum(log(dnorm(x = COVID$DeathsCOVID,
+                         mean = mean(COVID$DeathsCOVID),
+                         sd = sqrt(mean((COVID$DeathsCOVID - mean(COVID$DeathsCOVID))^2)))))
+```
+
+
+And we can **test the $H_0$ that this null model is NOT significantly different from our current regression model via a Generalized Likelihood Ratio Test (GLRT)**
+
+The **log-likelihood of the current model** for the $\chi^2$ test statistic is simply just $-1$ times the optimized negative log-likelihood.
+
+```{r}
+ll_model <- -reg_ml$value
+test_stat_LR <- -2*(ll_null-ll_model)
+test_stat_LR
+```
+
+With these, we can get the p-value from a $\chi^2(3)$ distribution as the number of restrictions the simpler null model makes is $r=3$. The null model assumes that all the explanatory variables in our current model are $0$ in the true unobserved population of Hungarian districts: $H_0:\beta_1=\beta_2=\beta_3=0$.
+
+```{r}
+1 - pchisq(test_stat_LR, df = 3)
+```
+
+The p-value is smaller than every common significance levels (even than the smallest $1\%$), so we can confidently reject $H_0$ ans say that **we have at least 1 $\beta_j$ in our model that is significantly NOT $0$ in the unobserved population of Hungarian districts**.
+
 ## 6. Other Important Parametric Tests
 
 The hypothesis tests we have learned **so far** (t-test and GLRTs) were so-called **one-sample hypothesis tests**. This meant that we examined the relationship of a single statistical parameter (a single mean, a single proportion, or a single standard deviation) compared to some theoretical value. Based on this, we formulated our assumptions, i.e., our hypotheses.
@@ -1240,3 +1335,181 @@ ks.test(BMI~Sex, data = ess_small)
 In our case, the p-value is $1.101e-10$, which is smaller than even the lowest typical significance level of $1\%$.
 So **in the population** (i.e., outside of our sample), **the BMI distribution of males and females can be considered DIFFERENT**.<br>
 This comes as no surprise, since we rejected this same $H_0$ with the $\chi^2$ test too. And **even in this two-sample case, the KS test has the same drawback compared to the $\chi^2$ test as it had in the one-sample (or goodness-of-fit) case**. Namely, **the Kolmogorov-Smirnov test is even more in favor of $H_1$ than the $\chi^2$ test**. In the $\chi^2$ test, we examine the differences of the two groups' distribution in more then one points, in $k$ points to be exact. However, the KS test examines this difference in one point alone, where the two groups' distribution shows the largest amount of difference. So, there is not even a minimal level of control on the other parts of the distribution that we have in the  $\chi^2$ test. This causes **more Type I errors in the KS test**, especially in large sample sizes. So, I **advise using $\chi^2$ test even for continuous distributions in this case as well for the same reasons described in Section 7.2**.
+
+## 8. Correction For Multiple Comparisons
+
+The sad truth of statistical hypothesis testing that **even if we have** truly **random observed samples**, we can have **problems** in applying the "usual" statistical tests and methods we've covered in these previous sections **if the hypothesis is about deciding if a predictor variable has a significant effect on a target variable and this predictor is a nominal variable with multiple categories (groups)**.
+
+We've discussed this issue already in Section 6.3, regarding the ANOVA test for comparing several group means that **as more statistical analyses are applied to the same observed sample, the Type I error rate** (rate of erroneously rejecting the null hypothesis) **increases**. In this context, **an ANOVA test for comparing $g$ group means can be considered as applying the two-sample t-test $g$ times on our numerical variable of interest**.
+
+Specifically, we need to introduce the concept of the **familywise error rate**, which is the probability of **making at least one Type I error**.
+
+The relationship between this familywise ($FW$) error rate and the number of statistical analyses performed on a data set is given by: $$\alpha_{FW} = 1-(1-\alpha_{\text{accepted}})^c$$
+
+Where $c$ is the number of statistical tests/comparisons and $\alpha_{\text{accepted}}$ the accepted Type I error rate set by us before the data analysis is performed (e.g. $\alpha_{\text{accepted}} = 0.05$). The logic of this formula is that the probability of NOT making a Type I error in any of the $c$ tests at significance level of $\alpha_{\text{accepted}}$ is $(1-\alpha_{\text{accepted}})^c$. Therefore, the probability of making at least one Type I error across all tests (the familywise ($FW$) error rate) is $1-(1-\alpha_{\text{accepted}})^c$.
+
+Let’s visualize this relationship for $\alpha=1\%$ and $\alpha=5\%$ with $c=1,2,...,10$ comparisons made during the applied statistical test.
+
+```{r warning=FALSE}
+c <- seq(1,10)
+p_05 <- 1 - (1 - 0.05)^c
+p_01 <- 1 - (1 - 0.01)^c
+error_rates <- data.frame('c' = rep(c,2),
+                          'alpha' =rep(c('a0.05','a0.01'), each=10),
+                          'value'=c(p_05,p_01))
+
+library(ggplot2)
+ggplot(error_rates, aes(x = c, y = value, color = alpha)) +
+  geom_line() +
+  theme_classic() +
+  ggtitle('Familywise Error Rates')
+```
+
+As we can see, the error rate increases with each additional statistical test performed on a sample of data. If $c=5$ statistical tests are performed on the same sample of data and an $\alpha=0.05$ is preferred for evaluating a null hypothesis, then, this would be equivalent to a Type I error rate of $\sim 0.226$. Meaning that the chances of erroneously rejecting the null hypothesis at least once during the multiple statistical analyses performed on the same data set is $\sim 22.6\%$.
+
+See a simulated practical example with $n=30$ where we increase the number of one-sample t-test applied on a $N(0,1)$ distribution with a true $H_0$ of $\mu_0=0$ from $c=1$ to $c=50$.
+
+```{r}
+num_sim <- 1000
+sample_size <- 30
+alpha <- 0.05
+max_tests <- 10
+
+fwer <- rep(NA,max_tests)
+
+for (c in 1:max_tests) {
+
+  # For each simulation, run c tests and check if any p < alpha
+  false_positives <- replicate(num_sim, {
+    
+    # Generate c independent p-values under the true null
+    pvals <- replicate(c, {
+      data <- rnorm(sample_size, mean = 0, sd = 1)
+      t.test(data, mu = 0)$p.value
+    })
+    
+    # Return TRUE if this simulation contained at least one false rejection
+    any(pvals < alpha)
+  })
+  
+  # Estimate familywise error rate
+  fwer[c] <- mean(false_positives)
+}
+
+# Plot
+plot(1:max_tests, fwer, type="b", pch=19,
+     xlab="Number of Statistical Tests",
+     ylab="Familywise Type I Error Rate",
+     main="Inflation of Type I Error with Multiple Testing")
+abline(h = alpha, col="red", lty=2)
+lines(1:max_tests, 1 - (1 - alpha)^(1:max_tests), col="blue", lwd=2)
+legend("bottomright",
+       legend = c("Simulated FWER", "Theoretical FWER", "Alpha = 0.05"),
+       col = c("black", "blue", "red"),
+       pch = c(19, NA, NA),
+       lty = c(1,1,2),
+       lwd = c(1,2,1))
+```
+
+The behavior is as expected: As expected:
+
+- For 1 test → FWER ≈ 0.05
+- For 5 tests → FWER ≈ 0.23
+- For 10 tests → FWER ≈ 0.40
+
+And the familywise error rates approaches 1 as the number of tests grows.
+
+### 8.1. A Practical Example - Math Scores of 50 Schools
+
+Let's use a built-in dataset from the `faraway` (so let's install the package if it's not yet installed) called `jsp` (Junior School Project). It shows among other variables the Math and English test scores of $n=3236$ students collected from primary schools in inner London.
+
+```{r eval=FALSE}
+install.packages("faraway")
+data(jsp, package = 'faraway')
+head(jsp)
+```
+```{r echo=FALSE}
+data(jsp, package = 'faraway')
+head(jsp)
+```
+
+Let's examine how the school affects the Math scores. First, let's center the Math scores to have a global mean of $0$ in the observed data and then see the Math scores distribution among the $50$ different schools.
+
+```{r}
+jsp$mathcentered <- jsp$math - mean(jsp$math) #0-centered math scores
+
+#visualize the math scores
+ggplot( jsp, aes( x = school, y = mathcentered ) ) +
+  geom_boxplot() +
+  ylab( 'Centered Math Scores' ) +
+  theme( axis.text.x = element_text( angle = 90 ) ) +
+  ggtitle( 'Mathematics Test Scores for London Junior Schools' )
+```
+
+Based on the we can see that most schools have an equal typical middle 50% and median score. Only a few schools have a lower box than the others, like schools 1, 28, 40 or 50.
+
+Now, let's run a simple linear regression on the Math Scores with the school id being the only predictor variable represented by $49$ dummy variables. See how many schools have significantly different mean scores than the global mean. We do not fit an intercept (hence the `-1` at the end of the formula in `lm`), so there is no need to omit 1 dummy as a reference category.
+
+```{r}
+lmod <- lm(mathcentered ~ school - 1, data=jsp)
+summary(lmod)
+```
+
+Whoah! Lots of schools show significantly different means at $\alpha=5\%$ from the global mean of $0$. Even ones like we did not expect based on the box plot. E.g. School 4, 34, or 9.
+
+So, let's see exactly how many schools we have with p-values < 0.05
+
+```{r}
+pvals <- summary(lmod)$coef[,4]
+coef(lmod)[pvals < 0.05]
+```
+
+Well, 20 out of 50! Yeah, seems a lot based on the box plot. However, from this result above, it seems that there are 20 schools with p-values that suggest we can reject the null hypothesis and feel 95% confident that the mean mathematics score for this school is significantly different from the overall mean. However, we have to account for how many comparisons are being made using the same sample of data. And this is where the **Bonferroni correction** comes into play, as Bonferroni Correction is the process of accounting for familywise error.
+
+Because of the multiple comparisons (exactly $c=50$) made with the math score means among schools, adjustments must be made to either the $\alpha$ level that p-values are evaluated against, or to the p-values themselves.
+
+### 8.2. Bonferroni correction
+
+So, when should Bonferroni Correction be considered?
+
+1. for multiple comparisons problems (comparing multiple means as in ANOVA)
+2. multiple analysis problems (correlation matrices, multiple regression models run on the same target etc)
+
+Now, let's see how this Bonferroni Correction is **calculated**. As mentioned before, we can either correct the significance level $\alpha$ or the p-values themselves.
+
+**Method 1**: multiply the observed p-values by the number of comparisons being made and evaluate which p-values are below the desired  $\alpha$  after this correction.<br>
+Let's see this way of calculation, and then check how many schools have Bonferroni corrected p-values that are statistically significant at $\alpha = 5\%$
+
+```{r}
+alpha <- 0.05
+number_comparisons <- 50 # there are 50 means (1 for each school) that are compared for this ANOVA
+pvals_adjusted <- pvals * number_comparisons # multiply by the number of comparisons
+coef(lmod)[pvals_adjusted < alpha]
+```
+
+After correcting for familywise error, we see that only 8 schools have mean mathematical scores that have a statistically significant difference in means from the global mean. And these are those 8 that we'd have expected based on the box plot of Section 8.1 as well.
+
+**Method 2**: divide the desired $\alpha$ by the number of comparisons.
+
+```{r}
+alpha_adj <- alpha / number_comparisons
+coef(lmod)[pvals < alpha_adj]
+```
+
+Great, these are the same schools as before!
+
+And of course, we have a built-in function for this called `p.adjust`. As the name suggests, it corrects the p-values.
+
+```{r}
+padj <- p.adjust(pvals, method = 'bonferroni')
+coef(lmod)[padj < alpha]
+```
+
+Great, same 8 schools as with the solutions earlier! So, the rest of the schools that initially showed a significantly different mean math score from the rest at $\alpha=5\%$ were just familywise errors caused by the $c=50$ comparisons made during the partial t-test of the dummy variables in the regression model.
+
+So, this Bonferroni correction can nicely "kill" those p-values that are in the range of common significance levels of $1\%-10\%$ (where it's best to make no decision about $H_0$ according to Section 1) if they are just a product of familywise error and $H_0$ actually couldn't be rejected in those cases at the selected $\alpha=5\%$ levels.<br>
+Finally, here's a meme to remember all that. :)
+
+<center>
+![](bonferroni_meme.png){width=35%}
+</center>
