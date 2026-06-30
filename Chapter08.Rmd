@@ -246,7 +246,7 @@ AIC(poi_reg_extended, poi_reg_fun)
 BIC(poi_reg_extended, poi_reg_fun)
 ```
 
-$BIC$ still not satisfied. We can stop as based on variable significances, as we don't have dummies that can be omitted as in each we have at least one category that is significant at $\alpha=1\%$. These are probably significant effects even if we consider Bonferroni corrections () as well since we don't have that many categories even in the vehicle body types to cancel a p-value lower than $0.1\%$.
+$BIC$ still not satisfied. We can stop as based on variable significances, as we don't have dummies that can be omitted as in each dummy, we have at least one category that is significant at $\alpha=1\%$. These are probably significant effects even if we consider Bonferroni corrections (see <a href="Chapter05.html" target="_blank">Section 8 of Chapter 5</a>) as well, since we don't have that many categories even in the vehicle body types to cancel a p-value lower than $0.1\%$.
 
 ```{r}
 summary(poi_reg_extended)

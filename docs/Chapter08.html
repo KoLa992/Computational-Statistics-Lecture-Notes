@@ -3247,10 +3247,11 @@ AIC(poi_reg_extended, poi_reg_fun)</code></pre>
 </div>
 <p><span class="math inline">\(BIC\)</span> still not satisfied. We can
 stop as based on variable significances, as we don’t have dummies that
-can be omitted as in each we have at least one category that is
+can be omitted as in each dummy, we have at least one category that is
 significant at <span class="math inline">\(\alpha=1\%\)</span>. These
 are probably significant effects even if we consider Bonferroni
-corrections () as well since we don’t have that many categories even in
+corrections (see <a href="Chapter05.html" target="_blank">Section 8 of
+Chapter 5</a>) as well, since we don’t have that many categories even in
 the vehicle body types to cancel a p-value lower than <span class="math inline">\(0.1\%\)</span>.</p>
 <pre class="r"><code>summary(poi_reg_extended)</code></pre>
 <pre><code>## 
