@@ -126,7 +126,7 @@ However the technique of ‘*Mendelian randomization*’, provides an applicatio
 
 ## 3. Case Study on Instrumental Variables
 
-Probably on of the most famous application of a valid instrumental variable is a <a href="https://www.nber.org/papers/w4483" target="_blank">study from Card in 1993</a>. Card studied the effect of educational achievement on earnings using a sample of $n=3010$ men from the National Longitudinal Survey of Young Men (NLSYM). So, the question here is the following: **Does an additional year of schooling raise wages, and by how much?**
+Probably on of the most famous application of a valid instrumental variable is a <a href="https://www.nber.org/papers/w4483" target="_blank">study from Card in 1993</a>. Card studied the effect of educational achievement on earnings using a sample of $n=3010$ men from the National Longitudinal Survey of Young Men (NLSYM). So, the question here is the following: **Does an additional year of schooling raise wages, and by how much?** In other words, the study was interested in estimating the **return on education** in nice and fancy *greenbacks* 🤑
 
 This NLSYM dataset is available in R through the `wooldridge` package, so let's install and load it to our R environment.
 
@@ -159,7 +159,7 @@ Excellent work, looks like we have the $n=3010$ men observed in our sample. Now,
   - **reg662–reg669** — region-of-residence dummies (1966) (1= lives in region, 0 = not)
     - **reference** category this way is **reg661**
 
-OLS — naive, biased estimate
+First, we estimate a nice & easy OLS regression. The target variable is the logarithm of the hourly wages, years of education is the main predictor and all other variables (except for `nearc4`) are additional predictors, in other words: *control variables*. We include years of work experience in a squared way to model its expected *parabolic effect*: earnings tend to rise with experience, but at a decreasing rate as workers approach the peak of their careers (after this peak earnings might even decrease in extreme cases), so we should expect a positive coefficient on `exper` and a negative one on `expersq` to express a reversed parabolic function for years of work experience.
 
 ```{r}
 ols <- lm(lwage ~ educ + exper + expersq + black + smsa + south + smsa66 +
@@ -168,21 +168,42 @@ ols <- lm(lwage ~ educ + exper + expersq + black + smsa + south + smsa66 +
 summary(ols)
 ```
 
-Education years is a significant predictor on every common $\alpha$ significance levels. This is a log-linear model, so for coefficient interpretations we need the `exp` function, subtract `1` and multiply by `100` for percentage interpretation.
+Now, from the output, education years is a significant predictor on every common $\alpha$ significance levels. This is a log-linear model, so for coefficient interpretations we need the `exp` function, subtract `1` and multiply by `100` for percentage interpretation.
 
 ```{r}
 round((exp(ols$coefficients)-1) * 100, 2)
 ```
 
-**Return to schooling (OLS)**: $7.76\%$ for each school year added ceteris paribus.
+Now, the estimated coefficient for `educ` is considered as the **Return on education (in the OLS model)**, interpreted as follows: Comparing two men with identical experience, race, region and urban status, one additional year of schooling is associated with, on average, a $7.76\%$ higher hourly wage.
 
-The main issue here is that **individual work ability is a not observed confounder**, making the **OLS** estimates **biased**.
+Scanning down the rest of the coefficient table, `exper` carries a significantly positive coefficient and `expersq` a significantly negative one, confirming the parabolic experience effect described above, while the region and urban-status dummies (`smsa`, `south`, `smsa66`, `reg662`–`reg669`) soak up systematic differences the regional wage differences across local labour markets, and `black` picks up the significant racial wage gap that remains even after conditioning on regions, schooling and experience — a well-documented  fact in American labour economics.
 
-The **instrument**: Card uses **distance from a college** as an instrument for education. The logic is that distance from a college will be correlated with the decision to pursue a college degree (relevance), but may not predict wages apart from the increased education that results (exogeneity).
+This is all nice and well, but the task is not solved yet! The main issue here is that **this model does NOT contain individual work ability as a predictor variable**, but this variable surely influences hourly wages! Of course, employees are more likely to pay more for a more able worker, which makes individual ability an **unobserved confounder**, just like $h$ was in Section 2.
+
+This whole mess makes the **OLS** estimates for years of education **biased** as the Gauss-Markov assumption for exogenous predictor is broken here:
+
+  1. As described before, ability is surely correlated with wages, and since it is not included in the model, its effects are captured in the error term
+  2. People with higher work ability are more likely to be more educated as well (more years of education), so ability surely correlates with our predictor of interest, `educ` as well
+  
+If We put 1+2 together, we immediately see that **`educ` is endogenous predictor as it correlates with the error term** through the unobserved confounder, individual work ability.
+
+This **can cause bias in the** estimated $+7.76\%$ **education effect in two ways**:
+
+  1. **Overestimation**: Employees only pay more for more ability, so education in fact does not matter and only has a near-zero and insignificant direct effect. This $+7.76\%$ effect is just an indirect effect through ability.
+  2. **Underestimation**: Employers with high ability are earning big money with or without education, but education can make even less able people more successful on the job market, so the effect of education is underestimated here as it matters more if You start from the same level of ability.
+  
+As measuring individual ability with an objective statistical variable is <a href="https://www.youtube.com/watch?v=XAYhNHhxN0A" target="_blank">mission impossible</a>, the only way left to include its effects in the model somehow is through some instrumental variable (IV).
+
+The **instrument** the Card-study uses is **distance from a college** as an instrument for education. The logic is that distance from a college will be correlated with the decision to pursue a college degree (relevance), but may not predict wages apart from the increased education that results (exogeneity).
+
+In the notation of Section 2, `nearc4` plays the role of the instrument $z$. For it to be usable, it needs to satisfy the two conditions introduced there:
+
+  1. **Relevance** — $z$ must be correlated with the endogenous regressor $x = educ$. Growing up close to a four-year college plausibly lowers the cost, in money, time and information, of attending, so we would expect `nearc4` to be positively associated with years of schooling completed.
+  2. **Exogeneity (the "exclusion restriction")** — $z$ must be independent of the confounder $h$ (and hence of the model error term, $\epsilon$), i.e. proximity to a college should affect wages **only** through its effect on schooling, and through no other channel. Unlike relevance, this condition cannot be tested directly in the data; it can only be argued for on economic grounds. This is precisely why we also control for region and urban-residence dummies: without them, `nearc4` could simply be proxying for growing up in a more prosperous area with generally better job opportunities, quite apart from any schooling channel — which would violate the exclusion restriction.
 
 ### 3.1. Check Instrument Relevance
 
-First stage (*fs*) of 2SLS, educ ~ nearc4 + controls
+The 1st requirement from an IV $z$ is that must be correlated with the endogenous regressor $x = educ$. We can see that easily by running a so called, first stage (*fs*) regression (reflecting the logic of 2SLS introduced in Section 2) that explains `educ` as the target variable with the instrument `nearc4` and all the control variables of the original OLS model.
 
 ```{r}
 fs_educ <- lm(educ ~ nearc4 + exper + expersq + black + smsa + south + smsa66 +
@@ -191,9 +212,17 @@ fs_educ <- lm(educ ~ nearc4 + exper + expersq + black + smsa + south + smsa66 +
 summary(fs_educ)
 ```
 
-Our instrument, `near4c` is significant on every common $\alpha$ significance levels even next to the control variables of the original model, hence it can be called as a **strong instrument**.
+Our instrument, `near4c` is significant on every common $\alpha$ significance levels even next to the control variables of the original model (living near 4-year college is expected to add around 0.32 years of eduction, ceteris paribus), hence it can be called as a **strong instrument**.
 
-Add fitted values to data for manual 2SLS.
+This first-stage model is, formally, just another ordinary linear regression, so everything covered above on reading `summary()` output applies directly to it: the coefficient on `nearc4` is the estimated marginal effect of growing up near a four-year college on years of schooling, ceteris paribus, and testing it against zero **is** the formal **relevance test**:
+
+  - $H_0:\beta_{\text{nearc4}}=0$ (the instrument is unrelated to schooling, i.e. it would be **irrelevant**)
+  - $H_1:\beta_{\text{nearc4}}\neq0$ (the instrument is **relevant**).
+
+Rejecting $H_0$ on every common $\alpha$ significance levels here is a *necessary* condition for a usable instrument, but, as the simulation in Section 2 illustrated, it is not on its own *sufficient*: even a weakly correlated instrument can look "significant" in a large enough sample while still producing badly inflated standard errors at the second stage — the so-called **weak instrument problem**. The standard applied-econometrics rule of thumb (due to <a href="https://www.nber.org/papers/t0151" target="_blank">Staiger and Stock, 1997</a>) is to additionally **check the F-statistic of the whole first-stage regression**, reported at the very bottom of the `summary()` output above: values comfortably above $10$ are conventionally taken as reassurance against weak-instrument bias, while values close to or below that threshold are a warning sign that the second-stage IV estimates in Section 3.2 should be interpreted cautiously, however small the p-value on `nearc4` itself looks in isolation.<br>
+For our model, **we are in luck** as our F-stat istic is way above 10: $F=182.1>>10$, **so `nearc4` is a strong instrument**.
+
+The only thing left to do now with this first stage model is to add the predicted (fitted) `educ` values to data for the next step of 2SLS introduced back in Section 2.
 
 ```{r}
 card$educ_hat <- fs_educ$fitted.values
@@ -201,7 +230,7 @@ card$educ_hat <- fs_educ$fitted.values
 
 ### 3.2. The 2SLS Estimate for Education Years
 
-Stage 1 was done in Section 3.1. Now for the 2nd stage.
+SO, stage 1 was done in Section 3.1. Now for the 2nd stage we estimate the logarithm of hourly wages again, but know we switch `educ` to the previously added `educ_hat` in the original OLS regression.
 
 ```{r}
 twosls <- lm(lwage ~ educ_hat + exper + expersq + black + smsa + south + smsa66 +
@@ -210,15 +239,23 @@ twosls <- lm(lwage ~ educ_hat + exper + expersq + black + smsa + south + smsa66 
 summary(twosls)
 ```
 
-Education years is a significant predictor on $\alpha=5\%$ level. This is okay considering that we expect higher standard errors for an instrumental coefficient estimate based on our simulation results in Section 2. Now, this is still a log-linear model, so for coefficient interpretations we need the `exp` function, subtract `1` and multiply by `100` for percentage interpretation.
+In this model, education years is still a significant predictor on the $\alpha=5\%$ level. This is okay, considering that we expect higher standard errors for an instrumental coefficient estimate based on our simulation results in Section 2.
+
+Now, this is still a log-linear model, so for coefficient interpretations we need the `exp` function, subtract `1` and multiply by `100` for percentage interpretation.
 
 ```{r}
 round((exp(twosls$coefficients)-1) * 100, 2)
 ```
 
-**Return to schooling (IV):** $14.05\%$ for each school year added ceteris paribus. This is consistent with Card (1993): returns on education for compliers (those induced to study more by college proximity) are higher than the OLS average.
+The estimated coefficient for `educ_hat` is considered as the **Return on education (in the IV or 2SLS model)**, interpreted as follows: Comparing two men with identical experience, race, region, urban status, and now with identical individual abilities, one additional year of schooling is associated with, on average, a $14.05\%$ higher hourly wage.
 
-Visualization: OLS vs IV slope on education
+So, we can clearly see that this IV estimate is roughly **1.8 times** larger than the naive OLS estimate of $7.76\%$ computed earlier — the *opposite* of the simple "*ability bias causes OLS to overestimate*" story sketched above, in fact it shows that option number 2 was in play: **OLS underestimated the return on education**, and it is worth spelling out why.
+
+An instrumental-variable estimate built from an instrument like `nearc4` does not recover the *average* return to schooling for the whole population; it recovers what is known as the **Local Average Treatment Effect (LATE)** — the average return specifically for the subgroup of so-called **compliers**: men whose schooling decision was actually swayed by growing up near a four-year college, i.e. who would not have attended (or attended as long) had a college not been nearby. The Card study's own interpretation, echoed widely in the subsequent literature, is that these marginal students tend to come from more disadvantaged backgrounds, where credit constraints — the inability to borrow against future earnings to finance a degree — bind more tightly; for exactly this group, an additional year of schooling may plausibly carry a *higher* marginal return than it does for "always-takers" who would have gone to college regardless of distance.
+
+This is a useful general lesson about IV estimation: **unlike OLS, an IV estimate is generally local to the specific instrument used** — a different, equally valid instrument could in principle identify the LATE for a different subpopulation of compliers, and hence a different (but equally legitimate) causal estimate.
+
+To wrap off our pleasant lesson in intrumental variables (it is a pleasant lesson as we can now see that it can cause an extra 14% in money 🤑), let's do visualization: let's put two regression lines on the scatter plot of  `lwage` and `educ` with the OLS and IV slopes on education respectively. Both reference lines are anchored at the same intercept, `min(lwage)`, purely so that their **slopes** — not their absolute height — can be compared directly on the same chart. We can set `intercept` and `slope` manually on a line in `ggplot` through an `aes` function applied inside a `geom_abline` layer.
 
 ```{r}
 library(ggplot2)
@@ -242,3 +279,6 @@ ggplot(card, aes(x = educ, y = lwage)) +
        colour   = NULL) +
   theme_minimal(base_size = 13)
 ```
+
+Looking at this plot, it is worth noting that the plot is not showing two competing fitted regression lines through the cloud of observed points in the usual sense.<br>
+Visually, the steeper, dashed IV / 2SLS line versus the shallower, solid OLS line is just a graphical restatement of the $14.05\%$ vs $7.76\%$ per-year returns computed above. Bear the LATE discussion in mind while reading it, though: the steeper IV line is not "more correct everywhere" than the OLS line — it specifically reflects the higher return experienced by the compliers whose schooling choice was moved by college proximity, while the OLS line reflects a (likely upward-biased) effect across the whole sample.
