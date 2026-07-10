@@ -316,13 +316,128 @@ As if $Y \sim Bernoulli(p)$, then $E(Y)=p$, so for each observation we have that
 
 But here the exponential coefficients show the multiplicative marginal effects on the **odds ratios** of $p_i/(1-p_i)$.
 
+### 3.1. Three Special Cases, One Idea
+
+You're probably already familiar with two of the three linear-function-based predictive models that led us here: plain **linear regression** (see <a href="Prelude04.html" target="_blank">Prelude 4</a>), and the **logit model** for binary outcomes (both commonly covered in Bachelor-level statistics courses), plus the **Poisson regression** model we've just built by hand in Section 1. All three of them share **two common assumptions**:
+
+- The predictor variables $x_1, x_2,...,x_k$ are **known and fixed** (they are *not* random variables), and they can be continuous or binary (dummy-coded categorical).
+- The target variable $Y$ is **known**, but it *is* a random variable.
+
+Where the three models differ is in what distribution we assume for the individual $y_i$ outcomes, and how the linear combination of predictors is linked to the expected value of that distribution.
+
+- **Linear regression**: $y_i=\beta_0+\beta_1x_{1i}+...+\beta_kx_{ki}+\varepsilon_i$, where the error terms are independent and identically (normally) distributed: $\varepsilon_i\sim N(0,\sigma^2)$. This means the individual outcomes themselves are also independent, and normally distributed with an individually differing expected value: $$y_i \sim N\left(\beta_0+\beta_1x_{1i}+...+\beta_kx_{ki},\ \sigma^2\right)$$ where the mean parameter is exactly $E(y_i)$. This actually the case we've covered in connection with maximum likelihood estimators in <a href="Chapter04.html" target="_blank">Section 8 of Chapter 4</a>. Note that the link function ($g(\cdot)$) is the **identity** here, as we don't need to transform $E(y_i)$ at all so that it could be modeled linearly.
+- **Logit model**: the individual outcomes are independent Bernoulli-distributed with an individually differing probability parameter $p_i=E(y_i)$: $P(y_i=1)=p_i$, $P(y_i=0)=1-p_i$. It's not $p_i$ itself, but its **logit transform**, that follows the linear equation: $$\log\left(\frac{p_i}{1-p_i}\right)=\beta_0+\beta_1x_{1i}+...+\beta_kx_{ki}$$
+- **Poisson regression** (Section 1): the individual outcomes are independent Poisson-distributed with an individually differing expected value $\lambda_i=E(y_i)$, and it's the **logarithm** of $\lambda_i$ that follows the linear equation, exactly as we used it for the number of claims: $$\log(\lambda_i)=\beta_0+\beta_1x_{1i}+...+\beta_kx_{ki}$$
+
+If you squint at these three models, you'll notice they all follow the exact same recipe: **assume a distribution for $y_i$ with an individually differing expected value, then transform that expected value with some function so it can be modeled linearly.** That's precisely the idea behind the general GLM equation at the beginning of this Section 3, with the transforming function being called the **link function** $g$.
+
+### 3.2. The Exponential Family of Distributions
+
+The distributions that are eligible for the "*same distribution type*" requirement of the GLM definition all belong to the so-called **exponential family** of distributions. This is a large collection of parametric distributions defined by a common formula (which we won't get into here), including, among others:
+
+- Continuous distributions: Normal, Exponential, Gamma (used in Section 2), etc.
+- Discrete distributions: Bernoulli and Binomial, Poisson (used in Section 1), Negative Binomial, etc.
+
+So whenever the target variable's distribution belongs to this family, we can build a GLM around it, and we've already met the Poisson and Gamma cases hands-on above. The following table summarizes the three most well-known special cases we've now discussed:
+
+| Model | Distribution of $y_i$ | Link function $g$ |
+|---|---|---|
+| Linear regression | Normal ($\sigma^2$ fixed) | Identity |
+| Logit model | Bernoulli | Logit |
+| Poisson regression | Poisson | Logarithm |
+
+### 3.4. Maximum Likelihood Estimation, in General
+
+We can also generalize the maximum likelihood machinery we've now used twice (Sections 1.1 and 2). Let's collect all $\beta$ coefficients into a parameter vector $\boldsymbol\beta=(\beta_0,\beta_1,...,\beta_k)$, and define the **individual likelihood** as the probability (or density) value of the $i$-th observed outcome, given the assumed distribution type, the $i$-th observation of the predictors ($\{x_{1i},x_{2i},...,x_{ki}\}$), and the parameter vector: $$L_i(\boldsymbol\beta)=f(y_i,x_{1i},x_{2i},...,x_{ki},\boldsymbol\beta)$$
+
+Then, exactly as before, the (log-)likelihood function of the whole model is: $$L(\boldsymbol\beta)=\prod_{i=1}^n L_i(\boldsymbol\beta) \rightarrow \max, \qquad \log L(\boldsymbol\beta)=\sum_{i=1}^n \log L_i(\boldsymbol\beta) \rightarrow \max$$
+
+This is exactly the general version of what we coded up by hand for the Poisson regression in Section 1.1 with our own `neg_ll_poi` function, just plugging in `dpois` as the $f$ density function there. Interestingly, if you plug in the **normal distribution's density function** for $f$ here and work through the algebra, you'll find that the log-likelihood boils down to (up to an additive constant $c_i$ not depending on $\boldsymbol\beta$): $$\log L_i(\boldsymbol\beta)=c_i-\frac{(y_i-E(y_i))^2}{2\sigma^2}$$ which is maximized exactly when the sum of squared deviations $\sum(y_i-E(y_i))^2$ is minimized. In other words: **for linear regression, the maximum likelihood and the ordinary least squares (OLS) estimators are mathematically equivalent** — the same equivalence we relied on when deriving the density-function-based MLE approach for simple linear regression in <a href="Chapter07.html" target="_blank">Section 8 of Chapter 4</a>.
+
+For most other members of the exponential family, though (like our Poisson and Gamma examples), there's no such closed-form shortcut, and the log-likelihood has to be maximized numerically. This is exactly what the built-in `glm` function does under the hood: instead of a general-purpose optimizer like the `optim` function we used by hand, it applies an algorithm based on **Newton's method**, iterating until convergence ($H$ being the Hessian matrix of the log-likelihood function, and $\nabla \log L(\boldsymbol\beta_t)$ being the first derivative of the log-likelihood function): $$\boldsymbol\beta_{t+1}=\boldsymbol\beta_t-H^{-1}(\boldsymbol\beta_t)\nabla \log L(\boldsymbol\beta_t)$$ This is a more specialized (and slightly more accurate) algorithm than our generic `optim` call, which is exactly why the built-in `glm` results in Section 1.2 came out "a bit more accurate" than our hand-rolled version.
+
+### 3.5. A Few More Link Functions
+
+Besides the identity, log and logit link functions we've met so far, a handful of other link functions are commonly used, depending on the range of values that $E(y_i)$ can take:
+
+| Name | $g(u)=$ | Range of $u$ |
+|---|---|---|
+| Identity | $u$ | $\mathbb{R}$ |
+| Log | $\log u$ | $\mathbb{R}_{>0}$ |
+| Logit | $\log\left(\frac{u}{1-u}\right)$ | $(0,1)$ |
+| Probit | $\Phi^{-1}(u)$ | $(0,1)$ |
+| Inverse | $u^{-1}$ | $\mathbb{R}_{>0}$ |
+| Log-log | $\log(-\log u)$ | $(0,1)$ |
+
+Notice that the probit link (based on the inverse of the standard normal CDF, $\Phi^{-1}$) offers an alternative to the logit link for probabilities, and is the basis of the **probit regression** model, a close cousin of the logit model learnt in Bachelor courses.
+
+### 3.6. How Good Is the Model? Deviance, Overfitting, and Information Criteria
+
+The **saturated (or full) model** vs. **null model** logic, along with the resulting **deviance**, **McFadden $R^2$**, $AIC$ and $BIC$ measures that we already introduced for the Poisson regression in Section 1.2, are not Poisson-specific at all: they are general properties of *any* GLM, using the same formulas based on the optimized log-likelihood function we relied on back in <a href="Chapter03.html" target="_blank">Section 5 of Chapter 3</a>. The saturated model always has as many parameters as observations (so it fits every single point perfectly, the same way you could always draw *some* curve exactly through any scatterplot if you allow it enough wiggle room), while the null model only has an intercept and 0 predictors. Our actual, useful model will always sit somewhere between these two extremes in terms of fit.
+
+R's `glm` function conveniently stores a **deviance residual** for every observation, which is simply the signed square root of that observation's own deviance contribution, with the sign showing the direction of the error: $$R_i=\text{sgn}(y_i-\hat y_i)\sqrt{D_i}$$ These behave a lot like the ordinary residuals of a linear regression, and can be a useful diagnostic tool (they can be pulled out of a fitted model with `residuals(model, type = "deviance")`), for example to calculate McFadden $R^2$.
+
+Finally, a word of caution about model complexity. Piling on more and more predictors (or higher polynomial/interaction terms of them) will *always* make the model fit the training data better and better (lower deviance, higher pseudo-$R^2$) — but past a certain point, this comes at the cost of the model's fit on *new*, unseen data, a phenomenon called **overfitting**. This is exactly why we prefer $AIC$ and $BIC$ over deviance alone when comparing models with a different number of parameters $p$, as we did throughout Section 1.3: both criteria explicitly penalize $p$, so they only reward a new predictor if it improves the fit by more than the penalty of adding it.
+
+### 3.7. Selecting Variables
+
+Once we have a GLM with several candidate predictors, we generally have two families of tools to decide which of them are worth keeping:
+
+- **Variable-by-variable Wald- (or LR-) tests**: these check whether the total deviance would significantly worsen if a given predictor (or, for a categorical predictor, its whole set of dummies) were dropped from the model. This is exactly the manual process we followed in Section 1.3, where we removed `gender` and `veh_value`, then `area`, one step at a time, each time checking the significance of the remaining coefficients.
+- **Automatic selection procedures** (based on $AIC$ or $BIC$): **Forward** selection starts from the null model and keeps adding the predictor that improves the information criterion the most; **Backward** elimination starts from the full model and keeps removing the least useful predictor; and the **Forward/Backward** variant combines the two directions, allowing a predictor that was added (or removed) earlier to be reconsidered later in the process.
+
+So really, our manual variable trimming in Section 1.3 was nothing more than an informal, hands-on version of backward elimination!
+
 ## 4. Bonferonni Outlier Test
 
-Each observation with its own dummy variable. Is its coefficient significant at a given $\alpha$, e.g. $5\%$.
+Furtehermore, it's always worth seeing just how much damage a *single* extreme observation can do to a fitted model. Take a small toy example: six points that line up almost perfectly (say $x=1,2,3,4,5,6$ with $y=2,4,6,8,10,12$) give an $R^2$ of essentially $1$.
+
+```{r}
+df_toy <- data.frame(x=c(1,2,3,4,5,6),
+                     y=c(2,4,6,8,10,12))
+
+library(ggplot2)
+ggplot(df_toy, aes(x,y)) + geom_point() + geom_smooth(method=lm)
+```
+
+Now throw in just *one* extra point that's wildly off that line (like $x=2.5$ but $y=39$), and the fitted line barely resembles the true relationship anymore — the $R^2$ can collapse to something as small as $0.008$.
+
+
+```{r}
+df_toy <- rbind(df_toy,
+                data.frame(x=c(2.5),
+                           y=c(39)))
+
+ggplot(df_toy, aes(x,y)) + geom_point() + geom_smooth(method=lm)
+```
+
+So, a single badly-behaved observation, in other words, can single-handedly hide (or fabricate) a relationship between $x$ and $y$. This is exactly why we want a formal, systematic way of flagging such observations, rather than relying on "*eyeball testing*" of scatterplots.
+
+The formal version of this idea is the **Bonferroni outlier test**. Starting from our GLM's usual equation $g(E(y_i))=\beta_0+\beta_1x_{1i}+...+\beta_kx_{ki}$, we (conceptually) refit the model $n$ times, once per observation, each time adding one extra predictor: the $j$-th observation's own, individual dummy variable $z_j$, which equals $1$ for observation $j$ and $0$ for everybody else: $$g(E(y_i))=c_jz_j+\beta_0+\beta_1x_{1i}+...+\beta_kx_{ki}$$ If the estimated $c_j$ coefficient turns out to be **significantly different from $0$**, that means observation $j$ is single-handedly, significantly distorting (biasing) our fitted equation — i.e. it's an outlier.
+
+Formally, we're testing the null hypothesis $$H_0: c_1=c_2=...=c_n=0$$ against the alternative that at least one of the $c_j$'s isn't $0$, and if $H_0$ is rejected, it's worth filtering out the flagged outliers.
+
+Doing this literally, by hand, would mean re-estimating $n$ separate GLMs, one per observation — clearly not something a civilized gentleman wants to code up manually! And since we're effectively running $n$ separate significance tests at once (one per observation), we also run into the multiple testing problem discussed in <a href="Chapter05.html" target="_blank">Section 8 of Chapter 5</a>: with enough observations, some coefficient is bound to look "significant" purely by chance. This is where the **Bonferroni correction** comes back into play, adjusting the significance threshold (or, equivalently, the p-values) for the fact that we're conducting $n$ tests simultaneously — exactly what gives the test its name. Thankfully, the `car` package's `outlierTest` function automates this entire procedure for us: it computes the (Bonferroni-corrected) test for every observation behind the scenes, and simply reports back the most extreme one(s), i.e. the observation(s) for which $H_0$ can be rejected at the common significance levels.
 
 ```{r}
 car::outlierTest(poi_reg_extended)
 car::outlierTest(gamma_reg)
 ```
 
-Might try refitting the Gamma Regression with observations number $39324$ and $28424$.
+If a test rejects $H_0$ for its most extreme observation(s), that's our signal to consider re-fitting the model without them. For instance, might try refitting the Gamma Regression without observations number $39324$ and $28424$ — precisely because these are the ones flagged by the test as significantly distorting the fitted claim-value equation, so it's worth checking whether excluding them meaningfully changes our coefficient estimates and conclusions, or whether the model turns out to be robust to their presence regardless.
+
+```{r}
+cars_with_claims_no_outliers <- cars_with_claims[!(rownames(cars_with_claims) %in% c(39324, 28424)),]
+
+gamma_reg_no_outliers <- glm(claim_value ~ veh_value + veh_body + veh_age + gender + area + agecat,
+                             family = Gamma(link = "log"),
+                             data = cars_with_claims_no_outliers)
+
+gamma_coef_compare <- data.frame(variable = names(gamma_reg$coefficients),
+                                 original = as.numeric(gamma_reg$coefficients),
+                                 no_outliers = as.numeric(gamma_reg_no_outliers$coefficients))
+gamma_coef_compare$diff <- abs(gamma_coef_compare$original - gamma_coef_compare$no_outliers)
+gamma_coef_compare[order(gamma_coef_compare$diff, decreasing = TRUE),]
+```
+
+So, looks like even the biggest differences are not so substantial. Where the sign of the coefficient has changed, it was in a case where the coefficient was not significant on any of the common levels (`area = B`, where p-values was 0.834 in Section 2), so it does not really matter. All is well, the 2 outliers have not messed up the conclusions based on the model coefficients in the Gamma regression. Hurray! :)
