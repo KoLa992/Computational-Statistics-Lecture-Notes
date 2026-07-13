@@ -1,0 +1,717 @@
+---
+title: "Logistic Regression"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Titanic Passengers and the Basic Task of Logistic Regression
+
+Let's load the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/titanic.csv" target="_blank">titanic.csv</a> dataset, which contains 12 variables about 891 randomly selected passengers of the Titanic:
+
+- PassengerId: The passenger's ID number
+- Survived: Did the passenger survive the encounter with the iceberg? (1: yes, 0: no)
+- Pclass: The class of the cabin (1st, 2nd, and 3rd class)
+- Name: The passenger's name
+- Sex: The passenger's (biological :)) sex
+- Age: The passenger's age in years
+- SibSp: The number of siblings or spouses traveling with the passenger
+- Parch: The number of parents or children traveling with the passenger
+- Ticket: The passenger's ticket number
+- Fare: Fare paid, in British pounds
+- Cabin: The cabin number
+- Embarked: Which port did the passenger board at the ship? (S: Southampton, Q: Queenstown, C: Cherbourg)
+
+Going forward, however, we'll only work with 4 variables, so let's select these: `Survived`, `Sex`, `Age`, `Fare`. We can drop the rest of the variables from the data frame:
+
+```{r}
+library(readr)
+titanic <- read_csv("titanic.csv")
+
+titanic <- titanic[,c("Survived", "Sex", "Age", "Fare")]
+str(titanic)
+```
+
+Based on the output of the `str` function, for the analysis it would be worth converting the `Sex` variable from `character` type, and the `Survived` variable from `numeric` type, into `factor` type (since `Survived` is also on a nominal scale of measurement):
+
+```{r}
+titanic$Sex <- as.factor(titanic$Sex)
+titanic$Survived <- as.factor(titanic$Survived)
+summary(titanic)
+```
+
+With that, we're all set: the `summary` function returns descriptive statistics appropriate to each variable's scale of measurement (frequency distribution for nominal variables, mean, quantiles, min-max for numeric variables).
+
+We can see that the `Age` variable has missing values. Now we'll be a bit naughty and impute these with the average age:
+
+```{r}
+titanic$Age[is.na(titanic$Age)] <- mean(titanic$Age, na.rm = TRUE)
+summary(titanic)
+```
+
+Okay, now there's no trouble left in the `Age` variable either! :)
+
+The **basic task of logistic regression** is to try to predict the binary outcome variable — that is, whether a given passenger survived the boat trip (`Survived`) — based on the passenger's sex, age, and fare paid, as explanatory variables!
+
+## 2. The Logit Transformation
+
+First we'll simplify things, and only our two numeric variables (`Age` and `Fare`) will serve as our two explanatory variables: $x_1$: `Age` and $x_2$: `Fare`
+
+If in a regression our outcome variable is a nominal variable with 2 possible values, like `Survived`, then **plain OLS estimation of the regression equation will NOT work**, because by minimizing $SSE$ our $\hat{y}$ (estimated $y$) values can fall anywhere on the (-∞, ∞) interval, but for us only values of 0 and 1 are good values for $\hat{y}$!
+
+The **big idea**: let's transform the binary $y$ values so that they're defined on the (-∞, ∞) range. Then let's write a plain linear regression equation for these transformed values, with $\beta_j$'s and everything!
+
+The **steps** of the transformation:
+
+1. The $P(y=1)=p$ (survival) probabilities are already continuous on the $(0, 1)$ interval. So let's try to estimate these instead of the actual $y$'s!
+2. The odds ratios: $odds = \frac{p}{1-p}$ (how much more likely a passenger is to survive than to die) already move on the [0, ∞) range...
+3. ... and the $ln(odds)=ln(\frac{p}{1-p})$ values already fall into the desired (-∞, ∞) range! We call these $ln(odds)$ values as **logits**!
+
+So our linear equation will estimate the $ln(odds)$ values: $$ln\left(\frac{p}{1-p}\right)=\beta_1x_1 + \beta_2x_2 + \beta_0$$
+
+From the logit predictions, we can then backtrack the $p = P(y=1)$ survival probabilities as: $$p=\frac{exp(logit)}{1+exp(logit)}$$
+
+If $p>0.5$, then $\hat{y}=1$ (survived), otherwise $\hat{y}=0$ (died).
+
+First, just like at the beginning of OLS regression (<a href="Prelude04.html" target="_blank">Section 2 of Prelude 4</a>), let's assign some initial random values to every $\beta_j$:
+
+```{r}
+Beta1 <- -0.05
+Beta2 <- 0.05
+Beta0 <- -0.5
+```
+
+Then let's calculate the logits for all 891 passengers from the regression equation:
+
+```{r}
+titanic$Logit <- Beta1 * titanic$Age + Beta2 * titanic$Fare + Beta0
+head(titanic)
+```
+
+From the logits let's calculate the $P(y=1) = p$ probabilities:
+
+```{r}
+titanic$Probability <- exp(titanic$Logit) / (1+ exp(titanic$Logit))
+head(titanic)
+```
+
+Finally, let's produce the $\hat{y}$'s:
+
+```{r}
+titanic$y_hat <- 0 # by default I say everyone dies
+titanic$y_hat[titanic$Probability > 0.5] <- 1 # for anyone whose survival probability the model puts above 50%, I overwrite the 0 with a 1
+head(titanic)
+```
+
+We can see that our model isn't too bad based on the first 6 rows: only in row 3 did the $\hat{y}$ estimate wrongly say that our passenger dies ($\hat{y}=0$), instead of the reality, which is that they survived the encounter with the iceberg ($y=1$). In the remaining 5 rows we're correct, because $\hat{y}=y$.
+
+## 3. Maximum Likelihood Estimation
+
+Everything's going great so far, but our $\beta_j$'s are completely random. We need ones that, in some sense, minimize the deviations between $\hat{y}$ and the actual $y$'s! But how do we find the $\beta_j$'s that minimize the estimation error?
+
+We use a so-called **Maximum Likelihood method (ML for short)**! This means we look for $\beta_j$'s that **maximize the probability** (the likelihood) **that from a random sample we get exactly the sample in front of us**, the one living in the *titanic* `data frame`!!! At this point, we are only covering the special case of Maximum Likelihood applied in this logit regerssion context, and we'll cover the general thepry behind it in <a href="Chapter03.html" target="_blank">Chapter 3</a>.
+
+Okay, but **how do we measure this probability**?
+
+First of all, we determine the probability with which we find every passenger, given the $\beta_j$'s we just set.
+
+This is quite easy to calculate, since in reality passengers with $y=1$ occur in the world with probability $P(y=1) = p$. While in reality passengers with $y=0$ occur in the world with probability $P(y=0) = 1-p$. We can put this information into a new column of our `data frame`:
+
+```{r}
+titanic$Likelihood <- 0 # initially everyone can occur with probability 0
+titanic$Likelihood[titanic$Survived == 1] <- titanic$Probability[titanic$Survived == 1] # p goes to the y=1 cases
+titanic$Likelihood[titanic$Survived == 0] <- 1 - titanic$Probability[titanic$Survived == 0] # 1-p goes to the y=0 cases
+
+head(titanic)
+```
+
+So this column called **Likelihood** contains, given our currently randomly chosen $\beta_j$ values, how large the probability of occurrence of a specific individual is in the case of a random sample.
+
+For example, the deceased (non-surviving) 22-year-old man found in row 1, who paid 7.25 pounds for the trip, has a 77.51% probability of appearing in our sample given our currently randomly chosen $\beta_j$ values!
+
+Or the surviving 26-year-old woman found in row 3, who paid 7.925 pounds for the trip, has a 19.72% probability of appearing in our sample given our currently randomly chosen $\beta_j$ values!
+
+In the second step we assume that our sample of 891 elements **consists of INDEPENDENT observations, and that the probability of occurrence of the entire sample is the product of the values in the new Likelihood column**
+
+That is, $\prod_{y=1}{p} \times \prod_{y=0}{1-p} = L$ ... this is the **Likelihood, given the current $\beta_j$'s, that we draw exactly our 891 passengers if we take a sample of 891 elements from the Titanic's passengers**
+
+```{r}
+prod(titanic$Likelihood)
+```
+
+Ugh! This basically comes out to one big fat 0 (the order of magnitude is around $10^{-273}$). :( This isn't surprising, since we multiplied together 891 numbers between 0 and 1... it's no accident that numerically we're so close to 0 that the <a href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfC7loiH9wG38P062ZrkD4CaIUPENJw1Uh3bcn4qJ4AYp35yNX7Gm3wuI&s=10" target="_blank">machine spirit</a> actually takes the value to be flat-out 0! Because of this, instead we'll **MINIMIZE** the value $-ln(L) = \sum_{y=1}{ln(p)}+\sum_{y=0}{ln(1-p)}$:
+
+```{r}
+-sum(log(titanic$Likelihood))
+```
+
+So let's go find the $\beta_j$'s that give us the smallest possible $-ln(L)$ value! Similar to <a href="Prelude04.html" target="_blank">Section 2 of Prelude 4</a>, we'll build a separate R function for the negative **log-likelihood**, i.e. for $-ln(L)=$, which takes the form $l(\beta_0, \beta_1,\beta_2)$. In other words, it gives the negative log-likelihood as a function of the $\beta$'s:
+
+```{r}
+# defining the function
+neg_loglikelihood <- function(x) {
+  titanic$Logit <- x[1] * titanic$Age + x[2] * titanic$Fare + x[3]
+  titanic$Probability <- exp(titanic$Logit) / (1+ exp(titanic$Logit))
+  
+  titanic$Likelihood <- 0 # initially everyone can occur with probability 0
+  titanic$Likelihood[titanic$Survived == 1] <- titanic$Probability[titanic$Survived == 1] # p goes to the y=1 cases
+  titanic$Likelihood[titanic$Survived == 0] <- 1 - titanic$Probability[titanic$Survived == 0] # 1-p goes to the y=0 cases
+  
+  -sum(log(titanic$Likelihood))
+}
+
+# using the function with Beta1=-0.05 || Beta2=0.05 || Beta0=-0.5 for all three
+neg_loglikelihood(c(-0.05,0.05,-0.5))
+```
+
+Lo and behold, we get the exact same negative log-likelihood as before! :)
+
+Now, using this `neg_loglikelihood` function, we can have the machine spirit search for where those $\beta$'s are that give us the smallest negative log-likelihood, i.e. the **largest probability of occurrence of the sample**:
+
+```{r}
+result <- optim(c(-0.05,0.05,-0.5),neg_loglikelihood) # we start the optimization (error minimization) from the random beta values we've been using so far
+```
+
+From the newly created `result` object we can read off what the $\beta$'s turned out to be, and we can also check what the smallest *negative log-likelihood* value is that we managed to achieve:
+
+```{r}
+result$par # the Betas
+result$value # the minimized -ln(L) value
+```
+
+With this, our final regression equation is: $$logit(Survived)=-0.017 \times  Age + 0.016 \times Fare - 0.46$$
+
+That is, the *maximum likelihood estimate* of the $\beta$'s.
+
+## 4. Logistic Regression with a Built-in R Function
+
+Fortunately, logistic (or logit, for short) regression also has a built-in R function, just like OLS regression has `lm`. The R function for logit regression goes by the name `glm`, and its result can be inspected with the `summary` function in exactly the same way we did for the plain `lm` function:
+
+```{r}
+logit_model <- glm(Survived ~ Age + Fare, family = binomial(link='logit'), data = titanic) # here, in the family parameter we can specify that our outcome variable is binary, and that the machine spirit should handle it with a logit transformation
+summary(logit_model)
+```
+
+Great, the $\beta$'s are exactly the same as what we got manually:
+
+```{r}
+result$par
+```
+
+We can see that the regression results table looks like it does in the linear case: every $\beta_j$ has a standard error, from which we can calculate a test statistic and a p-value for the usual $H_0: \beta_j=0$ and $H_1: \beta_j \neq 0$ hypothesis test. Based on this we can say that the effects of the explanatory variables `Fare` and `Age` are significant in the world outside the observed sample (the population) even at $\alpha=1\%$, but the intercept is no longer significant at 1%, only at an $\alpha$ of 5%! Plus, since the p-value of the `Fare` variable is smaller than the p-value of `Age`, here too we can say that in the population, fare has a more significant effect on survival than the passenger's age!
+
+### 4.1. Marginal Effects in Logistic Regression
+
+So, how should we understand the marginal effect of our explanatory variables on the outcome variable? What do those $\beta_j$ values mean, the ones we just so cleverly decided have a significant effect on survival for observations outside the sample too?
+
+Well, the $\beta_j$ values on their own aren't really easy to interpret in logistic regression. Since, following from the model equation, they show the effect of a ceteris paribus +1 unit increase in $x$ on the $logit$-transformed outcome variable.<br>
+But if we raise the coefficients to the power of $e$, then we get the marginal effects of our explanatory variables on $e^{logit(y)}$, i.e. on the $odds$ ratios!
+
+So let's go ahead and do that:
+
+```{r}
+exp(logit_model$coefficients)
+```
+
+Let's interpret the two coefficients then (just as with OLS models, we're not really going to bother interpreting the intercept, $\beta_0$):
+
+- $\beta_{Age}=0.98$: Holding all other explanatory variables constant, if a passenger's age increases by 1 year, their survival ODDS change to 0.98 times their original value, i.e. they *decrease* by 2%.
+- $\beta_{Fare}=1.016$: Holding all other explanatory variables constant, if a passenger's fare increases by 1 pound, their survival ODDS change to 1.016 times their original value, i.e. they *increase* by 1.6%.
+
+The signs make complete sense:
+
+- As we know, children were rescued first, so obviously the older you are, holding the fare you paid constant, the smaller your survival odds (the ratio of the probability of surviving to the probability of dying).
+- After that, alongside women, the wealthier, richer people (who paid a lot for the good cabins) were put into the lifeboats. So it's logical that the more you paid for the trip, holding age constant, the more your survival odds increase. After all, DiCaprio's character in the movie wasn't just male, he was also poor! :)
+
+## 5. Comparing Two Logistic Models
+
+Let's now build a logistic regression that also includes the passenger's sex (`Sex`) as an explanatory variable:
+
+```{r}
+logit_model_extended <- glm(Survived ~ Age + Fare + Sex, family = binomial(link='logit'), data = titanic)
+summary(logit_model_extended)
+```
+
+We can see that `Sex` was included in the model via a dummy variable, *Is the passenger male? (1: yes, 0: no)*, under the variable name `Sexmale`. If I raise this $\beta$ to the power of $e$, the marginal effect of sex becomes interpretable:
+
+```{r}
+exp(logit_model_extended$coefficients[4]) # the beta of the Sex variable is the 4th in the row of coefficients
+```
+
+Holding fare and age constant, men have roughly 91% lower survival odds than women! Not great! :( What's more, once we include `Sex`, the `Age` variable becomes non-significant at every common $\alpha$ significance levels. It seems that, until now, age was only carrying the male/female effect. Among people of the same sex and fare, age has no significant effect on survival.
+
+## 6. Evaluating the Performance of Logistic Regression
+
+So in the previous section, we have created a fancy logit regression model predicting survival on the Titanic and interpreted the marginal effects of its explanatory variable. But how can we tell how good a logit model is on its own? What percentage of the variation in the outcome variable did our model explain? In other words, we'd like something $R^2$-like for logistic regression too!
+
+First, let's see how we can put estimates, i.e. $\hat{y}$'s, from the `logit_model_extended` model built with the `glm` function, into the data frame called `titanic`.
+
+Let's clear out the columns we created for the manual maximum likelihood estimation:
+
+```{r}
+titanic[,5:8] <- NULL
+head(titanic)
+```
+
+Then let's apply the `predict` function to the `logit_model_extended` model's R object:
+
+```{r}
+titanic$Probability_Extended <- predict(logit_model_extended, newdata = titanic, type = "response")
+head(titanic)
+```
+
+With the `type = "response"` setting, the `predict` function puts the $P(y=1)$ probabilities back into the table for every individual. If we hadn't set this parameter, it would have put the logits back instead.
+
+We can see that, based on our logit model that also includes `Sex`, the estimated survival probability in row 3, rounded, is $67.8\%$.
+
+Starting from this $P(y=1)$ column, we can also produce the $\hat{y}$ values! Just as we did before, we can again use the rule $P(y=1)>0.5 \rightarrow \hat{y}=1$, and $\hat{y}=0$ otherwise. Here we call the $50\%=0.5$ a so-called **cut-off** value, and we don't actually have to choose 50%! 50% is the logical default setting, but next time we'll see cases where it's worth choosing a different percentage as the cut-off for producing $\hat{y}=1$ estimates based on the $P(y=1)$ values.<br>
+But for now, let's stick with the $c=0.5$ cut-off:
+
+```{r}
+titanic$y_hat <- 0 # by default I say everyone dies
+titanic$y_hat[titanic$Probability_Extended > 0.5] <- 1 # for anyone whose survival probability the model puts above 50%, I overwrite the 0 with a 1
+head(titanic)
+```
+
+The model looks pretty cool at first glance, because in the first 6 rows our estimate matches the actual `Survived` (i.e. $y$) values!
+
+But let's see the full picture! Let's look at a frequency contingency table with the `Survived` and `y_hat` variables! In the jargon, this is called a **confusion or classification matrix**!
+
+I can just do this with the `table` function. It'll come in handy now that R also writes the column names into the contingency table, so we'll feed the `table` function a data frame whose two columns are `y_hat` and `Survived`:
+
+```{r}
+table(titanic[,c("y_hat", "Survived")])
+```
+
+So let's look at the interpretation of the different frequencies in the cross-table:
+
+- $462$: our logit model estimated 462 passengers as dead, and in reality they did die.
+- $236$: our logit model estimated 236 passengers as survivors, and in reality they did survive the trip.
+- $106$: our logit model wrongly estimated 106 passengers as dead, but in reality they survived the trip.
+- $87$: our logit model wrongly estimated 87 passengers as survivors, but in reality they died.
+
+From these frequencies, we can calculate five kinds of accuracy measures for evaluating our logit model:
+
+- **accuracy**: $\frac{462+236}{462+236+106+87}=0.7834=78.3\%$ The model correctly classified 78.34% of all passengers.
+- **precision(1)**: Of the passengers predicted by the model to be alive, $\frac{236}{236+87}=73.07\%$ actually survived the trip.
+- **precision(0)**: Of the passengers predicted by the model to be dead, $\frac{462}{462+106}=81.34\%$ actually died.
+- **recall(1)**: $\frac{236}{236+106}=69.01\%$ of all actually surviving passengers are among the passengers the model predicted to be alive too.
+- **recall(0)**: $\frac{462}{462+87}=84.15\%$ of all actually dead passengers are among the passengers the model predicted to be dead as well.
+
+Which of the 5 possible evaluation measures we use is basically decided by the business context.<br>
+For example, if a telecom company asks us to find them potential customers who, say, would sign a contract with the company as a result of a phone call, then we could build a logit model on a binary outcome variable, based on data from a previous, similar marketing campaign, where *1 = signed contract* and *0 = hung up the phone*.<br>
+When evaluating such a logit model, if the marketing director says they don't have much money for the campaign right now, then it's worth evaluating the model based on the **precision(1)** measure: here the goal is precisely that, of the people we predict as *1*, i.e. worth contacting, as high a percentage as possible actually sign a contract with the company. There isn't much money, so there shouldn't be many wasted calls.<br>
+But if the boss says instead that there are plenty of tokens for calls right now, and we should find as many potential customers as possible, then the model should be evaluated based on the **recall(1)** measure instead. Because here we want to identify the largest possible percentage of every $y=1$ individual with the model — even if the price of this is that there will be somewhat more mistaken calls among them.
+
+## 7. Logistic Regression for Rare Events – Bankruptcy Modeling
+
+Let's load the <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/bankruptcy.xlsx" target="_blank">bankruptcy.xlsx</a> file, which contains 7 accounting-type variables about 1969 Hungarian companies:
+
+- Bankrupt: Did the company go bankrupt? (1: yes; 0: no)
+- AssetTurnover100: asset turnover = net sales revenue / total value of assets
+- EquityRatio100: equity ratio = value of equity / total value of sources of funds
+- DebtEquityRatio100: solvency (bonitas) = value of liabilities / value of equity
+- ROA100: return on assets = (after-tax profit + depreciation) / total value of assets
+- CurrentAssetRatio100: current assets ratio = value of current assets / total value of assets
+- Liquidity100: liquidity = (value of current assets − value of short-term liabilities) / total value of assets
+
+Let's build a logistic regression model for the `Bankrupt` variable, using all the other variables in the data frame as explanatory variables (i.e. *predictors*). To be on the safe side, before building the model let's convert our outcome variable to `factor` type:
+
+```{r}
+library(readxl)
+bankruptcy <- read_excel("bankruptcy.xlsx")
+
+bankruptcy$Bankrupt <- as.factor(bankruptcy$Bankrupt)
+str(bankruptcy)
+
+bankruptcy_logit <- glm(Bankrupt ~ ., family = binomial(link='logit'), data = bankruptcy)
+summary(bankruptcy_logit)
+```
+
+We can see that every explanatory variable is significant at every common $\alpha$ levels, except for `Liquidity100`, but even that can be taken as significant at $\alpha=5\%$. Let's try to evaluate this model based on the **classification matrix**. As a first pass, let's again use the logical 50% *cut-off*:
+
+```{r}
+bankruptcy$BankruptProb <- predict(bankruptcy_logit, newdata = bankruptcy, type = "response") # estimating the probability of bankruptcy
+
+bankruptcy$PredictedBankrupt <- 0 # by default everyone stays solvent
+bankruptcy$PredictedBankrupt[bankruptcy$BankruptProb > 0.5] <- 1 # anyone whose probability of bankruptcy is above 50%, we label as bankrupt
+
+table(bankruptcy[,c("Bankrupt", "PredictedBankrupt")]) # classification matrix
+```
+
+Let's look at the *accuracy* measure from the classification matrix: $\frac{1862+54}{1862+54+53}=97.3\%$. Wow, that 97% accuracy is nothing to sneeze at! BUT: we're pessimistic economists! Let's just take a look at the *precision* and *recall* measures for the bankruptcy event ($y=1$)!
+
+$precision(1)=\frac{54}{54+0}=100\%$. So, of the companies the model estimated as bankrupt, all of them are bankrupt in reality too! This still looks pretty good!
+
+$recall(1)=\frac{54}{54+53}=50.5\%$. So, our logit model only estimates just a bit more than half of all bankrupt companies as actually bankrupt! Now that's a bit *rough around the edges*!<br>
+If we think about it more, what matters to a bank is identifying as many truly bankrupt companies as possible, since it's a bigger problem if the bank lends to a company that then goes bankrupt, than if it doesn't lend to one that wouldn't have gone bankrupt anyway!
+
+So our big current problem is that, of the $y=1$ cases, only very few (a bit more than 50%) get an $\hat{y}=1$ estimate from our model!<br>
+If we take another peek at our classification matrix, we can see the source of our heartache: there are altogether $53+54=107$ bankrupt companies out of $n=1969$. So the bankruptcy event ($y=1$) is a distinctly **rare event**, with a relative frequency of only $\frac{107}{1969}=5.4\%$. In polite jargon, we also say that our binary outcome variable is **imbalanced**.
+
+All of this results in the distribution of our predicted bankruptcy probabilities, i.e. the $P(y=1)$ probabilities, being nicely right-tailed:
+
+```{r}
+hist(bankruptcy$BankruptProb)
+```
+
+We can see that there are barely any predicted $P(y=1)$ probabilities that are above 50%. So, at a 50% *cut-off*, the model will only rather sparsely hand out $\hat{y}=1$ estimates, as we can also see in the classification matrix. This problem is actually somewhat similar to *heteroscedasticity* in the OLS model: we have few observations from a given range of the outcome variable's values, and our regression's $\hat{y}$ estimates make more errors in that range of values.
+
+One obvious solution to the problem could be that, since we know that 5.4% of the individuals in our sample are bankrupt companies, we could take every company as bankrupt for which our model says the bankruptcy probability is above 5.4%. In other words, we call every company bankrupt whose predicted bankruptcy probability is higher than "*average*".<br>
+In technical terms, we say that we're **lowering the cut-off value from 50% to 5.4%**! Let's see what happens to our classification matrix as a result:
+
+```{r}
+bankruptcy$PredictedBankrupt <- 0 # by default everyone stays solvent
+bankruptcy$PredictedBankrupt[bankruptcy$BankruptProb > 0.054] <- 1 # anyone whose probability of bankruptcy is above 5.4%, we label as bankrupt
+
+table(bankruptcy[,c("Bankrupt", "PredictedBankrupt")]) # classification matrix
+```
+
+We can see that our model now behaves in a more balanced way across both categories of the outcome variable!
+
+The overall classification accuracy, *accuracy*, has worsened here to $\frac{1578+84}{1578+84+23+284}=94.6\%$ from 97%. Things are somewhat worse, but not disastrous at all!
+
+On the other hand, $recall(1)=\frac{84}{84+23}=78.5\%$! So the model correctly identified 78.5% of all truly bankrupt companies!
+
+Let's not celebrate too much, though, because we achieved this 78.5% *recall(1)* by badly screwing up things in the other direction: $precision(1)=\frac{84}{84+284}=22.8\%$. Ugh! Of the companies the model predicted (i.e. flagged) as bankrupt, only roughly 23% are actually bankrupt in reality.<br>
+So, okay, the model finds a large percentage of the truly bankrupt companies, but it does so mostly by *shooting in the dark*! That's not okay, though, because this way the bank would refuse credit to a significant number of solvent companies too, which might hurt the precious heart of a money-hungry bank director!
+
+The **ROC curve** can help us find the *cut-off* that provides this balance!
+
+## 8. The ROC Curve
+
+To use the ROC curve, first we need to designate a so-called **positive class**. This is **the value, out of the two, of our binary outcome variable that we really want to estimate accurately** during our analysis.<br>
+Naturally, right now we want to identify the bankrupt companies as accurately as possible, i.e. find a high percentage of them, but without too many *false alarms*. So, in the present example, our positive class is $y=1$.
+
+After this, we need to introduce two concepts.
+
+1. The **True Positive Rate** of the positive class, in other words the model's **sensitivity**. This is basically an alias for the *recall of the positive class* measure. That is, it tells us what percentage of the individuals that truly belong to the outcome variable's positive class, can our model correctly identify.
+2. The **True Positive Rate** of the negative class, in other words the model's **specificity**. This is basically an alias for the *recall of the negative class* measure. That is, it tells us what percentage of the individuals that truly belong to the outcome variable's negative class, can our model correctly identify.
+
+The ROC curve actually uses **1 − specificity**. That is, the ratio that shows what percentage of the individuals that truly belong to the outcome variable's negative class were **wrongly classified into the positive class**. This is, in essence, the **False Positive Rate** of the positive class!
+
+Let's calculate the above 2+1 measures from our current model's classification matrix:
+
+```{r}
+table(bankruptcy[,c("Bankrupt", "PredictedBankrupt")]) # classification matrix
+```
+
+So, **sensitivity** = True Positive Rate = $TPR=\frac{84}{84+23}=78.5\%$
+
+Then, **specificity** = $\frac{1578}{1578+284}=84.7\%$
+
+And finally, **1 − specificity** = False Positive Rate = $FPR = 1-0.847=15.3\%$, or $\frac{284}{284+1578}$
+
+So, ultimately, we're searching for a *cut-off* value where **TPR** is as large as possible, while **FPR** is as small as possible! And the ROC curve does exactly this: for many-many *cut-off* values, it works through the classification matrix and, from it, gets the positive class's **TPR** and **FPR** values.<br>
+It then plots the results in a coordinate system, where the **x coordinates = FPR** and **y coordinates = TPR**, across the many-many examined *cut-off* values!
+
+### 8.1. How the ROC Curve Works in R
+
+So let's see such a ROC curve in R too! For this we need to install a package called `pROC`.
+
+```{r eval=FALSE}
+install.packages("pROC")
+library(pROC) # As usual, let's not worry about any potential Warnings! :)
+```
+```{r echo=FALSE}
+library(pROC)
+```
+
+We can create such a ROC curve with the package's `roc` function. Naturally, we'll need the actual $y$ values, and the $P(y=1)$ probabilities estimated from the logit model. Let's save the results into an object called `roc_data`:
+
+```{r}
+roc_data <- roc(bankruptcy$Bankrupt, bankruptcy$BankruptProb)
+```
+
+In this `roc_data` object (which, if we look closely, is a list-type thing) we have the examined **cut-off** values in the `thresholds` element. The machine spirit determines these based on the percentiles of our model's $P(y=1)$ probability distribution:
+
+```{r}
+summary(roc_data$thresholds)
+```
+
+We can see that the median of the examined *cut-off*s is around 1%.
+
+In the **sensitivities** and **specificities** elements, naturally, we find the **sensitivities** and **specificities** belonging to the examined *cut-off*s.
+
+If we check roughly which *cut-off* our currently set $5.4\%$ might be, we can peek at whether we get roughly the same **sensitivity** and **specificity** that we ourselves calculated from the classification matrix:
+
+```{r}
+roc_data$thresholds[round(roc_data$thresholds,3)==0.054] # we round the examined cut-offs to 3 decimals so that there's a match
+```
+
+The closest one to our 0.054 is probably `0.05406985`. Let's check which element number that is, and look at the corresponding values from the **sensitivities** and **specificities** elements:
+
+```{r}
+which(round(roc_data$thresholds,3)==0.054) # turns out to be roughly the 1600th element, for 0.05406985
+roc_data$sensitivities[1600]
+roc_data$specificities[1600]
+```
+
+We can see that **sensitivity = 78.5%** and **specificity = 84.8%**, just as we calculated ourselves at the very beginning of Section 8.
+
+Now, after all this, let's plot this cute little ROC curve:
+
+```{r}
+plot(roc_data)
+```
+
+The figure looks a bit odd. As I wrote, the **y-axis shows TPR, i.e. sensitivity**. On the other hand, the machine puts **specificity on the x-axis, even though it should really be 1 − specificity** there.<br>
+Well, yes, it's just that **the x-axis scale is reversed!!** That is, it starts not from 0 but from 1... so **1 − specificity really is on the x-axis after all**, the machine spirit just labels it this idiotically! *Such is life*, as the wise old Chinese sage would say, and we just have to live with it.
+
+It's also worth noticing that a 45-degree line has been drawn on the figure. This would be the ROC curve of a logit model for which every individual gets an estimate of $P(y=1)=0.5$. So this is the model that randomly guesses whether an observation is $y=1$ or $y=0$.<br>
+We can see that our model is substantially better than this baseline, since at every *cut-off* (except, of course, the round 0 and 1 values) it produces a higher **TPR** (*sensitivity*) and a lower **FPR** (*1 − specificity*).<br>
+Since this ROC curve actually moves within a unit square (on both axes we're plotting a ratio in the $[0,1]$ interval), we know that the area under the diagonal line is $0.5$.
+
+So the **area under the ROC curve** belonging to our logit model is definitely larger than this $0.5$. But specifically how much? This can be calculated by integration of the curve, and R calculates it for us too: it's precisely this area that's stored in the `auc` element of the `roc_data` object. The abbreviation **AUC** stands for **Area Under the ROC Curve**:
+
+```{r}
+roc_data$auc
+```
+
+So the area under the ROC curve is $0.9021$, which is really awesome! Why is that? Well, the best we could possibly do is achieve 1 = 100% **TPR** at 0% **FPR**! In other words, we'd **move up** into the **top-left corner of the unit square** in the coordinate system, i.e. to the point $(0,1)$. Such an **optimal ROC curve** would then be a unit square, whose **area is exactly** $1$. And we're quite close to this ideal state if the area under the ROC curve is $0.9$!
+
+What's more, we can specifically **find out at which cut-off examined on the ROC curve we're closest to this ideal $(0,1)$ point**! We simply calculate the Euclidean distance between every x-y coordinate pair on the ROC curve and the $(0,1)$ point, and find which *cut-off* the smallest distance belongs to.<br>
+Luckily, the `pROC` package can do all of this built in:
+
+```{r}
+best_cutoff <- coords(roc_data, "best", ret = "threshold", best.method = "closest.topleft")
+# the last parameter's value is a giveaway, since we're looking for the cut-off nearest to the top-left point of the diagram :)
+
+best_cutoff
+```
+
+So, based on the ROC curve, our best *cut-off* is roughly $4.3\%$. This is about 1 percentage point lower than the $5.4\%$ we arrived at based on the relative frequency of $y=1$ values in the sample.<br>
+But let's take a peek at how our classification matrix turns out with this *cut-off*:
+
+```{r}
+bankruptcy$PredictedBankrupt <- 0 # by default everyone stays solvent
+bankruptcy$PredictedBankrupt[bankruptcy$BankruptProb > best_cutoff[1,1]] <- 1 # anyone whose probability of bankruptcy is above roughly 4.3%, we label as bankrupt
+# note that best_cutoff is stored in a 1-row, 1-column data frame object
+# that's why we have to reference it in this convoluted [1,1] way
+
+table(bankruptcy[,c("Bankrupt", "PredictedBankrupt")]) # classification matrix
+```
+
+It seems that, based on the ROC curve, we can afford to lose a bit more from the bankrupt class's ($y=1$) **precision** measure: its value drops to $\frac{91}{91+338}=21.2\%$.<br>
+This is because, according to the ROC curve, in exchange we manage to improve the bankrupt class's **recall** even further, to $\frac{91}{91+16}=85.0\%$. And the **False Positive Rate** is also quite tolerable: $\frac{338}{1524+338}=18.15\%$. After all, there are plenty of non-bankrupt companies. Given this, the bank can afford to deny credit to 18% of them, if in exchange it correctly identifies 85% of the truly bankrupt companies!
+
+An **alternative way of choosing the optimal cut-off** is the so-called **Youden rule**. Here we choose, from among the *cut-off* values examined on the ROC curve, the one for which the sum of **sensitivity + specificity** is maximal.
+
+With the `coords` function we can also check what the optimal **cut-off** is according to the Youden rule:
+
+```{r}
+coords(roc_data, "best", ret = "threshold", best.method = "youden")
+```
+
+It's exactly the same $4.3\%$ that we got when searching for the point closest to the top-left corner. Awesome, two different methods recommend the exact same *cut-off*, so it just can't be that bad! :)
+
+### 8.2. Cut-off and Asymmetric Utility
+
+But our task isn't necessarily always so simple that a plain ROC curve alone lets us decide what our optimal *cut-off* value is!
+
+Let's suppose our bank director says that, according to their experience, **a bankrupt client costs, on average, 10 times more than the revenue generated by a client who pays properly and doesn't go bankrupt**. That is, if the *logit model* correctly identifies a non-bankrupt client, the bank gains 1 unit of money on them, whereas if the model gets a client wrong who is in fact bankrupt, the bank loses 10 units of money on them.<br>
+So, if we denote the number of clients correctly identified as non-bankrupt as **True Negative**, i.e. $TN$, and the number of clients wrongly judged as non-bankrupt as **False Negative**, i.e. $FN$, then **our bank's utility function** is: $$U(TN,FN)=\alpha \times TN + \beta \times FN$$
+Where $\alpha=1$ and $\beta=-10$.
+
+Let's check how much utility our current ROC-curve-based $c=4.3\%$ *cut-off* produces, based on the *classification matrix*:
+
+```{r}
+table(bankruptcy[,c("Bankrupt", "PredictedBankrupt")]) # classification matrix
+```
+
+So our current utility is: $$U(1524, 16)= 1 \times 1524 - 10 \times 16 = 1364$$
+
+Let's see if we can find a *cut-off* that **yields better utility than this**!
+
+For this, let's first write our **own function**, which calculates our utility at a given, predetermined *cut-off*, with $\alpha=1$ and $\beta=-10$:
+
+```{r}
+# defining the function
+utility <- function(x) {
+  bankruptcy$PredictedBankrupt <- 0 # by default everyone stays solvent
+  bankruptcy$PredictedBankrupt[bankruptcy$BankruptProb > x] <- 1 # anyone whose probability of bankruptcy is above roughly x, we label as bankrupt
+  conf_matrix <- table(bankruptcy[,c("Bankrupt", "PredictedBankrupt")]) # saving the classification matrix
+  # the True Negative = TN values are in row 1, column 1 of the classification matrix,
+  # the False Negative = FN values are in row 2, column 1
+  utility <- 1*conf_matrix[1,1] - 10*conf_matrix[2,1]
+  return(utility)
+}
+
+# using the function with the current cut-off = the best cut-off suggested by the ROC curve, 4.3%
+utility(best_cutoff[1,1])
+```
+
+Awesome, we got exactly the same utility function value that we calculated "by hand" earlier at the $4.3\%$ *cut-off*: $1364$.
+
+So now let's unleash R's `optimize` function on our utility function, which nicely gives us the optimal *cut-off* that yields the *maximum* of this utility value. In the arguments, with `c(0,1)` as the second argument, we specify that the machine-beast should only search for *cut-off* values within the $[0,1]$ interval, since any other range doesn't make sense in the context of bankruptcy *probabilities*. And with the `maximum = TRUE` setting we indicate that we want to *maximize*, and NOT minimize, the `utility` function:
+
+```{r}
+result <- optimize(utility, c(0,1), maximum = TRUE)
+```
+
+From the newly created `result` object we can read off what the optimal *cut-off* turned out to be, and we can also check what's the largest *utility* value we managed to achieve:
+
+```{r}
+result$maximum # the optimal cut-off
+result$objective # the maximum utility value
+```
+
+With this we can see that, given our current preferences, we achieve maximum utility at a *cut-off* value of roughly $c=9.46\%$, which is a good $5$ percentage points **higher** than the $4.3\%$ suggested by the ROC curve for symmetric preferences.<br>
+And with a *cut-off* of $c=9.46\%$ we can achieve a utility value of $U=1437$, compared to the $U=1364$ utility of the $4.3\%$ *cut-off*.
+
+## 9. Pseudo R-squared Measure
+
+We've seen that determining the estimation accuracy of a logistic regression model is far from a simple task, and there are a great many tools for it (classification matrix, ROC curve, and so on).<br>
+However, if we really want to, we can also give a **measure for evaluating** the prediction accuracy **of logit models that's similar to what the OLS model's R-squared value** was!
+
+Since we obtain the $\beta_j$'s by minimizing the model's **negative log-likelihood** ($-ln(L)$) value, this value essentially characterizes the *total error* of the logistic regression model in the same way $SSE$ does for the OLS model.<br>
+So, based on this analogy, we can practically **swap out** $SSE$ for $-ln(L)$ in the $R^2$ formula for a logit regression model.
+
+We can retrieve a logit model's $-2ln(L)$ value in R with the `deviance` function.
+
+```{r}
+NegLnL_FullModel <- deviance(bankruptcy_logit)
+NegLnL_FullModel
+```
+
+The $-2$ will turn out to matter, so let's not divide the result by 2! This doesn't change the substance of the matter! We can use this $-2ln(L)$ value to construct an $R^2$-like accuracy measure for logistic regression! This measure will be the **McFadden pseudo R-squared** value!
+
+Let's start from the $R^2$ formula used in the plain OLS case:
+
+<center>
+![](Rnegyzet.jpg){width=50%}
+</center>
+
+We've already justified that in logistic regression $ESS=SSE \approx -ln(L)$. But what will the counterpart of $TSS=SST$ be?
+
+As we know, in the case of a continuous outcome variable we think of $SST$ as all the explainable information contained in the outcome variable. But we also gave it another interpretation: that $SST$ **is the $SSE$ of a regression model that has no explanatory variables**. That is, $SST$ is nothing other than the $SSE$ of the **null model**.
+
+Well, this **second approach can be carried over** to logistic regression! Since we can straightforwardly calculate the $-2ln(L)$ of a logit model without explanatory variables.
+
+In Section 3, we got that $-ln(L) = \sum_{y=1}{ln(p)}+\sum_{y=0}{ln(1-p)}$. So all we need to do is multiply the result of this formula by $2$.
+
+Now, in a **null model**, where we have no explanatory variables, the $p=P(y=1)$ probability is nothing else than the relative frequency of $y=1$ values in our observed sample! A bachelor-level probability theory refresher: *the best estimate of a probability is the relative frequency calculated on the (favorable cases / all cases) principle*!
+
+We can simply calculate this relative frequency based on the descriptive statistics:
+
+```{r}
+summary(bankruptcy$Bankrupt)
+
+p_nullmodel <- 107/(107+1862)
+p_nullmodel
+```
+
+This is of course the already-familiar $5.4\%$. And from the descriptive statistics we also know that we need to take $107$ $y=1$ elements with $ln(p)$ in the $-ln(L)$ sum, and the remaining $1862$ $y=0$ elements with $ln(1-p)$. With this, we've got $-2ln(L)$ for the null model:
+
+```{r}
+NegLnL_NullModel <- -2*(107*log(p_nullmodel) + 1862*log(1-p_nullmodel))
+NegLnL_NullModel
+```
+
+Now that we have the *little sibling* of $SST$ in the logit model, we can simply construct the formula for our pseudo R-squared measure, which, following McFadden's idea, mirrors the $R^2$ formula seen above (using $SST$ and $SSE$) with the calculated $-2ln(L)$ values:
+
+<center>
+![](pszeudoR2.jpg){width=50%}
+</center>
+
+We can easily calculate this formula from our log-likelihood results in R:
+
+```{r}
+pseudo_R2 <- (NegLnL_NullModel - NegLnL_FullModel) / NegLnL_NullModel
+pseudo_R2
+```
+
+So, according to the McFadden pseudo $R^2$, our model's explanatory power is $49.3\%$. This means something like: our logit model that uses explanatory variables gives 49.3% better predictions for $P(y=1)$ than the *null model* without explanatory variables.
+
+Of course we can also calculate this value with a built-in R function. For this we need the package called `DescTools`:
+
+```{r eval=FALSE}
+install.packages("DescTools")
+library(DescTools) # As usual, let's not worry about any potential Warnings! :)
+```
+```{r echo=FALSE}
+library(DescTools)
+```
+
+The function itself goes by the name `PseudoR2`, and in one parameter we need to specify that we want to see the McFadden version:
+
+```{r}
+PseudoR2(bankruptcy_logit, "McFadden")
+```
+
+We got exactly the same $49.3\%$ that we calculated ourselves. Hurray! :)
+
+It's also worth noticing that the $-2ln(L_{full})$ and $-2ln(L_{null})$ values were already there in the `summary` table of the original logistic regression model:
+
+```{r}
+summary(bankruptcy_logit)
+```
+
+Here $-2ln(L_{full})$ goes by the name `Residual deviance`, while $-2ln(L_{null})$ goes by the name `Null deviance`, at the bottom of the summary table. :)
+
+## 10. Global Goodness-of-Fit Testing for Logistic Regression
+
+As a closing thought, let's see what that multiplier of $2$ in these $-2ln(L)$ values was actually needed for.
+
+I imagine many of you have wondered whether there's a hypothesis test in logistic regression like $ANOVA$ in the plain OLS model, where $H_0: \forall \beta_j=0$. Well, the answer is yes, there is, and it's called a $\chi^2$-type goodness-of-fit test.
+
+So, for this test, $H_0: \forall \beta_j=0$ and $H_1: \exists j:\beta_j \neq0$, in the world outside the observed sample. Just like in the *global F-test* for the plain OLS model.
+
+The test statistic of the hypothesis test, and its distribution across many, many samples if $H_0$ is true:
+
+<center>
+![](logit_chi2.jpg){width=50%}
+</center>
+
+In the formula, $m$ is the number of explanatory variables in the model. We'll actually find out in <a href="Chapter05.html" target="_blank">Chapter 5</a> that this is actually a special case of the so-called *Generalized Likelihood Ratio Test (GLRT)*.
+
+And this is exactly why we need that $2$ multiplier for the $-ln(L)$'s! Because this test statistic only has a $\chi_m^2$ distribution under a true $H_0$ if we include the $2$ multiplier!
+
+Let's go ahead and calculate the test statistic:
+
+```{r}
+TestStat <- NegLnL_NullModel - NegLnL_FullModel
+TestStat
+```
+
+Our degrees of freedom, $m$, is the number of explanatory variables. We can simply get this as the number of $\beta_j$ coefficients minus 1 (because of the intercept):
+
+```{r}
+m <- length(bankruptcy_logit$coefficients) - 1
+m
+```
+
+Then comes the p-value from the $\chi_m^2$ distribution. The test is right-tailed, just like the OLS global F-test, so we need the `1−` for the cumulative distribution function:
+
+```{r}
+1 - pchisq(TestStat,m)
+```
+
+Very good, the p-value is essentially 0, so it's smaller than every common $\alpha$ levels. So, we can clearly accept $H_1$, namely that in our logit model there's at least 1 $\beta_j$ that's also non-zero in the population (in the world outside the observed sample) too!
+
+We can have R calculate this $\chi^2$-test by building the **null model** as a separate R object, and then running it together with our current full model inside the `anova` function:
+
+```{r}
+logit_nullmodel <- glm(Bankrupt ~ 1, family = binomial (link = "logit"), data = bankruptcy)
+# notice that we use ~1 to signal that we don't want any explanatory variables in the model!
+
+anova(logit_nullmodel, bankruptcy_logit)
+```
+
+We can see that the test statistic matches the $410.08$ we have calculated ourselves!
+
+"*JoyAndHappinessAbound*"! :)

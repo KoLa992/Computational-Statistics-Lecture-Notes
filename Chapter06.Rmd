@@ -286,7 +286,7 @@ So, Bootstrap estimation is quite powerful. For example, it **allows interval es
 In case of a multiple regression model $y_i=\beta_0+\beta_1x_{1i}+...+\beta_kx_{ki}+\epsilon_i$, **if** our $\beta_j$ regression **coefficient estimates are not maximum likelihood estimates and the Gauss-Markov assumptions don't hold**, then the coefficient standard errors, p-values and confidence intervals are becoming invalid and not to be used to make any inference about the significance of explanatory variable effects on the target.<br>
 In order **to save at least our confidence intervals** for the $\beta_j$ coefficients in an unfortunate case like this, we can **apply Bootstrap** simulations.
 
-As a practical example, let's return to the COVID-19 mortality data one last time from <a href="Prelude04.html" target="_blank">Prelude 4</a>.
+As a practical example, let's return to the COVID-19 mortality data one last time from <a href="Prelude05.html" target="_blank">Prelude 5</a>.
 
 The data file used was <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/COVID_Deaths_Hungary.csv" target="_blank">COVID_Deaths_Hungary.csv</a> that stores data on 5 variables (columns) for 102 Hungarian districts (those where hospitals had average or below-average capacity utilization in 2019 according to [NEAK data](http://www.neak.gov.hu/data/cms1026624/Korhazi_agyszamkimutatas_2019.pdf)):
 

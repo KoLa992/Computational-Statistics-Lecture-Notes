@@ -642,7 +642,7 @@ So, if You have several tests to calculate p-value for a specific $H_0$ + $H_1$ 
 
 ### 5.4. GLRTs in Multiple Regression
 
-Now, I think it comes as no surprise that these nice **GLRTs can also apply in multiple regression models** as well. So, let's circle back again to the multivariate regression model we estimated by classic OLS in <a href="Prelude04.html" target="_blank">Section 2 of Prelude 4</a>.
+Now, I think it comes as no surprise that these nice **GLRTs can also apply in multiple regression models** as well. So, let's circle back again to the multivariate regression model we estimated by classic OLS in <a href="Prelude05.html" target="_blank">Section 2 of Prelude 5</a>.
 
 The data file used was <a href="https://github.com/KoLa992/Computational-Statistics-Lecture-Notes/blob/main/COVID_Deaths_Hungary.csv" target="_blank">COVID_Deaths_Hungary.csv</a> that stores data on 5 variables (columns) for 102 Hungarian districts (those where hospitals had average or below-average capacity utilization in 2019 according to [NEAK data](http://www.neak.gov.hu/data/cms1026624/Korhazi_agyszamkimutatas_2019.pdf)):
 
