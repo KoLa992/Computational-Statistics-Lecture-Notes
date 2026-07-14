@@ -318,7 +318,7 @@ But here the exponential coefficients show the multiplicative marginal effects o
 
 ### 3.1. Three Special Cases, One Idea
 
-You're probably already familiar with two of the three linear-function-based predictive models that led us here: plain **linear regression** (see <a href="Prelude05.html" target="_blank">Prelude 5</a>), and the **logit model** for binary outcomes (see <a href="Prelude06.html" target="_blank">Prelude 6</a>), plus the **Poisson regression** model we've just built by hand in Section 1. All three of them share **two common assumptions**:
+You're probably already familiar with two of the three linear-function-based predictive models that led us here: plain **linear regression** (see <a href="Prelude05.html" target="_blank">Prelude 5</a>), and the **logit model** for binary outcomes (see <a href="Prelude06.html" target="_blank">this tutorial material</a> if the logit model was not covered in your bachelor courses), plus the **Poisson regression** model we've just built by hand in Section 1. All three of them share **two common assumptions**:
 
 - The predictor variables $x_1, x_2,...,x_k$ are **known and fixed** (they are *not* random variables), and they can be continuous or binary (dummy-coded categorical).
 - The target variable $Y$ is **known**, but it *is* a random variable.

@@ -25,8 +25,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Prelude 5 - <a href="Prelude05.html" target="_blank">Multiple Linear Regression and Confounding</a>
 
-## Prelude 6 - <a href="Prelude06.html" target="_blank">Logistic Regression</a>
-
 ## Chapter 1 - <a href="Chapter01.html" target="_blank">Probability Distributions and Method of Moments</a>
 
 ## Chapter 2 - <a href="Chapter02.html" target="_blank">Simulations and Sampling</a>
