@@ -1,0 +1,371 @@
+---
+title: "Differential Equations"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. What Is a Differential Equation, and Why Should We Care?
+
+Every model we've built so far in this course - from a simple linear regression to a Poisson GLM - has had the same basic shape: we plug in some $x$ values and get a prediction for $y$. A **differential equation** asks a rather different kind of question. Instead of relating $y$ directly to $x$, it relates a function to its own **rate of change**. Formally:
+
+> A differential equation is an equation that connects a function, its independent variable(s), and the derivative(s) of that function.
+
+Two examples to get a feel for it: $$\frac{dy}{dx} = 3xy^2 \qquad \text{and} \qquad \frac{d^2y}{dx^2} - 4\frac{dy}{dx} + 3y = 1$$
+
+The **order** of a differential equation is just the highest derivative that shows up in it, so the first equation above is first-order, and the second one is second-order.
+
+Why would we ever want to write down an equation like this instead of a normal one? Because in an enormous number of real situations, it's easy to say something about how fast a quantity is changing, but hard to say directly what its value is. A few classics:
+
+- **Radioactive decay / population growth**: the rate of change of a quantity is proportional to the quantity itself: $\frac{dy}{dt}=ky$ (with $k<0$ for decay, $k>0$ for growth).
+- **Newton's law of cooling**: an object's temperature changes at a rate proportional to the gap between its own temperature and the ambient temperature: $\frac{du}{dt}=k(A-u)$.
+- **Logistic (capacity-limited) growth**: a population grows in proportion to both its current size *and* the amount of unused "room" left in the environment: $\frac{dP}{dt}=kP(P_{max}-P)$.
+- **Epidemics**: the number of new infections per day depends on how many people are currently susceptible *and* how many are currently infectious - this is exactly the idea we'll build into a full model in Section 2.
+
+**To solve** a differential equation means to recover the function $y(x)$ (or $y(t)$) that makes the equation true - not a single number, but an entire function.
+
+### 1.1. A Solvable Case: Growth and Decay by Hand
+
+The equation $\frac{dy}{dt}=ky$ is what's called **separable**: we can shove all the $y$'s to one side and all the $t$'s to the other, and then just integrate both sides. $$\frac{dy}{y}=k\,dt \quad\Rightarrow\quad \int\frac{dy}{y}=\int k\,dt \quad\Rightarrow\quad \log y = kt+C \quad\Rightarrow\quad y=y_0e^{kt}$$
+
+Notice the constant $C$ (or, after exponentiating, $y_0$) that pops out of the integration. This is completely generic: solving an $n$-th order differential equation leaves you with $n$ unknown constants, because you needed $n$ integrations to undo $n$ derivatives. On its own, $y=y_0e^{kt}$ is called the **general solution** - it describes a whole family of curves, one for every possible $y_0$. To pin down a single, specific curve, we need to know the value of the function at some point in time, an **initial condition**. Together, the differential equation plus an initial condition is called an **initial-value problem**, and its solution is a single, specific function rather than a family of them.
+
+For instance, a bacteria colony that starts at $1{,}000$ individuals and grows to $4{,}000$ after $6$ hours gives us both the differential equation and the initial condition we need to nail down $k$ and predict the colony's size at any later time:
+
+```{r}
+# y(t) = y0 * exp(k*t), y(0) = 1000, y(6) = 4000
+y0 <- 1000
+k <- log(4000 / y0) / 6 # solving 4000 = 1000*exp(6k) for k
+k
+
+y_t <- function(t) y0 * exp(k * t)
+y_t(15) # population after 9 more hours (t = 6 + 9 = 15)
+```
+
+So this little colony is projected to have around $32{,}000$ members after $15$ hours total - and we got there with nothing more than algebra, because $\frac{dy}{dt}=ky$ happens to be separable.
+
+### 1.2. When We Can't Solve by Hand: Numerical Methods
+
+Most differential equations that show up in real applications are *not* nicely separable, and have no closed-form solution at all. Take $\frac{dy}{dx}=y-x$: perfectly simple-looking, but let's not even try to integrate it directly. What we *can* always do, though, is exploit the very definition of the derivative to inch our way forward. If we know $y$ at some point $x$, then for a small step $\Delta x$: $$y(x+\Delta x)\approx y(x) + y'(x)\Delta x = y(x) + F(x,y)\Delta x$$
+
+This is **Euler's method**: start from a known point $(x_0, y_0)$, use the differential equation to compute the slope there, take a small step in that direction to land on the next point, and repeat. Let's code it up by hand for the initial-value problem $y'=y-x$, $y(0)=2$, using steps of $\Delta x = 0.1$:
+
+```{r}
+euler_step <- function(x, y, dx) y + dx * (y - x) # y' = y - x
+
+dx <- 0.1
+x_vals <- seq(0, 1, by = dx)
+y_vals <- numeric(length(x_vals))
+y_vals[1] <- 2 # initial condition y(0) = 2
+
+for (i in 2:length(x_vals)) {
+  y_vals[i] <- euler_step(x_vals[i - 1], y_vals[i - 1], dx)
+}
+
+euler_table <- data.frame(x = x_vals, y = round(y_vals, 4))
+euler_table
+```
+
+This particular equation *does* actually have a closed-form solution ($y=x+1+e^x$), so we can check how well we did:
+
+```{r}
+exact_y <- function(x) x + 1 + exp(x)
+c(euler_approx = y_vals[length(y_vals)], exact = exact_y(1))
+```
+
+Not bad for such a crude method - within about $2.6\%$ of the true value with only $10$ steps, and we'd get closer still with a smaller $\Delta x$ (at the cost of more steps). Euler's method is the conceptual starting point, but it's rarely what's used in practice: production-grade numerical solvers (like the Runge-Kutta family of algorithms) use the same core idea - take a small step, using the derivative to guess where to go next - but combine several intermediate slope estimates per step to get much better accuracy for the same computational cost.
+
+In R, the `deSolve` package's `ode()` function is exactly this kind of professional-grade solver, and it's what we'll rely on for the rest of this chapter - especially once we move from a single equation to several equations that all depend on each other at once, which is precisely what happens in epidemic models.
+
+## 2. The SIR Model: A System of Differential Equations
+
+### 2.1. Setting Up the Model
+
+Epidemics are a natural home for differential equations, because what we can easily describe is the *rate* at which people move between health states, not their absolute numbers directly. The classic starting point is the **SIR model**, which splits a population of size $N$ into three compartments:
+
+- $S$: **susceptible** individuals, who haven't caught the disease yet,
+- $I$: **infectious** individuals, who currently have it and can transmit it,
+- $R$: **recovered** (or removed) individuals, who are no longer infectious - either because they recovered and are now immune, or, in grimmer applications, because they died.
+
+The verbal story is simple: susceptibles get infected at a rate equal to an *infectious contact rate* $\beta$ times the number of infectious people they're exposed to, and infectious people recover (leaving the infectious pool) at a rate $\gamma$. Translated into differential equations, with $\beta$ and $\gamma$ as the model's two parameters: $$\frac{dS}{dt}=-\beta SI,\qquad \frac{dI}{dt}=\beta SI-\gamma I,\qquad \frac{dR}{dt}=\gamma I$$
+
+Notice this is a **system** of three coupled first-order equations: the rate of change of each compartment depends on the current values of the *other* compartments too, so we can't just solve one equation and move to the next - all three have to be solved simultaneously. This is also why a nice closed-form solution, like the one we found for $y'=ky$, isn't available here: numerical integration is really our only option.
+
+A very useful derived quantity is the **basic reproduction number** $$R_0=\frac{\beta}{\gamma}N$$ which is (roughly) the expected number of new infections caused by a single infectious individual in an otherwise fully susceptible population. If $R_0>1$, the epidemic can take off; if $R_0<1$, it fizzles out.
+
+### 2.2. Solving the SIR Model in R
+
+We use the `ode()` function from the `deSolve` package to numerically integrate the system. It needs (i) a function that computes the derivatives given the current state and the parameters, (ii) the parameter values, (iii) the initial values of $S$, $I$ and $R$, and (iv) the time points at which we want the solution evaluated.
+
+```{r}
+library(deSolve)
+
+sir_equations <- function(time, variables, parameters) {
+  with(as.list(c(variables, parameters)), {
+    dS <- -beta * S * I
+    dI <-  beta * S * I - gamma * I
+    dR <-  gamma * I
+    list(c(dS, dI, dR))
+  })
+}
+```
+
+The `with()` wrapper lets us refer to `S`, `I`, `beta`, etc. by name directly inside the function body, instead of having to index into `variables` and `parameters` vectors by hand. Let's pick some illustrative parameter values, imagining a population of $1{,}000$ where a single infectious person shows up at time $0$:
+
+```{r}
+parameters_values <- c(beta = 0.004, gamma = 0.5) # infectious contact rate, recovery rate
+initial_values <- c(S = 999, I = 1, R = 0)
+time_values <- seq(0, 10) # days
+
+sir_out <- ode(y = initial_values, times = time_values,
+               func = sir_equations, parms = parameters_values)
+sir_out <- as.data.frame(sir_out)
+sir_out
+```
+
+And, of course, a picture is worth a thousand rows of a data frame:
+
+```{r}
+with(sir_out, {
+  plot(time, S, type = "l", col = "blue", lwd = 2, ylim = c(0, 1000),
+       xlab = "time (days)", ylab = "number of people")
+  lines(time, I, col = "red", lwd = 2)
+  lines(time, R, col = "darkgreen", lwd = 2)
+})
+legend("right", c("susceptible", "infectious", "recovered"),
+       col = c("blue", "red", "darkgreen"), lty = 1, lwd = 2, bty = "n")
+```
+
+Textbook epidemic shape: susceptibles get depleted, infectious cases rise and then fall back to (near) zero as people recover, and the recovered curve climbs monotonically to (almost) the full population. With $N=1000$, $\beta=0.004$ and $\gamma=0.5$, our $R_0$ here is:
+
+```{r}
+N <- sum(initial_values)
+N * parameters_values["beta"] / parameters_values["gamma"]
+```
+
+So each infectious person is, on average, expected to infect $8$ other people in this fully susceptible population - a genuinely explosive epidemic, which matches the steep curve we just plotted.
+
+## 3. Parameter Estimation for Differential Equations
+
+Everything in Section 2 assumed we already *knew* $\beta$ and $\gamma$. In practice, of course, we never do - what we actually have is a handful of observed case counts, and we need to work backwards to figure out which parameter values best explain them. This is exactly the same logical move we made for GLMs in <a href="Chapter08.html" target="_blank">Chapter 8</a>: there, we searched over regression coefficients $\boldsymbol\beta$ to find the ones that made the observed claims most plausible; here, we'll search over $(\beta,\gamma)$ to find the ones that make the observed case counts most plausible. The mechanics turn out to be strikingly similar.
+
+### 3.1. The Data: A Flu Outbreak in a Boarding School
+
+We'll use a small, famous dataset: an influenza outbreak in an English boys' boarding school with $763$ boys in total, running from January 22nd, 1978 (day $0$) to February 4th, 1978 (day $13$). The `cases` column records how many boys were confined to bed (i.e. infectious) on each day.
+
+```{r}
+flu <- read.table("https://raw.githubusercontent.com/choisy/DMo2019/master/data/flu.txt",
+                  header = TRUE)
+flu
+```
+
+Let's see how badly our arbitrary guess from Section 2.2 ($\beta=0.004$, $\gamma=0.5$) fits this real outbreak. We'll wrap the simulation step into a small helper function, since we'll be calling it over and over throughout this section:
+
+```{r}
+sir_1 <- function(beta, gamma, S0, I0, R0, times) {
+  # unname() matters here: passing a *named* numeric like param["beta"]
+  # straight through would silently clash with R's own beta() function
+  # (Euler's Beta function!) once it lands inside sir_equations().
+  beta <- unname(beta); gamma <- unname(gamma)
+
+  parameters_values <- c(beta = beta, gamma = gamma)
+  initial_values <- c(S = S0, I = I0, R = R0)
+  out <- ode(y = initial_values, times = times,
+            func = sir_equations, parms = parameters_values)
+  as.data.frame(out)
+}
+
+N <- 763
+I0 <- flu$cases[1]
+guess <- sir_1(beta = 0.004, gamma = 0.5, S0 = N - I0, I0 = I0, R0 = 0, times = flu$day)
+
+plot(flu$day, flu$cases, pch = 19, ylim = c(0, 600),
+    xlab = "day", ylab = "number of infectious boys")
+lines(guess$time, guess$I, col = "red", lwd = 2)
+```
+
+Way off - our guessed epidemic peaks far too early and far too low compared to what actually happened. Time to let the data tell us what $\beta$ and $\gamma$ should be.
+
+### 3.2. Measuring the Mismatch: Sum of Squares
+
+The most intuitive way to score "how wrong" a set of parameter values is, is to add up the squared vertical distances between the model's predicted $I(t)$ and the observed case counts - exactly the same **sum of squared errors** idea behind ordinary least squares regression.
+
+```{r}
+ss <- function(beta, gamma, data = flu, N = 763) {
+  I0 <- data$cases[1]
+  times <- data$day
+  predictions <- sir_1(beta = beta, gamma = gamma,
+                       S0 = N - I0, I0 = I0, R0 = 0, times = times)
+  sum((predictions$I[-1] - data$cases[-1])^2) # skip day 0: I0 fits it by definition
+}
+
+ss(beta = 0.004, gamma = 0.5)
+```
+
+That's a big number, consistent with the terrible fit we just saw in the plot. To build some intuition before jumping to a full search, let's fix $\gamma=0.5$ and scan over a grid of plausible $\beta$ values, tracking how the sum of squares changes:
+
+```{r}
+beta_grid <- seq(from = 0.0016, to = 0.004, length.out = 100)
+ss_grid <- sapply(beta_grid, ss, gamma = 0.5)
+
+min_ss <- min(ss_grid)
+beta_hat_grid <- beta_grid[ss_grid == min_ss]
+c(min_ss = min_ss, beta_hat = beta_hat_grid)
+```
+
+```{r}
+plot(beta_grid, ss_grid, type = "l", lwd = 2,
+    xlab = expression(paste("infectious contact rate ", beta)),
+    ylab = "sum of squares")
+abline(h = min_ss, lty = 2, col = "grey")
+abline(v = beta_hat_grid, lty = 2, col = "grey")
+```
+
+There's a clear, well-defined minimum, which is reassuring - the sum-of-squares surface isn't flat or wildly bumpy, so an optimizer should have no trouble finding it.
+
+### 3.3. Automating the Search: `optim()`
+
+Scanning a grid one parameter at a time is fine for building intuition, but it doesn't scale (imagine doing this for $5$ or $10$ parameters at once), and it only optimizes one dimension while holding the rest fixed. Just like we did for the Poisson regression coefficients by hand in <a href="Chapter08.html" target="_blank">Section 1.1 of Chapter 8</a>, we can hand the whole job over to R's general-purpose optimizer, `optim()`. It needs a function that takes *all* the parameters bundled into a single vector and returns one number to minimize:
+
+```{r}
+ss2 <- function(x) ss(beta = x[1], gamma = x[2])
+
+starting_param_val <- c(0.004, 0.5)
+ss_optim <- optim(starting_param_val, ss2)
+ss_optim
+```
+
+```{r}
+beta_hat <- ss_optim$par[1]
+gamma_hat <- ss_optim$par[2]
+N * beta_hat / gamma_hat # R0 estimate
+```
+
+So, based on least squares alone, this outbreak had an estimated $R_0$ of roughly $4.1$ - a substantially less explosive epidemic than our original wild guess suggested, but still comfortably above the epidemic threshold of $1$.
+
+### 3.4. From Sum of Squares to Maximum Likelihood
+
+Minimizing a sum of squares is, quietly, already a maximum likelihood procedure - just recall from <a href="Chapter08.html" target="_blank">Section 3.4 of Chapter 8</a> that OLS and MLE coincide exactly when we assume the errors are **normally distributed** around the model's predictions. Making that assumption explicit lets us do everything a proper likelihood framework offers: standard errors, confidence intervals, and formal comparisons between competing error models - which is exactly why we bothered introducing likelihoods at all back when we first met GLMs.
+
+Let's write the (negative log-)likelihood by hand, following the same recipe we used for `neg_ll_poi` in <a href="Chapter08.html" target="_blank">Chapter 8</a>: plug the SIR model's predictions in as the *mean* of a normal distribution, and estimate an extra noise parameter $\sigma$ alongside $\beta$ and $\gamma$.
+
+```{r}
+mLL <- function(beta, gamma, sigma, day, cases, N = 763) {
+  beta <- exp(beta); gamma <- exp(gamma); sigma <- exp(sigma) # keep all 3 positive
+  I0 <- cases[1]
+  observations <- cases[-1]
+  predictions <- sir_1(beta = beta, gamma = gamma,
+                       S0 = N - I0, I0 = I0, R0 = 0, times = day)
+  predictions <- predictions$I[-1]
+  -sum(dnorm(x = observations, mean = predictions, sd = sigma, log = TRUE))
+}
+```
+
+Notice the `exp()` trick: since `optim` (and, underneath, the `mle2` function we're about to use) happily searches over the whole real line, we optimize over the *logs* of $\beta$, $\gamma$ and $\sigma$ so that whatever values it tries, the back-transformed parameters are guaranteed to stay positive - a rate or a standard deviation can never sensibly be negative.
+
+Rather than call `optim` ourselves again, let's use the `bbmle` package's `mle2()` function, which is really just a friendlier wrapper around `optim` purpose-built for likelihood work - it automatically produces a coefficient table, standard errors and confidence intervals, the same things `summary.glm` gave us for free in <a href="Chapter08.html" target="_blank">Chapter 8</a>.
+
+```{r}
+library(bbmle)
+
+starting_param_val <- list(beta = 0.004, gamma = 0.5, sigma = 1)
+estimates <- mle2(minuslogl = mLL, start = lapply(starting_param_val, log),
+                  method = "Nelder-Mead", data = c(flu, N = 763))
+summary(estimates)
+```
+
+The coefficients above are still on the log scale (that's what we optimized over), so we need to `exp()` them to get back to the natural units of $\beta$, $\gamma$ and $\sigma$:
+
+```{r}
+exp(coef(estimates))
+```
+
+```{r}
+exp(confint(estimates))
+```
+
+Reassuringly close to our sum-of-squares estimates from Section 3.3 - which makes sense, since (as noted above) minimizing the sum of squares *is* maximum likelihood under normality. What we've gained here is the confidence intervals: we now know $\beta$ is estimated fairly precisely (a narrow band around $0.0025-0.0027$), while $\gamma$'s interval is a bit wider.
+
+### 3.5. A Better Error Model for Count Data: Poisson
+
+The normal-error assumption above is a convenient default, but `cases` is a **count** - and just as we reached for a Poisson distribution for count outcomes back in <a href="Chapter08.html" target="_blank">Section 1 of Chapter 8</a>, it's natural to ask whether a Poisson error model fits this outbreak better than a normal one. The nice thing about a Poisson error is that it needs no separate noise parameter at all - the variance is tied directly to the mean, so we go back down to just $2$ parameters.
+
+```{r}
+mLL_pois <- function(beta, gamma, day, cases, N = 763) {
+  beta <- exp(beta); gamma <- exp(gamma)
+  I0 <- cases[1]
+  observations <- cases[-1]
+  predictions <- sir_1(beta = beta, gamma = gamma,
+                       S0 = N - I0, I0 = I0, R0 = 0, times = day)
+  predictions <- predictions$I[-1]
+  if (any(predictions < 0)) return(NA) # guard against invalid lambdas
+  -sum(dpois(x = observations, lambda = predictions, log = TRUE))
+}
+
+starting_param_val <- list(beta = 0.004, gamma = 0.5)
+estimates_pois <- mle2(minuslogl = mLL_pois, start = lapply(starting_param_val, log),
+                       data = c(flu, N = 763))
+exp(coef(estimates_pois))
+```
+
+```{r}
+exp(confint(estimates_pois))
+```
+
+The point estimates barely move. So which of the two error models - normal or Poisson - should we actually trust? Exactly like we did to compare GLMs with a different number of parameters in <a href="Chapter08.html" target="_blank">Section 3.6 of Chapter 8</a>, $AIC$ is the right tool, since it automatically penalizes the normal model for its extra $\sigma$ parameter:
+
+```{r}
+AIC(estimates, estimates_pois)
+```
+
+A bit counter to what we might have expected for count data: $AIC$ actually favors the **normal** model here, despite `cases` being counts and despite it costing us one extra parameter. The likely explanation is that this is a small, noisy outbreak (only $14$ data points) with day-to-day fluctuations bigger than a rigid Poisson (where the variance is forced to equal the mean) can comfortably absorb, while the free $\sigma$ in the normal model gives it the flexibility to soak up that extra variability. A useful reminder that "the theoretically appropriate distribution" and "the best-fitting distribution in a finite, noisy sample" don't always coincide - which is exactly why we compare models with $AIC$ instead of just picking one on principle.
+
+### 3.6. Visualizing the Fitted Model
+
+Let's wrap up by plotting the normal-error model's fitted epidemic curve (our $AIC$-preferred model) against the observed data, together with a $95\%$ prediction band built from the estimated $\sigma$.
+
+```{r}
+library(ggplot2)
+
+param_hat <- exp(coef(estimates))
+time_points <- seq(min(flu$day), max(flu$day), length.out = 100)
+
+best_predictions <- sir_1(beta = param_hat["beta"], gamma = param_hat["gamma"],
+                          S0 = N - I0, I0 = I0, R0 = 0, times = time_points)
+
+cl <- 0.025 # (1 - 0.95) / 2, for a 95% band
+band <- data.frame(
+  time = time_points,
+  fit = best_predictions$I,
+  lwr = pmax(0, qnorm(cl, mean = best_predictions$I, sd = param_hat["sigma"])),
+  upr = qnorm(1 - cl, mean = best_predictions$I, sd = param_hat["sigma"])
+)
+
+ggplot() +
+  geom_ribbon(data = band, aes(x = time, ymin = lwr, ymax = upr),
+             fill = "tomato", alpha = 0.15) +
+  geom_line(data = band, aes(x = time, y = fit), color = "tomato", linewidth = 1) +
+  geom_point(data = flu, aes(x = day, y = cases), size = 2) +
+  labs(x = "day", y = "number of infectious boys",
+      title = "Fitted SIR model vs. observed flu cases") +
+  theme_minimal()
+```
+
+Much better than our first blind guess back in Section 3.1! The fitted curve captures the timing and rough height of the peak, and the observed points mostly sit comfortably inside the $95\%$ band. There's still visible daily noise the smooth SIR curve can't chase - which is exactly what that band, and the $\sigma$ parameter behind it, is there to account for.
+
+And that's the general recipe for calibrating *any* differential-equation model against real data: (1) write the equations, (2) solve them numerically for a given set of parameters, (3) turn the mismatch between predictions and data into a (negative log-)likelihood, and (4) let `optim` (or `mle2`) search for the parameter values that make the observed data as plausible as possible. Everything else - confidence intervals, model comparison via $AIC$, diagnostic plots - carries straight over from the GLM toolkit we already built in <a href="Chapter08.html" target="_blank">Chapter 8</a>.
