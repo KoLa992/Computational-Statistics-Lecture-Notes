@@ -11,7 +11,7 @@
 
 <meta name="author" content="László Kovács" />
 
-<meta name="date" content="2026-07-14" />
+<meta name="date" content="2026-07-21" />
 
 <title>Generalized Linear Models</title>
 
@@ -245,7 +245,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">Generalized Linear Models</h1>
 <h4 class="author">László Kovács</h4>
-<h4 class="date">2026-07-14</h4>
+<h4 class="date">2026-07-21</h4>
 
 </div>
 
@@ -918,6 +918,7 @@ gamma_coef_compare[order(gamma_coef_compare$diff, decreasing = TRUE),]</code></p
   </script>
 </div>
 <p>So, looks like even the biggest differences are not so substantial. Where the sign of the coefficient has changed, it was in a case where the coefficient was not significant on any of the common levels (<code>area = B</code>, where p-values was 0.834 in Section 2), so it does not really matter. All is well, the 2 outliers have not messed up the conclusions based on the model coefficients in the Gamma regression. Hurray! :)</p>
+<p>By the way, this is also a nice example of the fact that <strong>a significant effect is not necessarily meaningful</strong>! Since, in this case the Bonferroni test indicated that omitting one out of the 2 observations in questions changes the coefficients more than a random variation in the observed data would (i.e. the change is significant). But this significant change did not cause any substantial change in the coefficients as we just saw in the compare table above. So, the change is not meaningful enough to really mess up our Gamma regression.</p>
 </div>
 
 

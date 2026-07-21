@@ -860,7 +860,7 @@ varcov_ml[2,1]/(sqrt(varcov_ml[1,1])*sqrt(varcov_ml[2,2]))
 
 There, we have that $cor(\hat{\mu}_{ML},\hat{\sigma}_{ML})=-0.000213$. The absolute value of this correlation is way below $0.3$, so we can safely say that the correlation of the two estimators is weak. In fact, it's so close to $0$ that can say that the **two parameters can be independently estimated from each other**.
 
-The **covariance of two estimators** is not so important in this example as it is practically $0$, but it is **going to be important when we cover the maximum likelihood estimation for the parameters of more complex models. Like multivariate regression and generalized linear models** covered in <a href="Chapter07.html" target="_blank">Chapter 7</a> and <a href="Chapter09.html" target="_blank">Chapter 9</a>.
+The **covariance of two estimators** is not so important in this example as it is practically $0$, but it is **going to be important when we cover the maximum likelihood estimation for the parameters of more complex models. Like generalized linear models and differential equations** covered in <a href="Chapter08.html" target="_blank">Chapter 8</a> and <a href="Chapter09.html" target="_blank">Chapter 9</a>.
 
 ## 7. Case Study - Is Party Preference Influenced by Internet Usage Time?
 

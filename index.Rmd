@@ -41,4 +41,4 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Chapter 8 - <a href="Chapter08.html" target="_blank">Generalized Linear Models</a>
 
-## Chapter 9 - Maximum Likelihood Estimaton of Differential Equations
+## Chapter 9 - <a href="Chapter09.html" target="_blank">Estimaton of Differential Equations</a>
