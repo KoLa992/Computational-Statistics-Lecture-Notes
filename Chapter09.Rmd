@@ -220,13 +220,13 @@ N <- sum(initial_values)
 N * parameters_values["beta"] / parameters_values["gamma"]
 ```
 
-So **each infectious person is, on average, expected to infect $8$ other people** in this fully susceptible population - a genuinely explosive epidemic (for COVID-19 $R_0$ typically ranged from $2.5$ to $6.0$), which matches the steep curve we just plotted.
+So **each infectious person is, on average, expected to infect $8$ other people** in this fully susceptible population - a genuinely explosive epidemic (for COVID-19 $R_0$ typically ranged from $1.4$ to $6.0$, depending on which wave (1st, 2nd, 3rd) we are in), which matches the steep curve we just plotted.
 
 ## 3. Parameter Estimation for Differential Equations
 
 Now, we have the tools to solve the SIR system with arbitrary chosen $\beta$ and $\gamma$ parameters. Now, the **time has come** to actually **fit the SIR model on observed data by estimating these $\beta$ and $\gamma$ parameters** with the methods we've covered on this course so far.
 
-Everything in Section 2 assumed we already **knew** $\beta$ and $\gamma$. In practice, of course, we never do - **what we actually have** is a handful of **observed case counts**, and we need to work backwards to figure out which parameter values best explain them. This is exactly the same logical move we made for GLMs in <a href="Chapter08.html" target="_blank">Chapter 8</a>: there, we searched over regression coefficients $\beta_j$ to find the ones that made the observed claims most plausible; here, **we'll search over $(\beta,\gamma)$ to find the ones that make the observed case counts most plausible**. The mechanics turn out to be strikingly similar.
+Everything in Section 2 assumed we already **knew** $\beta$ and $\gamma$. In practice, of course, we never do - **what we actually have** is a handful of **observed case counts**, and we need to work backwards to figure out which parameter values best explain them. This is exactly the same logical move we made for GLMs in <a href="Chapter08.html" target="_blank">Chapter 8</a>: there, we searched over regression coefficients $\beta_j$ to find the ones that made the observed claims most probable; here, **we'll search over $(\beta,\gamma)$ to find the ones that make the observed case counts most probable**. The mechanics turn out to be strikingly similar.
 
 ### 3.1. The Data: A Flu Outbreak in a Boarding School
 

@@ -1,0 +1,929 @@
+---
+title: "Estimaton of Differential Equations"
+author: "László Kovács"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+<style>
+body {
+text-align: justify;
+font-size: 12pt}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. What Is a Differential Equation, and Why Should We Care?
+
+Every multivariate model we've built so far in this course - from a simple linear regression to a Poisson GLM - has had the same basic shape: we plug in some $x$ values to some function $f(\cdot)$ and get a prediction for $y$.
+
+$$\hat{y} = f(x)$$
+
+A **differential equation** asks a rather different kind of question. Instead of relating $y$ directly to $x$, it relates a function to its own **rate of change**. Formally:
+
+> A differential equation is an equation that connects a function, its independent variable(s), and the derivative(s) of that function.
+
+Two examples to get a feel for it.
+
+First, let's say that we have a function denoted as $f$ that has an input argument/parameter denoted as $x$. So, we have a classic $y=f(x)$ function. We don't know what this $f(x)$ function is, but we do know that its **rate of change, or in other words, its first derivative** is $3$ times the input parameter value $x$ times the squared value of the $f(x)$ function itself.
+
+$$\frac{df}{dx} = 3xf^2(x) = 3xy^2$$
+
+I think for this one, it is easy to see that the $y=f(x)$ function that solves this differential equation is $$y=f(x)=-\frac{2}{3x^2}$$
+
+Since the first derivative for this function is $$\frac{df}{dx} = f'(x) = \frac{4}{3}x^{-3}$$
+
+And if You take the squared $f$ function $y^2=f^2(x)=4/3^2 \times x^{-4}$ and multiply it with $3x$, You have the first derivative, $f'(x)$:
+
+$$y^2 \times 3x = \frac{4}{3^2} \times x^{-4} \times 3x = \frac{4}{3}x^{-3} = f'(x)$$
+
+So, we are back at where we began, which **proves that $y=f(x)=-2/(3x^2)$ is a good solution** to this differential equation.
+
+For <a href="https://youtu.be/X1H-xUrdSS8?t=143" target="_blank">simplicity</a>'s sake, we usually don't use the $y=f(x)$ notation in differential equations, just use letter $y$ to denote that unknown which is the function itself this time: $y(x)$.
+
+So, using this $y(x)$ notation, let's see our second example.
+
+$$\frac{d^2y}{dx^2} - 4\frac{dy}{dx} + 3y = 1$$
+
+The solution for this second equation is the function $$y(x)=e^x + \frac{1}{3}$$
+
+It can be shown that this function satisfies the differential equation given above the same way as we did in the first example, but <a href="https://i.redd.it/vrsnwsgpg0761.png" target="_blank"> this is left as an exercise for the reader</a>. What You need to note here that this equation contains the second derivative of our function as well: $(d^2y)/(dx^2) = y''(x)$. This means that this is a so-called *second-order* differential equation here.
+
+The **order** of a differential equation is just the highest derivative that shows up in it, so the first equation above is first-order, and the second one is second-order.
+
+Now, after seeing our first two horrific examples of these differential equations, the natural question is **why would we ever want to write down a nasty equation like this instead of a normal one?**
+
+Unfortunately, the asnwer is that **because it is useful in practice**. :( In an enormous number of real situations, it's easier to say something about how fast a quantity is changing, than to say directly what its value is. A few classics:
+
+- **Radioactive decay / Population growth**: the rate of change of a quantity expressed as a function of time like $y(t)$ is proportional with a constant $k$ to the quantity itself: $\frac{dy}{dt}=ky$ (with $k<0$ for decay, $k>0$ for growth).
+- **Newton's law of cooling**: an object's temperature at time $t$ (denoted as $u(t)$) changes at a rate $k$ that is proportional to the gap between its own temperature ($u(t)$) and the ambient temperature ($A$): $\frac{du}{dt}=k(A-u)$.
+- **Logistic (capacity-limited) growth**: a population at time $t$ (denoted as $P(t)$) grows in proportion with some constant $k$ to both its current size ($P(t)$) *and* the amount of unused "room" left in the environment (expressed as $P_{max}-P$): $\frac{dP}{dt}=kP(P_{max}-P)$.
+- **Epidemics**: the number of new infections per day depends on how many people are currently susceptible *and* how many are currently infectious - this is exactly the idea we'll build into a full model in Section 2.
+
+> Now, notice all these examples have some unknown parameters (like $k, A, P_{max}$) that need to be estimated based on observed data. This is exactly what we aim to do now!
+
+However, **before we can apply our usual statistical estimation theory** (like OLS, MLE or MM) on differential equations, we need to learn a little bit about how **to solve these differential equations** in general.
+
+To solve a differential equation means to **recover** the function $y(x)$ (or $y(t)$) that **makes the equation true - not a single number, but an entire function**.
+
+### 1.1. A Solvable Case: Growth and Decay by Hand
+
+The equation $\frac{dy}{dt}=ky$ is what's called **separable**: we can shove all the $y$'s to one side and all the $t$'s to the other, and then just integrate both sides. $$\frac{dy}{y}=k\,dt \quad\Rightarrow\quad \int\frac{dy}{y}=\int k\,dt \quad\Rightarrow\quad \log y = kt+C \quad\Rightarrow\quad y(t)=y_0e^{kt}$$
+
+Notice the constant $C$ (or, after exponentiating, $y_0$) that pops out of the integration. This is completely generic: solving an $n$-th order differential equation leaves you with $n$ unknown constants, because you needed $n$ integrations to undo $n$ derivatives. On its own, $y(t)=y_0e^{kt}$ is called the **general solution** - it describes a whole family of curves, one for every possible $y_0$. To pin down a single, specific curve, we need to know the value of the function at some point in time, an **initial condition**. Together, the differential equation plus an initial condition is called an **initial-value problem**, and its solution is a single, specific function rather than a family of them.
+
+For instance, a bacteria colony that starts at $1000$ individuals and grows to $4000$ after $6$ hours gives us both the differential equation and the initial condition we need to nail down $k$ and predict the colony's size at any later time:
+
+```{r}
+# y(t) = y0 * exp(k*t), y(0) = 1000, y(6) = 4000
+y0 <- 1000
+k <- log(4000 / y0) / 6 # solving 4000 = 1000*exp(6k) for k
+k
+
+y_t <- function(t) y0 * exp(k * t)
+y_t(15) # population after 9 more hours (t = 6 + 9 = 15)
+```
+
+So this little colony is projected to have around $32000$ members after $15$ hours total - and we got there with nothing more than algebra, because $\frac{dy}{dt}=ky$ happens to be **separable**.
+
+### 1.2. When We Can't Solve by Hand: Numerical Methods
+
+Most differential equations that show up in real applications are **not** nicely **separable**, and have **no closed-form solution** at all. Take $\frac{dy}{dx}=y-x$: perfectly simple-looking, but let's not even try to integrate it directly. What we *can* always do, though, is exploit the very definition of the derivative to inch our way forward. If we know $y$ at some point $x$, then for a small step $\Delta x$: $$y(x+\Delta x)\approx y(x) + y'(x)\Delta x = y(x) + F(x,y)\Delta x$$
+
+This is **Euler's method**: start from a known point $(x_0, y_0)$, use the differential equation to compute the slope there, take a small step in that direction to land on the next point, and repeat. Let's code it up by hand for the initial-value problem $y'=y-x$, $y(0)=2$, using steps of $\Delta x = 0.1$:
+
+```{r}
+euler_step <- function(x, y, dx) y + dx * (y - x) # y' = y - x
+
+dx <- 0.1
+x_vals <- seq(0, 1, by = dx)
+y_vals <- numeric(length(x_vals))
+y_vals[1] <- 2 # initial condition y(0) = 2
+
+for (i in 2:length(x_vals)) {
+  y_vals[i] <- euler_step(x_vals[i - 1], y_vals[i - 1], dx)
+}
+
+euler_table <- data.frame(x = x_vals, y = round(y_vals, 4))
+euler_table
+```
+
+This particular equation *does* actually have a closed-form solution ($y=x+1+e^x$), so we can check how well we did in $x=1$:
+
+```{r}
+exact_y <- function(x) x + 1 + exp(x)
+c(euler_approx = y_vals[x_vals == 1], exact = exact_y(1))
+```
+
+Not bad for such a crude method - within about $2.6\%$ of the true value with only $10$ steps, and we'd get closer still with a smaller $\Delta x$ (at the cost of more steps). Euler's method is the conceptual starting point, but it's rarely what's used in practice: production-grade numerical solvers (like the *Runge-Kutta* family of algorithms) use the same core idea - take a small step, using the derivative to guess where to go next - but combine several intermediate slope estimates per step to get much better accuracy for the same computational cost.
+
+In R, the `deSolve` package's `ode()` function is exactly this kind of professional-grade solver, and it's what we'll rely on for the rest of this chapter - especially once we move from a single equation to several equations that all depend on each other at once, which is precisely what happens in epidemic models.
+
+So, let's immediately install and load this package to our R environment and say goodbye to the <a href="https://youtu.be/Ojo59x1rNeo?t=20" target="_blank">uncivilized</a> way of solving differential equations by hand. :)
+
+```{r eval=FALSE}
+install.packages("deSolve")
+library(deSolve) # Don't bother with the possible Warnings as usual! :)
+```
+```{r echo=FALSE}
+library(deSolve)
+```
+
+## 2. The SIR Model: A System of Differential Equations
+
+### 2.1. Setting Up the Model
+
+Epidemics are a natural home for differential equations, because what we can easily describe is the *rate* at which people move between health states, not their absolute numbers directly. The classic starting point is the **SIR model**, which splits a population of size $N$ into three compartments in each time point, $t$:
+
+- $S(t)$: **susceptible** individuals, who haven't caught the disease yet at time $t$,
+- $I(t)$: **infectious** individuals, who currently have it and can transmit it at time $t$,
+- $R(t)$: **recovered** (or removed) individuals, who are no longer infectious at time $t$ - either because they recovered and are now immune, or, in grimmer applications, because they died.
+
+The **story is simple**: susceptibles get infected at a rate equal to an *infectious contact rate* $\beta$ times the number of infectious people they're exposed to, and infectious people recover (leaving the infectious pool) at a rate $\gamma$.
+
+**Visually**, the process is still simple.
+
+<br>
+<center>
+![](sir.png){width=50%}
+</center>
+<br>
+
+Translated into differential equations, with $\beta$ and $\gamma$ as the model's two parameters, the story becomes a bit more complex as we have **system of three differential equations** here: $$\frac{dS}{dt}=-\beta SI,\qquad \frac{dI}{dt}=\beta SI-\gamma I,\qquad \frac{dR}{dt}=\gamma I$$
+
+You can notice that the rate of change of each compartment depends on the current values of the *other* compartments too, so we can't just solve one equation and move to the next - all three have to be solved simultaneously. This is also why a nice closed-form solution, like the one we found for $y'=ky$, isn't available here: numerical integration is really our only option.
+
+Furthermore, the **main statistical task** here is to **estimate the equation parameters** $\{\beta, \gamma\}$ **based on** some real-world, time series **data** on the observed number of infections, $I(t)$, for example.
+
+However, if we can successfully solve our tasks at hand (estimating the $\{\beta, \gamma\}$ parameters and solving the differential equations), we gain a very useful quantity, that is the **basic reproduction number** $$R_0=\frac{\beta}{\gamma}N$$ which is (roughly) the expected number of new infections caused by a single infectious individual in an otherwise fully susceptible population. If $R_0>1$, the epidemic can take off; if $R_0<1$, it fizzles out.
+
+It is the **most important statistical metric to look out for if a new pandemic**, like COVID-19, **starts**. This number should be the basis of determining how strict lock down and quarantine measures to take for governments. Furthermore, the effectiveness of these measures are also determined with $R_0$: if they are successful in bringing the reproduction number below $1$, then they are successful and an easing might be considered, but if $R_0$ remains above $1$ after the introduced lock down, then some more stricter measures are to be considered. COVID-19 produced some <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7074654/" target="_blank">interesting research</a> in this topic that is <a href="https://webhomes.maths.ed.ac.uk/~swood34/covid-jrssa.pdf" target="_blank">recommended to read</a> for every statistician.
+
+### 2.2. Solving the SIR Model in R
+
+We can apply the `ode()` function from the `deSolve` package to numerically integrate the system. It needs
+
+- a function that computes the derivatives given the current state and the parameters (this'll be `sir_equations`)
+- the parameter values $\{\beta,\gamma\}$
+- the initial values of $S$, $I$ and $R$ at $t=0$
+- the time points $t$ at which we want the solution evaluated
+
+```{r}
+sir_equations <- function(time, variables, parameters) {
+  with(as.list(c(variables, parameters)), {
+    dS <- -beta * S * I
+    dI <-  beta * S * I - gamma * I
+    dR <-  gamma * I
+    list(c(dS, dI, dR))
+  })
+}
+```
+
+The `with()` wrapper lets us refer to `S`, `I`, `beta`, etc. by name directly inside the function body, instead of having to index into `variables` (containing $S$, $I$ and $R$) and `parameters` (containing $\beta$ and $\gamma$) vectors by the `[]` symbols.Unfortunately, the `with()` wrapper only works with lists, so first we need to convert the input `variables` and `parameters` vectors to lists and apply `with()` on these converted versions.<br>
+With these technical side quest done, **the `sir_equations` function returns the values of the three derivatives in our system** for given values of $S$, $I$ and $R$.
+
+Let's pick some random parameter values ($\beta=0.004,\gamma=0.5$), imagining a population of $N=1000$ where a single infectious person shows up at time $t=0$. So, $I(0)=1,S(0)=1000-1=999$, and $R(0)=0$. With these initial assumptions, the `ode()` function can solve our SIR system and return the values of all three components ($S$, $I$ and $R$) for the 10 days given ($t=\{0,1,2,...,10\}$)
+
+```{r}
+parameters_values <- c(beta = 0.004, gamma = 0.5) # infectious contact rate, recovery rate
+initial_values <- c(S = 999, I = 1, R = 0) # at t=0
+time_values <- seq(0, 10) # days past since outbreak
+
+sir_out <- ode(y = initial_values, times = time_values,
+               func = sir_equations, parms = parameters_values)
+sir_out <- as.data.frame(sir_out)
+sir_out
+```
+
+And, of course, a picture (since this is time series data, a line chart) is worth a thousand rows of a data frame:
+
+```{r}
+library(ggplot2)
+
+ggplot(sir_out, aes(x=time)) + 
+  geom_line(aes(y=S, color="S(t)"), linewidth=1) +
+  geom_line(aes(y=I, color="I(t)"), linewidth=1) +
+  geom_line(aes(y=R, color="R(t)"), linewidth=1)
+```
+
+Textbook epidemic shape: susceptibles get depleted, infectious cases rise and then fall back to (near) zero as people recover, and the recovered curve climbs monotonically to (almost) the full population. With $N=1000$, $\beta=0.004$ and $\gamma=0.5$, our $R_0$ here is:
+
+```{r}
+N <- sum(initial_values)
+N * parameters_values["beta"] / parameters_values["gamma"]
+```
+
+So **each infectious person is, on average, expected to infect $8$ other people** in this fully susceptible population - a genuinely explosive epidemic (for COVID-19 $R_0$ typically ranged from $2.5$ to $6.0$), which matches the steep curve we just plotted.
+
+## 3. Parameter Estimation for Differential Equations
+
+Now, we have the tools to solve the SIR system with arbitrary chosen $\beta$ and $\gamma$ parameters. Now, the **time has come** to actually **fit the SIR model on observed data by estimating these $\beta$ and $\gamma$ parameters** with the methods we've covered on this course so far.
+
+Everything in Section 2 assumed we already **knew** $\beta$ and $\gamma$. In practice, of course, we never do - **what we actually have** is a handful of **observed case counts**, and we need to work backwards to figure out which parameter values best explain them. This is exactly the same logical move we made for GLMs in <a href="Chapter08.html" target="_blank">Chapter 8</a>: there, we searched over regression coefficients $\beta_j$ to find the ones that made the observed claims most plausible; here, **we'll search over $(\beta,\gamma)$ to find the ones that make the observed case counts most plausible**. The mechanics turn out to be strikingly similar.
+
+### 3.1. The Data: The Second Wave of COVID-19 in Hungary
+
+The classic teaching datasets for the SIR model are small and closed - an influenza outbreak in a boarding school, a measles epidemic on an island. We're going to be more ambitious and take on a whole country instead. We'll use the **weekly number of newly confirmed COVID-19 cases in Hungary**, starting on Monday, **August 17th, 2020** - the week the summer holidays ended and the schools started to fill up again - and running to Sunday, **December 27th, 2020**, the last *complete* week of the year. That's the entire rise and fall of the Hungarian **second wave**, in $19$ weekly observations.
+
+The raw daily numbers come from the <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> repository, which reports *cumulative* confirmed cases per country per day, so we have a bit of data wrangling to do: take the Hungarian row, `diff()` it into daily new cases, and then sum those days into weeks.
+
+```{r}
+url <- paste0("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/",
+              "csse_covid_19_data/csse_covid_19_time_series/",
+              "time_series_covid19_confirmed_global.csv")
+
+jhu <- read.csv(url, check.names = FALSE) # check.names=FALSE keeps the dates as '8/17/20'
+hu_row <- jhu[jhu$`Country/Region` == "Hungary", -(1:4)] # drop Province/State, Country, Lat, Long
+
+hu <- data.frame(date = as.Date(names(hu_row), format = "%m/%d/%y"),
+                 cumulative = as.numeric(unlist(hu_row)))
+hu$new <- c(NA, diff(hu$cumulative)) # from cumulative to daily new cases
+
+head(hu[hu$date >= as.Date("2020-08-17"), ])
+```
+
+Why bother aggregating to **weeks** instead of just fitting the daily numbers? Because reported case counts have a brutal **day-of-week cycle** baked into them: fewer people get tested at the weekend, and the labs report in batches on Monday. That weekly sawtooth is an artefact of the *administration*, not of the *epidemic*, and no SIR model on Earth will reproduce it. Summing over whole Monday-to-Sunday weeks makes it disappear completely.
+
+```{r}
+hu_sub <- hu[hu$date >= as.Date("2020-08-17") & hu$date <= as.Date("2020-12-27"), ]
+
+# '%u' gives the ISO weekday number (1 = Monday), so this snaps every date back to its Monday
+hu_sub$monday <- hu_sub$date - (as.numeric(format(hu_sub$date, "%u")) - 1)
+
+covid <- aggregate(new ~ monday, data = hu_sub, FUN = sum)
+covid$monday <- as.Date(covid$monday)
+names(covid)[2] <- "cases"
+covid$week <- 0:(nrow(covid) - 1) # our time variable: week 0, 1, 2, ... 18
+
+covid
+```
+
+A note on the end date: the user-friendly thing would have been to run to December 31st, but 2020 ends on a Thursday, so the final "week" would only contain $4$ days and would show up as a **fake collapse** of the epidemic. We therefore stop at the last complete week (December 21st-27th) and simply throw away the $4$ leftover days of the year. Never let a calendar artefact masquerade as an epidemiological finding! :)
+
+```{r}
+library(ggplot2)
+
+ggplot(covid, aes(x = monday, y = cases)) +
+  geom_col(fill = "steelblue") +
+  geom_vline(xintercept = as.Date("2020-11-11"), color = "red",
+             linetype = "dashed", linewidth = 1) +
+  labs(x = "week (starting Monday)", y = "new confirmed cases",
+      title = "Weekly COVID-19 cases in Hungary, autumn 2020",
+      subtitle = "red dashed line: the lockdown measures of November 11th") +
+  theme_minimal()
+```
+
+That is a *textbook* epidemic curve: a slow late-summer smoulder, an explosive October, a peak in the week of **November 30th** at almost $39000$ cases, and then a decline that takes us down to about $13000$ by the last week of the year. We've also marked the date the **Hungarian government's second-wave restrictions came into force, November 11th, 2020** (a night-time curfew, closed restaurants and secondary schools moved online) - we're going to come back to that red line in a big way in Section 4.
+
+### 3.2. What Are We Actually Fitting? Two Honest Approximations
+
+Before we throw `optim()` at this, we have to **confess to two approximations**, because they change how the results should be read. Skipping this discussion would make the code run just as happily, and the conclusions just as wrong.
+
+**First: prevalence versus incidence.** In a boarding-school flu outbreak, the classic dataset records how many boys were *confined to bed on each day* - a **prevalence**, which is exactly what $I(t)$ means in the SIR system. Our COVID column counts the people **newly reported** during the week - an **incidence**, which corresponds much more closely to $\beta \times S \times I$ (the flow *into* the infectious compartment) than to $I$ itself. We are going to fit $I(t)$ to it anyway, and here is the excuse: with a mean infectious period of roughly one week, essentially everybody who becomes infectious during a given week is *still* infectious during that same week, so "how many were infectious this week" and "how many became infectious this week" are numerically close. It's a genuine approximation, and the honest way to do it properly would be to add a fourth equation, $\frac{dC}{dt}=\beta \times S \times I$, that accumulates new infections, and then fit the *weekly differences* of $C(t)$ to the data. That is left as a (rather good) homework exercise.
+
+**Second, and more importantly: $N$ is not $9.7$ million.** In a boarding school, $N$ is a genuinely closed, genuinely fully-susceptible population, and we know it exactly - somebody counted the beds. Hungary's population is about $9.7$ million, but plugging that in would be a serious mistake, for two separate reasons:
+
+- **Only a fraction of infections is ever reported.** Our `cases` column counts *confirmed* cases, i.e. people who had symptoms bad enough to get tested and got a positive result. The model is therefore working in units of *reported* cases, not true infections.
+- **Mixing is nowhere near homogeneous.** The SIR system assumes every susceptible person is equally likely to bump into every infectious person, which is a fine assumption in a boarding school and an absurd one for a whole country. In practice, an epidemic wave burns through the socially active, closely connected part of the population and slows down long before the *whole* country has been infected.
+
+Both effects point the same way: **the $N$ that belongs in the equations is an "effective" susceptible pool**, much smaller than the actual population. We'll fix it at
+
+```{r}
+N <- 700000 # effective susceptible pool, in units of *reported* cases (~7% of Hungary)
+```
+
+Is $700000$ defensible? Hungary had reported about $322000$ cumulative cases by the end of 2020, in a wave that was cut short before it burned out, so the pool this wave was eating into has to be meaningfully bigger than that - and $7\%$ of the country is a sensible order of magnitude for "the part of the population that was actually mixing intensively in autumn 2020". It is still, unavoidably, a **modelling choice**, so in Section 4.6 we will check explicitly how much our conclusions depend on it (spoiler alert: quite little thank to God in Heaven :)).
+
+One consequence is worth flagging right now. Because $N$ is an *effective* pool and the autumn of 2020 was already full of masks, distancing and voluntary caution, the $R_0=\beta N/\gamma$ we are about to estimate is **not** the "virgin population" basic reproduction number of $2.5-6.0$ quoted in Section 2.1. It is an **effective reproduction number** for a population that was already partially defending itself. Expect a number much closer to $1$.
+
+### 3.3. Measuring the Mismatch: Sum of Squares
+
+The most intuitive way to score "how wrong" a set of parameter values is, is to add up the squared vertical distances between the model's predicted $I(t)$ and the observed case counts - exactly the same **sum of squared errors** ($SSE$) idea behind ordinary least squares regression. Note that our `sse` function takes the population size $N$ as a fixed parameter. We need to provide $N$ so the solution of the differential equations by `sir_1` is comparable with the observed number of reported cases each week!
+
+```{r}
+sir_1 <- function(beta, gamma, S0, I0, R0, times) {
+  # unname() matters here: passing a *named* numeric like param["beta"]
+  # straight through would silently clash with R's own beta() function
+  # (Euler's Beta function!) once it lands inside sir_equations().
+  beta <- unname(beta); gamma <- unname(gamma)
+
+  parameters_values <- c(beta = beta, gamma = gamma)
+  initial_values <- c(S = S0, I = I0, R = R0)
+
+  # the try() wrapper matters once we start optimizing: an optimizer will
+  # cheerfully try absurd parameter values, and lsoda simply gives up on some
+  # of them ("illegal input detected before taking any integration steps").
+  # Returning NULL lets the caller turn that into a bad score instead of a crash.
+  out <- try(ode(y = initial_values, times = times,
+                 func = sir_equations, parms = parameters_values), silent = TRUE)
+  if (inherits(out, "try-error")) return(NULL)
+  as.data.frame(out)
+}
+
+sse <- function(beta, gamma, data = covid, N = 700000) {
+  I0 <- data$cases[1]
+  times <- data$week
+  predictions <- sir_1(beta = beta, gamma = gamma,
+                       S0 = N - I0, I0 = I0, R0 = 0, times = times)
+  if (is.null(predictions)) return(1e12) # unsolvable parameters = terrible fit
+  sum((predictions$I[-1] - data$cases[-1])^2) # skip week 0: I0 fits it by definition
+}
+```
+
+Let's see how badly an arbitrary guess does on this outbreak. Our $\beta=0.004$ from Section 2.2 would be catastrophic now - with $N=700000$ instead of $1000$, the *product* $\beta N$ is what drives the epidemic, so $\beta$ has to shrink by roughly the same factor that $N$ grew by. A guess of $\beta=4\times10^{-6}$ and $\gamma=1$ (i.e. an infectious period of exactly one week) puts us at $R_0=\beta N/\gamma=2.8$:
+
+```{r}
+I0 <- covid$cases[1]
+guess <- sir_1(beta = 4e-6, gamma = 1, S0 = N - I0, I0 = I0, R0 = 0, times = covid$week)
+
+covid$guess_cases <- guess$I
+
+ggplot(covid, aes(x = week, y = cases)) + geom_point(size = 2) +
+  geom_line(aes(y = guess_cases, color = "SIR guess"), linewidth = 1) +
+  labs(x = "week since 2020-08-17", y = "cases")
+```
+
+Hmm, <a href="https://www.youtube.com/watch?v=NYvwLLxKqhM" target="_blank">f\*\*\*k</a>. This is way off - our guessed epidemic explodes to almost $190000$ weekly cases by week $5$ and is essentially over by the time the real one was just getting started. The $SSE$ confirms the disaster:
+
+```{r}
+sse(beta = 4e-6, gamma = 1)
+```
+
+To build some intuition before jumping to a full search, let's fix $\gamma=1$ and scan over a grid of plausible $\beta$ values, tracking how the sum of squares changes:
+
+```{r}
+beta_grid <- seq(from = 1.5e-6, to = 3.5e-6, length.out = 100)
+sse_grid <- sapply(beta_grid, sse, gamma = 1) # get SSE for each beta value defined in beta_grid
+
+grid_df <- data.frame("beta" = beta_grid,
+                      "sse" = sse_grid)
+
+min_index <- which.min(grid_df$sse) # get index of beta with minimum sse
+min_beta <- grid_df$beta[min_index] # get the beta itself with minimum sse
+
+ggplot(grid_df, aes(x=beta, y=sse)) + geom_line() +
+  geom_vline(xintercept = min_beta, color="red", linetype="dashed")
+```
+
+There's a clear, well-defined minimum at around $\beta\approx2.1\times10^{-6}$, which is reassuring - the sum-of-squares surface isn't flat or wildly bumpy, so an optimizer should have no trouble finding it.
+
+If we want to be really fancy, we can get the $SSE$ values for every combination of 10 $\beta$ and 10 $\gamma$ values with the help of `expand.grid()` and `Map()` functions. The `expand.grid()` produces every possible combination of the two parameters and `Map()` works like the `apply()` functions like `sapply()` (what we used for $\beta$ before), it just can be applied for two lists of parameter values to try, not just for one.
+
+```{r}
+n <- 10 # number of parameter values to try
+beta_val <- seq(from = 1.8e-6, to = 2.8e-6, le = n)
+gamma_val <- seq(from = 0.7, to = 1.5, le = n)
+param_val <- expand.grid(beta_val, gamma_val) # get every combination of betas and gammas
+
+sse_val <- with(param_val, Map(sse, Var1, Var2)) # calculate the SSE for every combination
+sse_val <- matrix(unlist(sse_val), n) # arrange the results in an 'n by n' matrix
+```
+
+And finally, with the `persp()` function, we can plot the whole optimization surface in 3D. :)
+
+```{r}
+persp(beta_val, gamma_val, sse_val, theta = 40, phi = 30,
+      xlab = "beta", ylab = "gamma", zlab = "sum of squares")
+```
+
+Perhaps, it's more fancy showing the negative sum of squares, converting everything to a maximization problem.
+
+```{r}
+persp(beta_val, gamma_val, -sse_val, theta = 40, phi = 30,
+      xlab = "beta", ylab = "gamma", zlab = "negative sum of squares")
+```
+
+Notice that the surface has a distinctly **stretched, banana-like valley** running diagonally across it, rather than a nice round bowl. That shape is telling us that $\beta$ and $\gamma$ are **correlated**: raising both together keeps the fit almost as good, because what mostly drives the early epidemic is the *difference* $\beta \times N-\gamma$. Keep this picture in mind - it will come back to bite us, hard, in Section 4.3.
+
+### 3.4. Automating the Search: `optim()`
+
+Scanning a grid one or two parameters at a time is fine for building intuition, but it doesn't scale (imagine doing this for $5$ or $10$ parameters at once). Just like we did for the Poisson regression coefficients by hand in <a href="Chapter08.html" target="_blank">Section 1.1 of Chapter 8</a>, we can hand the whole job over to R's general-purpose optimizer, `optim()`. It needs a function that takes *all* the parameters bundled into a single vector and returns one number to minimize:
+
+```{r}
+sse_v2 <- function(x) sse(beta = exp(x[1]), gamma = exp(x[2])) # note the exp()!
+
+starting_param_val <- log(c(4e-6, 1)) # we search on the LOG scale - see the warning below
+sse_optim <- optim(starting_param_val, sse_v2)
+sse_optim$convergence # 0 means optim thinks it found the minimum
+exp(sse_optim$par)
+```
+
+> **A trap worth falling into once.** If you hand `optim()` the parameters on their natural scale - `optim(c(4e-6, 1), function(x) sse(x[1], x[2]))` - the result is complete garbage, typically a *negative* $\hat\beta$ of about $-0.1$. The reason is worth knowing: R's default Nelder-Mead builds its initial simplex using **one single step size**, scaled to the largest element of the starting vector. With $\gamma=1$ in the vector, that step is about $0.1$ - which is a sensible nudge for $\gamma$, and roughly $25000$ times the entire value of $\beta$. The optimizer's very first move throws $\beta$ deep into negative territory and it never comes back. Optimizing over $\log\beta$ and $\log\gamma$ instead puts both parameters on a comparable scale *and* guarantees they stay positive. **Whenever your parameters differ by many orders of magnitude, the optimizer needs to be told - it cannot smell it.**
+
+```{r}
+beta_hat <- exp(sse_optim$par[1])
+gamma_hat <- exp(sse_optim$par[2])
+
+N * beta_hat / gamma_hat # R0 estimate based on the cases data
+1 / gamma_hat * 7 # mean infectious period, in days
+```
+
+Two things to celebrate here. First, the estimated **effective reproduction number is about $1.44$** - well above the epidemic threshold of $1$ (so the wave was definitely growing), but nowhere near the $2.5-6.0$ range quoted for a fully naive population, exactly as we predicted in Section 3.2 for an autumn-2020 population that was already masked, distanced and cautious.
+
+Second, and this is the real sanity check: $\hat\gamma\approx1.10$ per week means a **mean infectious period of about $6.4$ days**. Nobody told the optimizer anything about virology - it recovered a thoroughly plausible clinical duration for COVID-19 purely from the shape of a curve of weekly reported case counts. When a fitted parameter that has a real-world meaning lands in the right ballpark on its own, that's the strongest evidence you'll get that the model isn't complete nonsense.
+
+### 3.5. From Sum of Squares to Maximum Likelihood
+
+Minimizing a sum of squares is, quietly, already a maximum likelihood procedure - just recall from <a href="Chapter08.html" target="_blank">Section 3.4 of Chapter 8</a> that OLS and MLE coincide exactly when we assume the errors are **normally distributed** around the model's predictions. Making that assumption explicit lets us do everything a proper likelihood framework offers: standard errors, confidence intervals, and formal comparisons between competing error models - which is exactly why we bothered introducing likelihoods at all the way back in <a href="Chapter03.html" target="_blank">Chapter 3</a>.
+
+Let's **write the (negative log-)likelihood by hand**, following the same recipe we used for `neg_ll_poi` in <a href="Chapter08.html" target="_blank">Chapter 8</a>: plug the SIR model's predictions in as the *mean* of a normal distribution, and estimate an extra noise (standard deviation) parameter $\sigma$ alongside $\beta$ and $\gamma$. Again, we need to provide the population size $N$ as a fixed parameter just like for the `sse` function in Section 3.3.
+
+```{r}
+mLL <- function(beta, gamma, sigma, week, cases, N = 700000) {
+  beta <- exp(beta); gamma <- exp(gamma); sigma <- exp(sigma) # keep all 3 positive
+  I0 <- cases[1]
+  observations <- cases[-1]
+  predictions <- sir_1(beta = beta, gamma = gamma,
+                       S0 = N - I0, I0 = I0, R0 = 0, times = week)
+  if (is.null(predictions)) return(1e10) # unsolvable parameters
+  predictions <- predictions$I[-1]
+  -sum(dnorm(x = observations, mean = predictions, sd = sigma, log = TRUE))
+}
+```
+
+Notice the `exp()` trick: since `optim` (and, underneath, the `mle2` function we're about to use) happily searches over the whole real line, we optimize over the *logs* of $\beta$, $\gamma$ and $\sigma$ so that whatever values it tries, the back-transformed parameters are guaranteed to stay positive - a rate or a standard deviation can never sensibly be negative. It's the same trick as with the link function of GLMs in <a href="Chapter08.html" target="_blank">Chapter 8</a>. With $\beta$ down at $10^{-6}$, the log scale earns its keep for a second reason too: it puts all three parameters on a comparable footing, which numerical optimizers are much happier with.
+
+Rather than call `optim` ourselves again, let's use the `bbmle` package's `mle2()` function, which is really just a friendlier wrapper around `optim` purpose-built for likelihood work - it automatically produces a coefficient table, standard errors and confidence intervals, the same things `summary.glm` gave us for free in <a href="Chapter08.html" target="_blank">Chapter 8</a>.
+
+One more practical point before we run it: **give the optimizer a decent starting point**. We already have excellent estimates of $\beta$ and $\gamma$ from the least-squares fit in Section 3.4, so it would be silly to make `mle2()` start from our original wild guess again - started from $\beta=4\times10^{-6}$, it wanders off and converges to nonsense. Feeding one method's answer into the next as a starting value is completely standard practice.
+
+```{r}
+library(bbmle)
+
+starting_param_val <- list(beta = beta_hat, gamma = gamma_hat, sigma = 2000)
+estimates <- mle2(minuslogl = mLL, start = lapply(starting_param_val, log),
+                  method = "Nelder-Mead",
+                  data = list(week = covid$week, cases = covid$cases, N = N))
+```
+
+The coefficients are still on the log scale (that's what we optimized over), so we need to `exp()` them to get back to the natural units of $\beta$, $\gamma$ and $\sigma$:
+
+```{r}
+exp(coef(estimates))
+```
+
+You may notice that `summary(estimates)` - which worked so nicely for GLMs in <a href="Chapter08.html" target="_blank">Chapter 8</a> - reports `NaN` for the standard errors here. That is **not** a bug in `bbmle`. Those standard errors come from a numerically computed Hessian, i.e. from approximating the log-likelihood by a **quadratic** surface around its maximum, and as we'll see in Section 4.3 this particular surface is a long, curved, banana-shaped ridge that a quadratic fits very badly. So we skip the Hessian entirely and go for the better tool, which we already met in <a href="Chapter04.html" target="_blank">Chapter 4</a>: **profile likelihood** confidence intervals, which is exactly what `confint()` computes for an `mle2` object.
+
+```{r}
+exp(confint(estimates))
+```
+
+Reassuringly close to our sum-of-squares estimates from Section 3.4 - which makes sense, since (as noted above) minimizing the sum of squares is maximum likelihood under normality. What we've gained here is the confidence intervals, and they are **remarkably tight**: $\beta$ is pinned down to about $\pm3\%$ of its estimate and $\gamma$ to roughly $(1.06,1.14)$. Remember that number when we get to Section 4.3.
+
+The estimated $\hat\sigma\approx2600$ cases per week looks enormous until you compare it to a peak of nearly $39000$: the model is missing the observed counts by about $7\%$ of the peak height on average, which for a two-parameter description of a national epidemic is not bad at all.
+
+### 3.6. A Better Error Model for Count Data: Poisson?
+
+The normal-error assumption above is a convenient default, but `cases` is a **count** - and just as we reached for a Poisson distribution for count outcomes back in <a href="Chapter08.html" target="_blank">Section 1 of Chapter 8</a>, it's natural to ask whether a Poisson error model fits this outbreak better than a normal one. The nice thing about a Poisson error is that it needs no separate noise parameter (like $\sigma$ in the normal distribution) at all - the variance is tied directly to the mean, so we go back down to just $2$ parameters.
+
+```{r}
+mLL_pois <- function(beta, gamma, week, cases, N = 700000) {
+  beta <- exp(beta); gamma <- exp(gamma)
+  I0 <- cases[1]
+  observations <- cases[-1]
+  predictions <- sir_1(beta = beta, gamma = gamma,
+                       S0 = N - I0, I0 = I0, R0 = 0, times = week)
+  if (is.null(predictions)) return(1e10) # unsolvable parameters
+  predictions <- predictions$I[-1]
+  if (any(predictions <= 0)) return(1e10) # guard against invalid lambdas
+  -sum(dpois(x = observations, lambda = predictions, log = TRUE))
+}
+
+starting_param_val <- list(beta = beta_hat, gamma = gamma_hat)
+estimates_pois <- mle2(minuslogl = mLL_pois, start = lapply(starting_param_val, log),
+                       method = "Nelder-Mead",
+                       data = list(week = covid$week, cases = covid$cases, N = N))
+exp(coef(estimates_pois))
+```
+
+The point estimates barely move - $\hat\beta$ and $\hat\gamma$ are within a percent or so of the normal-error values. So which of the two error models should we actually trust? Exactly like we did to compare GLMs with a different number of parameters in <a href="Chapter08.html" target="_blank">Section 3.6 of Chapter 8</a>, $AIC$ is the right tool, since it automatically penalizes the normal model for its extra $\sigma$ parameter:
+
+```{r}
+AIC(estimates, estimates_pois)
+```
+
+That is not a close call - it's a **massacre**, with the $AIC$ difference running into the tens of thousands in favour of the **normal** model, despite `cases` being counts and despite the normal model costing us an extra parameter. And unlike a borderline $AIC$ comparison, here we can point straight at the culprit: **overdispersion**.
+
+Think about what the Poisson assumption actually claims. Around the peak, the model predicts roughly $30000$ cases in a week, and Poisson insists that the standard deviation must then be $\sqrt{30000}\approx173$ - in other words, that the observed weekly counts should essentially never stray more than about $350$ cases from the fitted curve. Let's see what the actual residuals look like:
+
+```{r}
+fitted_I <- sir_1(beta = exp(coef(estimates))["beta"], gamma = exp(coef(estimates))["gamma"],
+                  S0 = N - I0, I0 = I0, R0 = 0, times = covid$week)$I
+
+sd(covid$cases[-1] - fitted_I[-1]) # observed residual standard deviation
+sqrt(30000) # what Poisson would demand around the peak
+```
+
+The real scatter is roughly **$15$ times** what a Poisson distribution permits. Reported case counts aren't independent coin flips: they carry testing-capacity limits, reporting backlogs, holiday effects and genuine clustering, all of which inflate the variance far beyond the mean. The natural repair is a distribution that keeps the count-data spirit but lets the variance exceed the mean - a **negative binomial** (or a quasi-Poisson) error model. Writing `mLL_nbinom` with `dnbinom()` and an extra dispersion parameter, then adding it to the $AIC$ table above, is an excellent homework exercise - and a good reminder that "**the theoretically appropriate distribution**" **and** "**the best-fitting distribution in a finite, noisy sample**" **don't always coincide**, which is exactly why we compare models with $IC$s instead of picking one on principle.
+
+### 3.7. Visualizing the Fitted Model
+
+Let's wrap up by plotting the normal-error model's fitted epidemic curve, $I(t)$ (our $AIC$-preferred model) against the observed cases data, together with a $95\%$ confidence interval built from the estimated $\sigma$ and the quantiles of the assumed normal distribution on $I(t)$.
+
+```{r}
+param_hat <- exp(coef(estimates))
+time_points <- seq(min(covid$week), max(covid$week), length.out = 200)
+
+best_predictions <- sir_1(beta = param_hat["beta"], gamma = param_hat["gamma"],
+                          S0 = N - I0, I0 = I0, R0 = 0, times = time_points)
+
+alpha <- 0.05 # for a 95% band
+
+band <- data.frame(
+  date = covid$monday[1] + time_points * 7, # back to calendar dates for a readable axis
+  fit = best_predictions$I,
+  lwr = pmax(0, qnorm(alpha/2, mean = best_predictions$I, sd = param_hat["sigma"])),
+  upr = qnorm(1 - alpha/2, mean = best_predictions$I, sd = param_hat["sigma"])
+)
+
+ggplot() +
+  geom_ribbon(data = band, aes(x = date, ymin = lwr, ymax = upr),
+             fill = "tomato", alpha = 0.15) +
+  geom_line(data = band, aes(x = date, y = fit), color = "tomato", linewidth = 1) +
+  geom_point(data = covid, aes(x = monday, y = cases), size = 2) +
+  labs(x = "week (starting Monday)", y = "new confirmed cases per week",
+      title = "Fitted SIR model vs. observed Hungarian COVID-19 cases, autumn 2020") +
+  theme_minimal()
+```
+
+Much better than our first blind guess back in Section 3.3! A model with **two free parameters** has reproduced the timing of the peak, its height, and the speed of both the climb and the descent across five months of a national epidemic. The visible misses are interesting in themselves: the model runs a bit low through late September and early October, and the three-week plateau around $31000-34000$ in November is flatter than any smooth SIR curve can be - which is precisely what you'd expect if the testing system was running into its capacity ceiling during those weeks.
+
+And that's the general recipe for calibrating *any* differential-equation model against real data:
+
+1. Write the equations
+2. Solve them numerically for a given set of parameters
+3. Turn the mismatch between predictions and data into a (negative log-)likelihood
+4. Let `optim` (or `mle2`) search for the parameter values that make the observed data as plausible as possible
+
+Everything else - confidence intervals, model comparison via $IC$s, diagnostic plots - carries straight over from the GLM toolkit we already established back in <a href="Chapter08.html" target="_blank">Chapter 8</a>.
+
+## 4. Scenario Analysis: Did the November 2020 Lockdown Work?
+
+### 4.1. The Counterfactual Idea
+
+Everything in Section 3 was **description**: we fitted a curve to what happened. The far more interesting - and far harder - question is a **causal** one. On **November 11th, 2020**, Hungary introduced its second-wave restrictions: a night-time curfew, restaurants closed, secondary schools and universities moved online, gatherings banned. Did any of it *work*?
+
+The trouble is the one that haunts all of causal inference: we observe the epidemic **with** the lockdown, and we can never observe the same epidemic **without** it. What we need is a **counterfactual** - a credible answer to "what would the case numbers have looked like if nothing had changed on November 11th?"
+
+A fitted differential equation gives us one way to build such a counterfactual, and the logic is refreshingly simple:
+
+1. **Fit the SIR model using only the weeks *before* the lockdown.** Those weeks contain no information whatsoever about the restrictions, so the resulting $\hat\beta$ and $\hat\gamma$ describe an epidemic spreading under the *old* contact patterns.
+2. **Solve the equations forward** with those parameters, all the way to the end of the year.
+3. **Compare** that projection with what actually happened.
+
+This is the differential-equation cousin of the counterfactual logic behind difference-in-differences or synthetic control methods: instead of borrowing an untreated control *unit*, we borrow the **pre-treatment dynamics** of the treated unit itself and let a mechanistic model carry them forward. Whether that's a *credible* thing to do is a question we'll take very seriously in Section 4.6 - but let's build the thing first.
+
+### 4.2. Splitting the Sample at November 11th
+
+We need the weeks that are **entirely** before the restrictions came into force. A week starting on Monday `monday` ends on `monday + 6`, so:
+
+```{r}
+lockdown <- as.Date("2020-11-11")
+
+pre <- covid[covid$monday + 6 < lockdown, ] # weeks completely finished before the lockdown
+
+nrow(pre)
+range(pre$monday)
+tail(pre[, c("monday", "cases", "week")], 3)
+```
+
+That gives us $12$ weeks, from August 17th to the week ending November 8th - three days before the measures took effect. The remaining $7$ weeks (from the week of November 9th onwards) are our "post-treatment" period, and the model will never be allowed to see them.
+
+Note the deliberate caution here: the week of November 9th-15th **contains** the lockdown date, so it is contaminated and we push it entirely into the post period. If anything this is *conservative* in the wrong direction - the last pre-lockdown week already reflects some voluntary behaviour change from a public that was watching the news and reading about the coming restrictions - and we'll come back to that in Section 4.6 too.
+
+### 4.3. Fitting the SIR to the Pre-Lockdown Weeks Only
+
+The beauty of having written `mLL` as a general function is that re-fitting on a subsample takes exactly one line - we just hand `mle2()` a different `data` argument. (We again start the optimizer from the full-sample estimates of Section 3.4; from a cold start it converges to nonsense here, for reasons that will become painfully clear in a moment.)
+
+```{r}
+estimates_pre <- mle2(minuslogl = mLL, start = lapply(list(beta = beta_hat, gamma = gamma_hat,
+                                                           sigma = 2000), log),
+                      method = "Nelder-Mead",
+                      data = list(week = pre$week, cases = pre$cases, N = N))
+
+param_pre <- exp(coef(estimates_pre))
+param_pre
+
+N * param_pre["beta"] / param_pre["gamma"] # pre-lockdown R0 estimate
+```
+
+So before the restrictions, the effective reproduction number was around $\mathbf{1.67}$, against the $1.44$ we estimated from the whole period in Section 3.4. The parameters *did* move in the direction we'd hope for - but before we get excited, let's ask how **precise** those two numbers actually are.
+
+Try running `confint(estimates_pre)`. Instead of a tidy table you'll get a stack of warnings - *hit maximum number of steps*, *non-monotonic spline fit to profile* - and confidence limits that come back as plain `NA`. Compare that with Section 3.5, where the very same call on all $19$ weeks handed us a tight interval for $\gamma$ of roughly $(1.06,1.14)$. The point estimates look perfectly respectable either way; the **precision has completely evaporated**. Why?
+
+The clearest way to see it is to map the sum-of-squares surface itself - once for the full sample, once for the pre-lockdown weeks only:
+
+```{r fig.width=10, fig.height=5}
+beta_ax <- seq(1.2e-6, 3.6e-6, length.out = 40)
+gamma_ax <- seq(0.3, 2.0, length.out = 40)
+
+surface <- function(data) outer(beta_ax, gamma_ax,
+                                Vectorize(function(b, g) sse(b, g, data = data, N = N)))
+
+par(mfrow = c(1, 2)) # two plots side by side
+contour(beta_ax, gamma_ax, log(surface(covid)), nlevels = 25,
+        xlab = "beta", ylab = "gamma", main = "all 19 weeks")
+contour(beta_ax, gamma_ax, log(surface(pre)), nlevels = 25,
+        xlab = "beta", ylab = "gamma", main = "12 pre-lockdown weeks only")
+par(mfrow = c(1, 1))
+```
+
+On the left, the contours **close** into concentric rings around a single, well-defined minimum - that is exactly what "the data identify both parameters" looks like. On the right, the rings **never close**: there is an endless diagonal valley along which $\beta$ and $\gamma$ can slide upwards together almost without penalty. That is the banana-shaped valley we noticed in the `persp()` plot of Section 3.3, in its most extreme form - and it's why `confint()` gave up: it walked along that valley hunting for the point where the likelihood finally drops off enough to mark a boundary, and never found one.
+
+There's a clean mathematical reason for the valley. In the early phase of an epidemic, hardly anybody has been infected yet, so $S\approx N$ and the middle equation of the SIR system becomes
+
+$$\frac{dI}{dt}=\beta SI-\gamma I\approx(\beta N-\gamma)I \quad\Rightarrow\quad I(t)\approx I_0e^{(\beta N-\gamma)t}$$
+
+**Exponential growth, governed by a single number**: the *difference* $\beta N-\gamma$. Any pair $(\beta,\gamma)$ with the same difference produces an almost identical curve, so the data can tell us about the difference and nearly nothing about the two parameters separately. What breaks the tie in the full sample is **the peak**: the epidemic can only turn over when $S$ falls far enough for $\beta S$ to drop below $\gamma$, and *when* it turns over depends on $\beta$ and $\gamma$ individually. Chop the peak off the data and the identification goes with it.
+
+> This is a general and very important lesson, well beyond epidemiology: **a model can be perfectly well identified on one sample and hopelessly under-identified on a subsample of it**, and the parameter *estimates* will happily come back looking respectable either way. Only the standard errors, the confidence intervals and the correlation matrix will warn you. Always look at them.
+
+### 4.4. Projecting the Counterfactual Epidemic
+
+Undeterred (for the moment), let's solve the equations forward with the pre-lockdown parameters over the whole $19$-week horizon, and plot the counterfactual against reality:
+
+```{r}
+counterfactual <- sir_1(beta = param_pre["beta"], gamma = param_pre["gamma"],
+                        S0 = N - I0, I0 = I0, R0 = 0, times = time_points)
+
+cf_band <- data.frame(date = covid$monday[1] + time_points * 7,
+                      fit = counterfactual$I)
+
+ggplot() +
+  annotate("rect", xmin = lockdown, xmax = max(covid$monday), ymin = -Inf, ymax = Inf,
+           fill = "grey70", alpha = 0.25) +
+  geom_line(data = cf_band, aes(x = date, y = fit, color = "counterfactual (no lockdown)"),
+            linewidth = 1, linetype = "dashed") +
+  geom_line(data = band, aes(x = date, y = fit, color = "fitted on all 19 weeks"),
+            linewidth = 1) +
+  geom_point(data = covid, aes(x = monday, y = cases), size = 2) +
+  geom_vline(xintercept = lockdown, color = "red", linetype = "dotted", linewidth = 1) +
+  scale_color_manual(values = c("counterfactual (no lockdown)" = "steelblue",
+                                "fitted on all 19 weeks" = "tomato")) +
+  labs(x = "week (starting Monday)", y = "new confirmed cases per week",
+      title = "What if nothing had changed on November 11th, 2020?",
+      subtitle = "dashed: SIR fitted on pre-lockdown weeks only, then extrapolated",
+      color = "") +
+  theme_minimal() + theme(legend.position = "bottom")
+```
+
+The two curves are **almost indistinguishable up to the red line** - which is exactly as it should be, since both models are describing the same data there - and then they part company decisively. The counterfactual keeps climbing for two more weeks than the real epidemic did, tops out much higher, and comes down far more slowly.
+
+### 4.5. How Many Cases Did the Lockdown Prevent?
+
+Let's put numbers on that gap. We solve the counterfactual on the observed weekly grid and compare it, week by week, against reality over the $7$ post-lockdown weeks:
+
+```{r}
+post <- covid$monday + 6 >= lockdown # exactly the weeks the pre-lockdown model never saw
+
+cf_weekly <- sir_1(beta = param_pre["beta"], gamma = param_pre["gamma"],
+                   S0 = N - I0, I0 = I0, R0 = 0, times = covid$week)$I
+
+comparison <- data.frame(monday = covid$monday,
+                         observed = covid$cases,
+                         counterfactual = round(cf_weekly),
+                         difference = round(cf_weekly - covid$cases))
+
+comparison[post, ]
+```
+
+```{r}
+c(peak_observed = max(covid$cases),
+  peak_counterfactual = round(max(cf_weekly)),
+  last_week_observed = covid$cases[nrow(covid)],
+  last_week_counterfactual = round(cf_weekly[nrow(covid)]))
+
+c(cumulative_observed = sum(covid$cases[post]),
+  cumulative_counterfactual = round(sum(cf_weekly[post])),
+  cases_prevented = round(sum(cf_weekly[post]) - sum(covid$cases[post])))
+```
+
+The headline numbers, then. The model that never saw a single post-lockdown data point predicts a peak of roughly **$65000$ weekly cases in early December**, against the $38751$ that Hungary actually recorded at the end of November - and, more strikingly, it predicts the country would still have been reporting around **$54000$ cases in the last week of December**, when the observed figure was $13071$, a factor of **four** lower. Adding up the seven post-lockdown weeks, the counterfactual epidemic produces about **$190000$ more reported cases** than reality did - roughly **twice** the observed total for that period.
+
+Taken at face value, that is a large effect: the restrictions look like they turned a still-accelerating epidemic into one that peaked within three weeks and then halved twice over. But "taken at face value" is doing an enormous amount of work in that sentence, so let's now do the thing that separates a statistician from a headline writer.
+
+### 4.6. How Much Should We Trust This Number?
+
+**First, the identification problem from Section 4.3 has consequences.** We saw that the pre-lockdown data cannot separate $\beta$ from $\gamma$ - only their difference. But the *projection* very much depends on them separately, because the height and timing of the counterfactual peak are governed by how fast the susceptible pool gets used up. So let's check how the answer moves as we walk $\gamma$ across its (very wide) plausible range, re-fitting $\beta$ on the pre-lockdown weeks each time:
+
+```{r}
+gamma_grid <- c(0.6, 0.7, 0.8, 1.0, 1.2)
+
+sensitivity <- t(sapply(gamma_grid, function(g) {
+  # for a fixed gamma, find the best beta on the pre-lockdown weeks only
+  opt <- optimize(function(log_beta) sse(exp(log_beta), g, data = pre, N = N),
+                  interval = log(c(1e-7, 1e-4)))
+  b <- exp(opt$minimum)
+  proj <- sir_1(beta = b, gamma = g, S0 = N - I0, I0 = I0, R0 = 0, times = covid$week)$I
+  c(gamma = g, days_infectious = 7/g, beta = b, R0 = N*b/g,
+    peak = max(proj), cumulative_post = sum(proj[post]))
+}))
+
+signif(sensitivity, 4) # signif(), not round() - beta is ~1e-6!
+sum(covid$cases[post]) # the observed cumulative for comparison
+```
+
+This is sobering. With $\gamma=0.6$ (an infectious period of nearly $12$ days) the counterfactual gives around $465000$ cases over the post-lockdown weeks; with $\gamma=1.2$ (under $6$ days) it gives around $180000$ - which is **less than the $206444$ actually observed**, i.e. the same procedure, with an equally defensible $\gamma$, would tell us the lockdown made things *worse*. Our headline "$190000$ cases prevented" sits in the middle of a range that comfortably includes zero and comfortably includes double.
+
+So the honest statement is: **the sign of the effect is reasonably robust for most of the plausible parameter range, but the magnitude is not remotely pinned down by this exercise.** Report a range, not a number, and never a number to three significant figures.
+
+**Second, how much of this hangs on our choice of $N=700000$?** Rather less, as it happens - let's redo the whole pre-lockdown fit and projection for three different effective pool sizes:
+
+```{r}
+N_grid <- c(500000, 700000, 1000000)
+
+N_sensitivity <- t(sapply(N_grid, function(Nv) {
+  fit_n <- optim(log(c(4e-6 * 700000/Nv, 1)), # log scale again - see Section 3.4!
+                 function(x) sse(exp(x[1]), exp(x[2]), data = pre, N = Nv))
+  b <- exp(fit_n$par[1]); g <- exp(fit_n$par[2])
+  proj <- sir_1(beta = b, gamma = g, S0 = Nv - I0, I0 = I0, R0 = 0, times = covid$week)$I
+  c(N = Nv, R0 = Nv*b/g, peak = max(proj), cumulative_post = sum(proj[post]))
+}))
+
+signif(N_sensitivity, 4)
+```
+
+Across a factor-of-two range in $N$, the counterfactual cumulative barely budges (roughly $380000-410000$ cases) even though the estimated $R_0$ moves quite a bit. That's a genuinely reassuring result, and a nice illustration that **a parameter can be badly determined and still be harmless**, as long as the quantity you actually care about doesn't depend on it much. Sensitivity analysis is how you find out which of your assumptions are load-bearing and which are decoration.
+
+**Third, and most fundamentally: this is not a causal identification strategy.** Even with perfectly estimated parameters, the counterfactual rests on the assumption that *nothing else* would have changed after November 11th - and that is almost certainly false:
+
+- **Voluntary behaviour change.** Cases were on the front page every day in early November. People cancel plans, work from home and stop visiting elderly relatives *without* being ordered to. A good chunk of the effect we just attributed to the lockdown belongs to the epidemic frightening people into changing their own behaviour - which would have happened anyway.
+- **Testing capacity.** That suspicious three-week plateau at $31000-34000$ cases we noticed in Section 3.7 looks a lot like a testing ceiling. If the true epidemic was bigger than the reported one during those weeks, then both our observed series and the "cases prevented" number are distorted.
+- **The model can only bend a curve one way.** A constant-parameter SIR has exactly one mechanism for turning an epidemic around: running out of susceptibles. So when we fit it to the full sample, it is *forced* to explain the December decline as susceptible depletion, and it silently absorbs the lockdown's effect into $\hat\beta$, $\hat\gamma$ and our assumed $N$. That's why comparing "pre-lockdown $R_0=1.67$" against "full-sample $R_0=1.44$" understates things - the full-sample estimate is a blend of the before and after regimes, not the after regime.
+- **Seasonality and everything else.** Weather, school holidays (Hungarian schools broke up around December 19th), Christmas mixing patterns - none of it is in the model.
+
+The proper way to do this is to let $\beta$ **vary over time**, $\beta(t)$, with a change point at the intervention date, and estimate the size of the break directly, along with its confidence interval - or to estimate a time-varying reproduction number $R_t$ from the case series, as packages like `EpiEstim` do. Both let the data say *when* and *how much* transmission changed, instead of forcing us to extrapolate a constant-parameter model into a period it was never fitted on. The <a href="https://webhomes.maths.ed.ac.uk/~swood34/covid-jrssa.pdf" target="_blank">Wood paper linked back in Section 2.1</a> is a superb (and refreshingly blunt) discussion of exactly how hard it is to get this right on real COVID data.
+
+> So what have we actually learned? That a two-parameter differential equation, fitted to $12$ numbers, produces a counterfactual epidemic that is substantially worse than what Hungary experienced - and that the exercise of *quantifying* our uncertainty about that counterfactual taught us more than the point estimate did. That's not a failure of the method. That's the method working: **the model's job was to make our assumptions explicit enough that we could see which of them we could not defend.**
+
+Now, let's see one more example to really get the hang of it! :)
+
+## 5. Growth of the Deep-Sea Urchin *Echinus affinis*
+
+This time, we are gonna see a case where the differential equation turns out to be **solvable by hand** rather than needing `deSolve::ode()`, which is a nice opportunity to see that the entire inferential toolkit built up in Sections 3 and 4 - `optim()`, the Hessian, extended with some GLRT - doesn't actually care whether the differential equation was solved numerically or analytically. It only cares that we can compute the model's prediction, for any given predictor (explanatory variable) values.
+
+### 5.1. The Data: How Fast Does a Deep-Sea Urchin Grow?
+
+*Echinus affinis* is a species of sea urchin living in the deep sea. In a <a href="https://link.springer.com/article/10.1007/BF00428213" target="_blank">1985 paper</a>, Gage and Tyler reported measurements on *E. affinis* individuals collected from the Rockall Trough: for $142$ animals, they recorded a volume measurement (`vol`) and an age in years (`age`) - sea urchins conveniently grow annual rings, much like trees, so age can be read off directly. Definately google ‘<a href="https://cdn.kqed.org/wp-content/uploads/sites/2/2024/02/DSC01160-uncropped-1536x1024.jpg" target="_blank">sea urchin pictures</a>’ if you don’t know what sea urchins look like. :)
+
+```{r}
+uv <- read.table("https://webhomes.maths.ed.ac.uk/~swood34/TOI/urchin.vol.dat")
+head(uv)
+```
+
+Once, we have the data in a nice little data frame, let's plot volume as a function of age.
+
+```{r}
+ggplot(uv, aes(x = age, y = vol)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "age (years)", y = "volume",
+      title = "Echinus affinis: volume vs. age")
+```
+
+There's an obvious pattern here: growth is fast while the animals are young, and then seems to level off into something close to a straight line for the older individuals. That "*fast, then straight*" shape is exactly what the model in the next section is built to capture.
+
+### 5.2. A Two-Phase Growth Model We Can Solve by Hand
+
+<a href="https://strathprints.strath.ac.uk/41567/" target="_blank">Nisbet and Gurney (1998)</a> proposed a simple energy-budget argument for this kind of growth curve: **an animal puts all its energy into growing, as fast as it can, until its growth rate hits some ceiling; from that point on, growth is capped, and the surplus energy gets diverted into reproduction instead.** Written as a differential equation for volume $V$ as a function of age $a$:
+
+$$\frac{dV}{da} = \begin{cases} \gamma V & V < \phi/\gamma \\ \phi & \text{otherwise} \end{cases}$$
+
+with initial volume $V(0)=\omega$. So we have **three model parameters**: $\gamma$ (the exponential growth rate while young), $\phi$ (the capped, constant growth rate once mature), and $\omega$ (volume at birth).
+
+Notice that the first regime, $dV/da=\gamma V$, is *exactly* the growth-and-decay equation we solved by hand back in Section 1.1 - so we already know how to solve it:
+
+$$\frac{dV}{V}=\gamma\,da \quad\Rightarrow\quad V(a)=\omega e^{\gamma a} \qquad (a<a_m)$$
+
+using $V(0)=\omega$ as the initial condition. This exponential growth continues until $V$ reaches $\phi/\gamma$ - the volume at which the growth rate $\gamma V$ would exceed the ceiling $\phi$ - at some **critical age** $a_m$ marking the switch to phase two.
+
+Phase two, $dV/da=\phi$, is separable too - trivially so, since the right-hand side doesn't even involve $V$:
+
+$$dV=\phi\,da \quad\Rightarrow\quad V(a)=\phi a + C \qquad (a\ge a_m)$$
+
+We pin down $C$ by requiring the volume not to jump instantaneously at the switch: $V(a_m)$ has to agree with the value phase one hands off, $\phi/\gamma$. That gives $C=\phi/\gamma-\phi a_m$, so
+
+$$V(a) = \frac{\phi}{\gamma}+\phi(a-a_m) \qquad (a\ge a_m)$$
+
+and setting $\omega e^{\gamma a_m}=\phi/\gamma$ and solving for $a_m$ gives us the critical age itself:
+
+$$a_m = \frac{1}{\gamma}\log\left(\frac{\phi}{\gamma\omega}\right)$$
+
+Two integrations by hand, and we have a full analytic solution - no numerical solver required this time. Let's code $V(a)$ up directly:
+
+```{r}
+urchin_V <- function(age, omega, phi, gamma) {
+  am <- log(phi / (gamma * omega)) / gamma # critical age: end of the fast-growth phase
+  before <- age < am
+  V <- numeric(length(age))
+  V[before]  <- omega * exp(gamma * age[before])
+  V[!before] <- phi / gamma + phi * (age[!before] - am)
+  V
+}
+```
+
+### 5.3. From Model to Likelihood
+
+$V(a)$ above is the *expected* volume at age $a$; real urchins scatter around it with some standard deviation $\sigma$. A reasonable observation model, following the same normal-errors logic we used for the Hungarian COVID counts in Section 3.5, is
+
+$$\sqrt{v_i} = \sqrt{V(a_i)} + \varepsilon_i, \qquad \varepsilon_i \stackrel{ind}{\sim} N(0,\sigma^2)$$
+
+(the square root is a common trick when a growth quantity's spread tends to increase along with its size - it keeps the residuals roughly homoscedastic). That gives us four parameters to estimate in total: $\theta=\{\omega,\phi,\gamma,\sigma\}$.
+
+```{r}
+urchin_nll <- function(theta, age, vol) {
+  theta <- exp(theta) # keep omega, phi, gamma, sigma all positive - same trick as Section 3.5
+  omega <- theta[1]; phi <- theta[2]; gamma <- theta[3]; sigma <- theta[4]
+  V <- urchin_V(age, omega, phi, gamma)
+  -sum(dnorm(sqrt(vol), mean = sqrt(V), sd = sigma, log = TRUE))
+}
+```
+
+Like in SIR, none of the parameters ($\omega,\phi,\gamma,\sigma$) makes sense as a negative number, so we optimize over their logs and exponentiate on the way in - the same device we used for $\beta,\gamma,\sigma$ in the SIR likelihood.
+
+### 5.4. Fitting with `optim()`
+
+We need starting values in the right ballpark. Looking at the plot in Section 5.1, the smallest observed volume is a reasonable stand-in for $\omega$, and $\gamma=\phi=1$ are harmless first guesses for the two growth-rate parameters:
+
+```{r}
+min(uv$vol) # ~0.1 -> use as a starting guess for omega
+
+theta0 <- log(c(omega = 0.1, phi = 1, gamma = 1, sigma = 1)) # starting values, log scale
+
+fit <- optim(theta0, urchin_nll, method = "BFGS",
+            age = uv$age, vol = uv$vol, hessian = TRUE)
+fit$convergence # 0 means optim thinks it converged
+```
+We can extract the estimated parameters (the $\hat{\theta}$ values) to their own vector, called `theta_hat`. Do not forget `exp()` to scale the estimators back to their original scale, as they were fed into the likelihood on a log-scale!
+
+```{r}
+theta_hat <- exp(fit$par)
+names(theta_hat) <- c("omega", "phi", "gamma", "sigma")
+theta_hat
+```
+
+Back on the original scale, that's roughly $\hat\omega\approx0.018$, $\hat\phi\approx1.19$, $\hat\gamma\approx0.81$ and $\hat\sigma\approx0.47$. Plugging these into $a_m$ gives an estimated "*switch age*" of around $5.4$ years - these urchins spend their first five-ish years growing as fast as they can, then settle into slower, constant growth for the rest of their lives. Let's see how the fitted curve compares to the observed volume data:
+
+```{r}
+uv$V_hat <- urchin_V(uv$age, theta_hat["omega"], theta_hat["phi"], theta_hat["gamma"])
+
+ggplot(uv, aes(x = age)) +
+  geom_point(aes(y = vol), alpha = 0.6) +
+  geom_line(aes(y = V_hat), color = "tomato", linewidth = 1) +
+  labs(x = "age (years)", y = "volume",
+      title = "Fitted two-phase growth model vs. observed urchin volumes")
+```
+
+A good match to that "fast, then straight" shape we noticed back in Section 5.1 - the gentle curve for young animals and the near-linear trend for older ones are both captured by a single, four-parameter model.
+
+### 5.5. Confidence Intervals from the Hessian
+
+Exactly the same large-sample result that gave `mle2()` its standard errors for free in Section 3.5 (and `summary.glm()` its standard errors back in <a href="Chapter08.html" target="_blank">Chapter 8</a>) applies here - we just have to do it by hand this time, since we called `optim()` directly. Hope that we remember <a href="Chapter04.html" target="_blank">Chapter 4</a> rather well, as we have covered there that asymptotically, $\hat\theta\sim N\big(\theta,\, \mathcal{I}(\theta)^{-1}\big)$, and the Hessian of the negative log-likelihood at the MLE - which `optim()` will compute numerically for us if we ask for `hessian=TRUE` - is a perfectly good estimate of the observed Fisher information $\mathcal{I}(\theta)$:
+
+```{r}
+cov_theta <- solve(fit$hessian) # approximate covariance matrix, on the log scale
+se_theta <- sqrt(diag(cov_theta)) # the standard errors, on the log scale
+```
+
+Once, we have the standard errors, we can use the standard normal distribution to get the 95% confidence interval of all our 4 estimators. Just like back in <a href="Chapter04.html" target="_blank">Section 7 of Chapter 4</a>. 
+
+```{r}
+alpha <- 1-0.95
+ci_log <- cbind(fit$par - qnorm(1-alpha/2) * se_theta,
+                fit$par + qnorm(1-alpha/2) * se_theta)
+ci_original <- exp(ci_log) # back-transform to omega, phi, gamma, sigma
+dimnames(ci_original) <- list(c("omega", "phi", "gamma", "sigma"), c("2.5%", "97.5%"))
+ci_original
+```
+
+A couple of things worth noticing. First, because we built a *symmetric* interval *on the log scale* and then exponentiated its endpoints, the resulting interval on the original scale is **not symmetric** around $\hat\theta$ - exactly as it should be, for a parameter that's constrained to stay positive, it is natural that it has a right-tailed sampling distribution. Second, $\hat\omega$ and $\hat\gamma$ come out with quite wide intervals (there simply isn't much data at the youngest ages to pin down the early growth phase precisely), while $\hat\phi$ and $\hat\sigma$ are estimated a fair bit more tightly.
+
+### 5.6. Testing $H_0:\phi=1$ with a GLRT
+
+Notice that the $95\%$ CI for $\phi$ above, roughly $(1.09, 1.29)$, doesn't cover $1$ - suggesting $\phi=1$ isn't a plausible value for the mature growth rate. Let's check that formally with a generalized likelihood ratio test, in the same spirit as the model comparisons in Section 3.6 (there via $AIC$; here directly via the test statistic). We fit a **restricted** model with $\phi$ fixed at $1$, leaving $\omega,\gamma,\sigma$ free to be re-estimated:
+
+```{r}
+urchin_nll_phi1 <- function(theta, age, vol, phi_fixed) {
+  theta <- exp(theta)
+  omega <- theta[1]; gamma <- theta[2]; sigma <- theta[3]
+  V <- urchin_V(age, omega, phi_fixed, gamma)
+  -sum(dnorm(sqrt(vol), mean = sqrt(V), sd = sigma, log = TRUE))
+}
+
+fit0 <- optim(theta0[-2], urchin_nll_phi1, method = "BFGS", # drop the phi starting value
+             age = uv$age, vol = uv$vol, phi_fixed = 1)
+
+lambda <- 2 * (fit0$value - fit$value) # fit$value and fit0$value are both *negative* log-likelihoods
+lambda
+pchisq(lambda, df = 1, lower.tail = FALSE)
+```
+
+We lose one free parameter going from the full model to the restricted one, so the test statistic is compared against a $\chi^2(1)$ distribution - and since $\phi=1$ sits comfortably in the *interior* of the parameter space (unlike, say, testing whether a variance component is exactly zero), the usual large-sample GLRT theory applies here without any complications. The resulting p-value comes out less than any common $\alpha$ significance levels, so we reject $H_0:\phi=1$: the estimated mature growth rate for these urchins is significantly different from $1$.
+
+And that's really the point of this second example: **even though the urchin growth equation happened to be solvable by hand rather than needing `deSolve::ode()`, absolutely nothing about the inference changed**. Solving the differential equation - step 2 of the four-step recipe from the end of Section 3 - was "easier" this time around, but building a likelihood, searching for the MLE with `optim()`, and getting confidence intervals and hypothesis tests out of it (via the Hessian, and GLRT) is exactly the **same recipe every time, whatever the differential equation looks like**.
