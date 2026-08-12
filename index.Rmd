@@ -8,7 +8,7 @@ title: |
   </center> 
 author: "László Kovács"
 output: html_document
-date: "`r Sys.Date()`"
+date: "`r format(Sys.Date(), format = '%d/%m/%Y')`"
 ---
 
 ```{r setup, include=FALSE}
