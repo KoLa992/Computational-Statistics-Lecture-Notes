@@ -1,7 +1,7 @@
 ---
 title: "Probability Distributions and Method of Moments"
 author: "László Kovács"
-date: "`r Sys.Date()`"
+date: "`r format(Sys.Date(), format = '%d/%m/%Y')`"
 output:
   html_document:
     toc: true
@@ -795,8 +795,8 @@ According to the MM principle, these must match the empirical sample moments $\h
 
 This is quite the high school math exam task, but it has a closed form solution thankfully, so we can get the $\mu,\sigma$ parameters of the lognormal distribution from the observed sample's mean ($\bar{y}$) and variance ($s^2$) in the following way:
 
-- $\mu = \ln\left(  \frac{\bar{y}}{\sqrt{1+s^2/\bar{y}}} \right)$
-- $\sigma = \sqrt{\ln(1+s^2/\bar{y})}$
+- $\mu = \ln\left(  \frac{\bar{y}}{\sqrt{1+s^2/\bar{y}^2}} \right)$
+- $\sigma = \sqrt{\ln(1+s^2/\bar{y}^2)}$
 
 All right, these are not so hard formulas to substitute in, especially in R, so let's do this!
 
@@ -804,13 +804,13 @@ All right, these are not so hard formulas to substitute in, especially in R, so 
 sample_mean <- mean(ess_small$DailyNetUse)
 sample_sd <- sd(ess_small$DailyNetUse)
 
-mu <- log(sample_mean/(sqrt(1+sample_sd^2/sample_mean)))
-sigma <- sqrt(log(1+sample_sd^2/sample_mean))
+mu <- log(sample_mean/(sqrt(1+sample_sd^2/sample_mean^2)))
+sigma <- sqrt(log(1+sample_sd^2/sample_mean^2))
 
 c(mu,sigma)
 ```
 
-Great, looks like our daily net usage time variable follows a $LN(2.9,2.14)$ distribution. That is $Y \sim LN(2.9,2.14)$.
+Great, looks like our daily net usage time variable follows a $LN(5.01,0.64)$ distribution. That is $Y \sim LN(5.01,0.64)$.
 
 So, let's see if our fitted distribution describes the observed data adequately.
 
@@ -824,7 +824,7 @@ For example, we can calculate the probability of a random Hungarian spending 5 h
 dlnorm(300, meanlog = mu, sdlog = sigma)
 ```
 
-A very nice $0.027\%$. It is very small as 300 is on the very right tail of the distribution if we think back on the histogram of net usage times. We’re also not surprised, because the likelihood of exactly one point occurring is low, given that the net usage time is a continuous variable with a large range of values to take.
+A very nice $0.12\%$. It is very small as 300 is on the very right tail of the distribution if we think back on the histogram of net usage times. We’re also not surprised, because the likelihood of exactly one point occurring is low, given that the net usage time is a continuous variable with a large range of values to take.
 
 The point of `dlnorm` is that we can visually check how the lognormal density function fits the net usage time histogram, just as we did for the normal and exponential distributions with a histogram-fitted `ggplot` line plot.
 
@@ -837,9 +837,9 @@ ggplot(ess_small, aes(x=DailyNetUse)) +
                 linewidth = 1)
 ```
 
-Well, looks like the fit is not so great as it overshoots the mode: it places the most frequent part of the density function way lower than what's observed in the empirical histogram and creates higher kurtosis (higher density curve maximum than the histogram maximum). But might it be only because the `ggplot` works with a higher number of bins in histograms than the `hist` in base R? We can check this through the **Q-Q Plot**!
+<a href="https://youtu.be/y13n1CeyqjY?t=8" target="_blank">Huzzah</a>! Looking at the two plots we can see that this $LN(5.01,0.64)$ distribution is a very nice fit for the observed daily net usage time data! According to the histogram, the mode (place of the maximum for the density curve) is in the right place, and the right tail of the fitted desnity curve is tapering off in roughly the same pace as the observed histogram.
 
-In the Q-Q Plot, we only need to switch `distribution` to `qlnorm` and in the `dparams` $\mu,\sigma$ need to be provided as vector, just like for the classic normal distribution.
+So, it looks nince on the histigram, but we can also check this through the **Q-Q Plot**! In the Q-Q Plot, we only need to switch `distribution` to `qlnorm` and in the `dparams` $\mu,\sigma$ need to be provided as vector, just like for the classic normal distribution.
 
 ```{r}
 ggplot(ess_small, aes(sample = DailyNetUse)) +
@@ -848,15 +848,14 @@ ggplot(ess_small, aes(sample = DailyNetUse)) +
   labs(x="Theoretical Quantiles", y="Empirical Quantiles")
 ```
 
-Hmm, <a href="https://www.youtube.com/watch?v=NYvwLLxKqhM" target="_blank">f\*\*\*k</a>. The theoretical quantiles of the lognormal distribution are way larger than what's observed in the ESS sample in most the variable's range. And these overshoots are too large to ignore. So, we need to conclude that **the $LN(2.9,2.14)$ distribution is a bad fit for the net usage time data**.<br>
-But why is that? Is the lognormal distribution a bad idea to model net usage times? Or it's just that the $\mu,\sigma$ parameters estimated with MM are not appropriate? Let's be optimistic and go with the latter idea! :)
+The **empirical and theoretical quantiles also match rather nicely**: even in the higher ranges above 500-600 minutes, the theoretical quantiles underestimation of the empirical ones is not very substantial. And again, we need to note that these higher ranges are on the right tail of the distribution where we have very few observed data, so in these ranges the theoretical distribution is probably more reliable due to the fact that we don't have many empirical observations to work with in this part of the distribution.
 
-So, the idea is that based on the histogram **the lognormal distribution is a good fit for the data, it's the $\mu,\sigma$ values derived from MM principle are wrong**! Lucky for us, the lognormal distribution can be fitted on the data using the mean and median and not only using the first two moments! The enormous luck is that the **lognormal distribution's theoretical median can be expressed as simply as $Me = \exp(\mu)$**. So, similarly to the MM principle, we can say that **empirical and theoretical medians must match**: $\hat{Me}=Me$. And we can **use this as the second equation in the MM system of equations instead if the $\hat{M_2}=M_2$!!** With leaving the $\hat{M_1}=M_1$ equation from MM in place, we have the following -more simple- system of equation to solve for $\mu,\sigma$ now:
+However, deriving the estimations for $\mu$ and $\sigma$ via the classical Method of Moments principle, using the observed sample's mean and variance required the solution of a rather nasty system of equations. Lucky for us, the lognormal distribution can be fitted on the data using the mean and median and not only using the first two moments! The enormous luck is that the **lognormal distribution's theoretical median can be expressed as simply as $Me = \exp(\mu)$**. So, similarly to the MM principle, we can say that **empirical and theoretical medians must match**: $\hat{Me}=Me$. And we can **use this as the second equation in the MM system of equations instead if the $\hat{M_2}=M_2$!!** With leaving the $\hat{M_1}=M_1$ equation from MM in place, we have the following -**more simple**- system of equation to solve for $\mu,\sigma$ now:
 
 - $\bar{y} = \exp\left(\mu + \frac{\sigma^2}{2}\right)$
 - $\hat{Me} = \exp(\mu)$
 
-This is way more easy to solve than the original MM system, and get the $\mu,\sigma$ parameters of the lognormal distribution from the observed sample's mean ($\bar{y}$) and median ($\hat{Me}$) in the following way:
+This is way easier to solve than the original MM system, and get the $\mu,\sigma$ parameters of the lognormal distribution from the observed sample's mean ($\bar{y}$) and median ($\hat{Me}$) in the following way:
 
 - $\mu = \log(\hat{Me})$
 - $\sigma = \sqrt{2\left(\log(\bar{y})-log(\hat{Me})\right)}$
@@ -883,8 +882,8 @@ ggplot(ess_small, aes(sample = DailyNetUse)) +
   labs(x="Theoretical Quantiles", y="Empirical Quantiles")
 ```
 
-<a href="https://youtu.be/y13n1CeyqjY?t=8" target="_blank">Huzzah</a>! Looking at the two plots we can see that this new $LN(5.01,0.64)$ distribution is a way better fit for the observed daily net usage time data then the previous lognormal was! According to the histogram, the mode (place of the maximum for the density curve) is in the right place, and the maximum value is in the sample place as the maximum value of the empirical histogram. The empirical and theoretical quantiles also match rather nicely: even in the higher ranges above 500-600 minutes, the theoretical quantiles underestimation of the empirical ones is not very substantial. And again, we need to note that these higher ranges are on the right tail of the distribution where we have very few observed data, so in these ranges the theoretical distribution is probably more reliable due to the fact that we don't have many empirical observations to work with in this part of the distribution.<br>
-So, overall, let's accept this $LN(5.01,0.64)$ distribution as the population distribution for the unobserved Hungarian's daily net usage time and do some calculations with it!
+<br>
+Well, thankfully the **main results do not change**: the fitted distribution is still a $LN(5.01,0.64)$ distribution (with $\mu$ and $\sigma$ rounded to 2 digits), with the same nice fit on both the histogram and the Q-Q plot.  So, overall, let's accept this $LN(5.01,0.64)$ distribution as the population distribution for the unobserved Hungarian's daily net usage time and do some calculations with it!
 
 #### Applications of the Fitted Lognormal Distribution
 
