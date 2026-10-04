@@ -201,7 +201,7 @@ We can expand the product by using the fact that multiplication becomes additive
 
 Taking the natural logarithm of the likelihood function to produce the log-likelihood: $$l(\mu, \sigma)=\ln(L(\mu, \sigma))=\ln\left(\left(2\pi\sigma^2\right)^{-n/2} \exp\left(-\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^2}}\right)\right)$$
 
-Using logarithm properties we can make the expression additive, so its easier to derivative: $$l(\mu, \sigma)=\frac{n}{2} \ln(2\pi\sigma^2)-\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^2}}$$
+Using logarithm properties we can make the expression additive, so its easier to derivative: $$l(\mu, \sigma)=-\frac{n}{2} \ln(2\pi\sigma^2)-\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^2}}$$
 
 Taking the derivative with respect to $\mu$ (remember $\sigma$ is treated as a constant term here): $$\frac{\partial l(\mu, \sigma)}{\partial\mu}=\sum_{i=1}^n{\frac{y_i-\mu}{\sigma^2}}$$
 
@@ -211,9 +211,9 @@ So, setting this derivative to zero, we have: $$0=\sum_{i=1}^n{(y_i-\mu)}$$
 
 And finally, solving for $\mu$ we get that: $$\mu=\frac{\sum_{i=1}^n{y_i}}{n}=\bar{y}$$
 
-Notice that we actually we just needed to maximize the $-\sum_{i=1}^n{(y_i-\mu)^2}$ part which is equivalent with minimizing $\sum_{i=1}^n{(y_i-\mu)^2}$ according to $\mu$. So, we can **get the maximum likelihood estimation for the Normal distribution's expected value by minimizing the squared error**. This is the **ordinary least squares** logic learnt on the *Fundamentals of Statistics* course!! That is, the **mean is the statistical measure that minimizes the standard deviation, i.e. it has minimal squared error when we substitute all observations with the mean**!
+Notice that we actually we just needed to maximize the $-\sum_{i=1}^n{(y_i-\mu)^2}$ part which is equivalent with minimizing $\sum_{i=1}^n{(y_i-\mu)^2}$ according to $\mu$. So, we can **get the maximum likelihood estimation for the Normal distribution's expected value by minimizing the squared error**. This is the **ordinary least squares** logic learnt on *Bachelor-level* Statistics courses!! That is, the **mean is the statistical measure that minimizes the standard deviation, i.e. it has minimal squared error when we substitute all observations with the mean**!
 
-Now, let's see the **maximum likelihood estimation of $\sigma$:** we need to take the derivative of the log-likelihood with respect to $\sigma$ (remember $\mu$ is treated as a constant term here): $$\frac{\partial l(\mu, \sigma)}{\partial\sigma^2}=-\frac{n}{2\sigma^2}+\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^4}}$$
+Now, let's see the **maximum likelihood estimation of $\sigma$:** we need to take the derivative of the log-likelihood with respect to $\sigma$, however the solution is easier if we take the derivative according to $\sigma^2$ (remember $\mu$ is treated as a constant term here): $$\frac{\partial l(\mu, \sigma)}{\partial\sigma^2}=-\frac{n}{2\sigma^2}+\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^4}}$$
 
 Setting this derivative to zero, we have: $$\frac{n}{2\sigma^2}=\sum_{i=1}^n{\frac{(y_i-\mu)^2}{2\sigma^4}}$$
 
